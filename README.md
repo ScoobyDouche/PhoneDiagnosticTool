@@ -2,7 +2,7 @@
 
 A modern, privacy-focused Android app that provides comprehensive hardware and system diagnostics for your phone.
 
-**All processing happens on-device. No data collection, no tracking, no internet required.**
+**All processing happens on-device. No analytics or tracking.** Network permission is used only for optional latency checks.
 
 ## Features
 
@@ -11,21 +11,19 @@ A modern, privacy-focused Android app that provides comprehensive hardware and s
 - **GPU**: Renderer and vendor information (via OpenGL ES)
 - **Battery**: Level, status, health, temperature, voltage, technology, power source
 - **Memory (RAM)**: Total and available memory
+- **Network**: Connection type (Wi-Fi / Cellular / etc.) + live latency (TCP connect RTT to 8.8.8.8:53)
 - **Storage**: Internal storage total / free / used
 - **Display**: Resolution, density, refresh rate, screen metrics
-- **Live updates**: Battery, RAM, and uptime refresh every 2 seconds
+- **Live updates**: Battery, RAM, network latency, and uptime refresh every 2 seconds
 - Pause / resume live monitoring and manual refresh
 - Clean Material 3 dashboard with cards
-- Designed for extension (sensors, network, export, tests)
 
-## Live Data
+## Network Latency
 
-- Battery level, status, temperature, voltage, and power source update live
-- RAM available / used updates live
-- Uptime updates live
-- Green "● LIVE" indicator in the UI
-- Pause button to stop polling (saves a tiny bit of battery)
-- Refresh button for an immediate full snapshot
+- Detects active network type via `ConnectivityManager`
+- Measures TCP connect time to Google Public DNS (`8.8.8.8:53`) with a 3s timeout
+- Shows latency in milliseconds, target host, and status (OK / Timeout / No network / Error)
+- Updates live along with battery and RAM
 
 ## Tech Stack
 
@@ -34,6 +32,13 @@ A modern, privacy-focused Android app that provides comprehensive hardware and s
 - ViewModel + StateFlow + coroutines
 - Minimum SDK 26 (Android 8.0)
 - Target SDK 35
+
+## Permissions
+
+- `INTERNET` – required only for latency measurement
+- `ACCESS_NETWORK_STATE` – to detect connection type
+
+No other sensitive permissions are used.
 
 ## Getting Started
 
@@ -60,23 +65,19 @@ app/
     res/
 ```
 
-## Permissions
-
-The app requests only the minimum necessary permissions. Battery and system info use public APIs that require no special permissions on modern Android.
-
 ## Privacy
 
-- 100% on-device
-- No analytics, no crash reporting services that phone home
-- No internet permission in the base version
+- 100% on-device processing
+- No analytics or crash reporting that phones home
+- Network access is used solely to measure latency to a public DNS server
 
 ## Extending the App
 
-The code is structured so you can easily add:
-- Live CPU frequency / usage monitoring
-- Battery current (mA) and power (W) tracking
+Easy next additions:
+- Multi-host latency (1.1.1.1, etc.) and average/min/max
+- Live CPU frequency / usage
+- Battery current (mA) and power (W)
 - Sensor list + live readings
-- Network details
 - Hardware tests (touch, vibration, etc.)
 - Report export (JSON / share)
 
