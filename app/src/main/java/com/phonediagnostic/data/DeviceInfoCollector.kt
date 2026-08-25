@@ -33,6 +33,19 @@ class DeviceInfoCollector(private val context: Context) {
         )
     }
 
+    /**
+     * Lightweight update for values that change frequently.
+     * Reuses static parts (CPU, GPU, display, storage totals) from the previous report.
+     */
+    fun collectLive(previous: FullDeviceReport): FullDeviceReport {
+        return previous.copy(
+            overview = collectOverview(), // uptime changes
+            battery = collectBattery(),
+            memory = collectMemory()
+            // storage free space can change too, but less frequently; keep previous for performance
+        )
+    }
+
     private fun collectOverview(): DeviceOverview {
         val uptimeMillis = SystemClock.elapsedRealtime()
         val hours = TimeUnit.MILLISECONDS.toHours(uptimeMillis)
@@ -110,23 +123,20 @@ class DeviceInfoCollector(private val context: Context) {
 
             if (numConfig[0] > 0) {
                 val config = configs[0]
-                val context = egl.eglCreateContext(
+                val ctx = egl.eglCreateContext(
                     display,
                     config,
                     EGL10.EGL_NO_CONTEXT,
                     intArrayOf(0x3098, 2, EGL10.EGL_NONE) // EGL_CONTEXT_CLIENT_VERSION = 2
                 )
 
-                // We need a surface to make context current on some implementations;
-                // for simplicity we query after making current if possible, else fall back.
-                // Many devices still expose strings via GLES after context creation.
-                egl.eglMakeCurrent(display, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, context)
+                egl.eglMakeCurrent(display, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, ctx)
 
                 renderer = GLES20.glGetString(GLES20.GL_RENDERER) ?: "Unknown"
                 vendor = GLES20.glGetString(GLES20.GL_VENDOR) ?: "Unknown"
                 version = GLES20.glGetString(GLES20.GL_VERSION) ?: "Unknown"
 
-                egl.eglDestroyContext(display, context)
+                egl.eglDestroyContext(display, ctx)
             }
             egl.eglTerminate(display)
         } catch (e: Exception) {
@@ -253,7 +263,6 @@ class DeviceInfoCollector(private val context: Context) {
             60f
         }
 
-        // Approximate diagonal in inches
         val widthInches = width / metrics.xdpi.toDouble()
         val heightInches = height / metrics.ydpi.toDouble()
         val diagonal = Math.sqrt(widthInches * widthInches + heightInches * heightInches)
