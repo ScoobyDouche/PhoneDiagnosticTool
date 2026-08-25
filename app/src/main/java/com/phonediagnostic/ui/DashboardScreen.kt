@@ -162,6 +162,21 @@ fun DashboardScreen(
                 }
 
                 item {
+                    InfoCard(title = "Network ⚡ (Live)") {
+                        Column {
+                            InfoRow("Connection", if (report.network.isConnected) "Connected" else "Disconnected")
+                            InfoRow("Type", report.network.networkType)
+                            InfoRow(
+                                "Latency",
+                                report.network.latencyMs?.let { "${it} ms" } ?: "—"
+                            )
+                            InfoRow("Target", report.network.latencyTarget)
+                            InfoRow("Status", report.network.latencyStatus)
+                        }
+                    }
+                }
+
+                item {
                     InfoCard(title = "Storage") {
                         Column {
                             InfoRow("Total Internal", String.format(Locale.US, "%.2f GB", report.storage.totalInternalGb))
@@ -202,7 +217,7 @@ private fun LiveBadge(isLive: Boolean) {
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = if (isLive) "Battery, RAM & uptime update every 2s" else "Tap play to resume live updates",
+            text = if (isLive) "Battery, RAM, network & uptime every 2s" else "Tap play to resume live updates",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
