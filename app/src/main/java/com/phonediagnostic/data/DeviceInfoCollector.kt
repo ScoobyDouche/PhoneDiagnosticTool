@@ -4,6 +4,8 @@ import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.opengl.GLES20
 import android.os.BatteryManager
 import android.os.Build
@@ -13,6 +15,8 @@ import android.os.SystemClock
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import java.io.File
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.util.concurrent.TimeUnit
 import javax.microedition.khronos.egl.EGL10
 import javax.microedition.khronos.egl.EGLConfig
@@ -20,6 +24,12 @@ import javax.microedition.khronos.egl.EGLContext
 import javax.microedition.khronos.egl.EGLDisplay
 
 class DeviceInfoCollector(private val context: Context) {
+
+    companion object {
+        private const val LATENCY_HOST = "8.8.8.8"
+        private const val LATENCY_PORT = 53
+        private const val LATENCY_TIMEOUT_MS = 3000
+    }
 
     fun collect(): FullDeviceReport {
         return FullDeviceReport(
@@ -29,20 +39,22 @@ class DeviceInfoCollector(private val context: Context) {
             battery = collectBattery(),
             memory = collectMemory(),
             storage = collectStorage(),
-            display = collectDisplay()
+            display = collectDisplay(),
+            network = collectNetwork()
         )
     }
 
     /**
      * Lightweight update for values that change frequently.
      * Reuses static parts (CPU, GPU, display, storage totals) from the previous report.
+     * Also refreshes network latency.
      */
     fun collectLive(previous: FullDeviceReport): FullDeviceReport {
         return previous.copy(
-            overview = collectOverview(), // uptime changes
+            overview = collectOverview(),
             battery = collectBattery(),
-            memory = collectMemory()
-            // storage free space can change too, but less frequently; keep previous for performance
+            memory = collectMemory(),
+            network = collectNetwork()
         )
     }
 
@@ -102,7 +114,6 @@ class DeviceInfoCollector(private val context: Context) {
     }
 
     private fun collectGpu(): GpuInfo {
-        // Best-effort GPU info via EGL / GLES. On some devices this may return generic strings.
         var renderer = "Unknown"
         var vendor = "Unknown"
         var version = "Unknown"
@@ -114,7 +125,7 @@ class DeviceInfoCollector(private val context: Context) {
             egl.eglInitialize(display, versionArray)
 
             val configSpec = intArrayOf(
-                EGL10.EGL_RENDERABLE_TYPE, 4, // EGL_OPENGL_ES2_BIT
+                EGL10.EGL_RENDERABLE_TYPE, 4,
                 EGL10.EGL_NONE
             )
             val configs = arrayOfNulls<EGLConfig>(1)
@@ -127,7 +138,7 @@ class DeviceInfoCollector(private val context: Context) {
                     display,
                     config,
                     EGL10.EGL_NO_CONTEXT,
-                    intArrayOf(0x3098, 2, EGL10.EGL_NONE) // EGL_CONTEXT_CLIENT_VERSION = 2
+                    intArrayOf(0x3098, 2, EGL10.EGL_NONE)
                 )
 
                 egl.eglMakeCurrent(display, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, ctx)
@@ -275,5 +286,77 @@ class DeviceInfoCollector(private val context: Context) {
             refreshRate = refreshRate,
             screenSizeInches = diagonal
         )
+    }
+
+    private fun collectNetwork(): NetworkInfo {
+        val connectivityManager =
+            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+        val network = connectivityManager.activeNetwork
+        val capabilities = network?.let { connectivityManager.getNetworkCapabilities(it) }
+
+        val isConnected = capabilities != null && (
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+            )
+
+        val networkType = when {
+            capabilities == null -> "None"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Cellular"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
+            else -> "Unknown"
+        }
+
+        if (!isConnected) {
+            return NetworkInfo(
+                isConnected = false,
+                networkType = networkType,
+                latencyMs = null,
+                latencyTarget = "$LATENCY_HOST:$LATENCY_PORT",
+                latencyStatus = "No network"
+            )
+        }
+
+        // Measure TCP connect latency to Google DNS (port 53)
+        return measureLatency(networkType)
+    }
+
+    private fun measureLatency(networkType: String): NetworkInfo {
+        val target = "$LATENCY_HOST:$LATENCY_PORT"
+        return try {
+            val socket = Socket()
+            val startNs = System.nanoTime()
+            socket.connect(InetSocketAddress(LATENCY_HOST, LATENCY_PORT), LATENCY_TIMEOUT_MS)
+            val elapsedMs = (System.nanoTime() - startNs) / 1_000_000
+            socket.close()
+
+            NetworkInfo(
+                isConnected = true,
+                networkType = networkType,
+                latencyMs = elapsedMs,
+                latencyTarget = target,
+                latencyStatus = "OK"
+            )
+        } catch (e: java.net.SocketTimeoutException) {
+            NetworkInfo(
+                isConnected = true,
+                networkType = networkType,
+                latencyMs = null,
+                latencyTarget = target,
+                latencyStatus = "Timeout"
+            )
+        } catch (e: Exception) {
+            NetworkInfo(
+                isConnected = true,
+                networkType = networkType,
+                latencyMs = null,
+                latencyTarget = target,
+                latencyStatus = "Error: ${e.message ?: e.javaClass.simpleName}"
+            )
+        }
     }
 }
