@@ -61,6 +61,14 @@ data class DisplayInfo(
     val screenSizeInches: Double
 )
 
+data class NetworkInfo(
+    val isConnected: Boolean,
+    val networkType: String,          // Wi-Fi, Cellular, Ethernet, None, Unknown
+    val latencyMs: Long?,             // null if measurement failed / offline
+    val latencyTarget: String,        // e.g. "8.8.8.8:53"
+    val latencyStatus: String         // "OK", "Timeout", "No network", "Error: ..."
+)
+
 data class FullDeviceReport(
     val overview: DeviceOverview,
     val cpu: CpuInfo,
@@ -68,5 +76,6 @@ data class FullDeviceReport(
     val battery: BatteryInfo,
     val memory: MemoryInfo,
     val storage: StorageInfo,
-    val display: DisplayInfo
+    val display: DisplayInfo,
+    val network: NetworkInfo
 )
