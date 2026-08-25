@@ -13,14 +13,25 @@ A modern, privacy-focused Android app that provides comprehensive hardware and s
 - **Memory (RAM)**: Total and available memory
 - **Storage**: Internal storage total / free / used
 - **Display**: Resolution, density, refresh rate, screen metrics
+- **Live updates**: Battery, RAM, and uptime refresh every 2 seconds
+- Pause / resume live monitoring and manual refresh
 - Clean Material 3 dashboard with cards
-- Designed for extension (sensors, network, real-time monitoring, export, tests)
+- Designed for extension (sensors, network, export, tests)
+
+## Live Data
+
+- Battery level, status, temperature, voltage, and power source update live
+- RAM available / used updates live
+- Uptime updates live
+- Green "● LIVE" indicator in the UI
+- Pause button to stop polling (saves a tiny bit of battery)
+- Refresh button for an immediate full snapshot
 
 ## Tech Stack
 
 - Kotlin
 - Jetpack Compose + Material 3
-- Coroutines
+- ViewModel + StateFlow + coroutines
 - Minimum SDK 26 (Android 8.0)
 - Target SDK 35
 
@@ -43,9 +54,8 @@ app/
   src/main/
     java/com/phonediagnostic/
       MainActivity.kt
-      data/          # Hardware info collectors
-      ui/            # Compose screens & components
-      ui/theme/      # Material 3 theme
+      data/          # Hardware info collectors + models
+      ui/            # Compose screens, ViewModel, components, theme
     AndroidManifest.xml
     res/
 ```
