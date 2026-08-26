@@ -48,6 +48,8 @@ class MainActivity : ComponentActivity() {
                     val lastUpdated by viewModel.lastUpdated.collectAsStateWithLifecycle()
                     val screen by viewModel.screen.collectAsStateWithLifecycle()
                     val networkProbe by viewModel.networkProbeEnabled.collectAsStateWithLifecycle()
+                    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+                    val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
 
                     when (screen) {
                         AppScreen.DASHBOARD -> {
@@ -55,6 +57,9 @@ class MainActivity : ComponentActivity() {
                                 report = report,
                                 isLive = isLive,
                                 lastUpdated = lastUpdated,
+                                isRefreshing = isRefreshing,
+                                errorMessage = errorMessage,
+                                versionName = BuildConfig.VERSION_NAME,
                                 onToggleLive = { viewModel.toggleLive() },
                                 onRefresh = { viewModel.refreshNow() },
                                 onShareText = { shareText() },
