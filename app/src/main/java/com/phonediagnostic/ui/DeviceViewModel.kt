@@ -4,9 +4,12 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.phonediagnostic.data.AppPreferences
+import com.phonediagnostic.data.AppStorageEntry
 import com.phonediagnostic.data.DeviceInfoCollector
 import com.phonediagnostic.data.FullDeviceReport
+import com.phonediagnostic.data.ProcessRamEntry
 import com.phonediagnostic.data.ThemeMode
+import com.phonediagnostic.data.UsageCollector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,13 +21,16 @@ import kotlinx.coroutines.launch
 enum class AppScreen {
     DASHBOARD,
     SETTINGS,
-    ABOUT
+    ABOUT,
+    RAM_DETAIL,
+    STORAGE_DETAIL
 }
 
 class DeviceViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = AppPreferences(application.applicationContext)
     private val collector = DeviceInfoCollector(application.applicationContext)
+    private val usageCollector = UsageCollector(application.applicationContext)
 
     private val _report = MutableStateFlow<FullDeviceReport?>(null)
     val report: StateFlow<FullDeviceReport?> = _report.asStateFlow()
@@ -49,6 +55,21 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private val _processRam = MutableStateFlow<List<ProcessRamEntry>?>(null)
+    val processRam: StateFlow<List<ProcessRamEntry>?> = _processRam.asStateFlow()
+
+    private val _processRamLoading = MutableStateFlow(false)
+    val processRamLoading: StateFlow<Boolean> = _processRamLoading.asStateFlow()
+
+    private val _appStorage = MutableStateFlow<List<AppStorageEntry>?>(null)
+    val appStorage: StateFlow<List<AppStorageEntry>?> = _appStorage.asStateFlow()
+
+    private val _appStorageLoading = MutableStateFlow(false)
+    val appStorageLoading: StateFlow<Boolean> = _appStorageLoading.asStateFlow()
+
+    private val _hasUsageStats = MutableStateFlow(usageCollector.hasUsageStatsPermission())
+    val hasUsageStats: StateFlow<Boolean> = _hasUsageStats.asStateFlow()
 
     init {
         viewModelScope.launch(Dispatchers.Default) {
@@ -94,6 +115,50 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     fun openDashboard() {
         _screen.value = AppScreen.DASHBOARD
+    }
+
+    fun openRamDetail() {
+        _screen.value = AppScreen.RAM_DETAIL
+        loadProcessRam()
+    }
+
+    fun openStorageDetail() {
+        _screen.value = AppScreen.STORAGE_DETAIL
+        refreshUsagePermission()
+        if (_hasUsageStats.value) {
+            loadAppStorage()
+        }
+    }
+
+    fun loadProcessRam() {
+        viewModelScope.launch(Dispatchers.Default) {
+            _processRamLoading.value = true
+            try {
+                _processRam.value = usageCollector.collectProcessRam()
+            } finally {
+                _processRamLoading.value = false
+            }
+        }
+    }
+
+    fun loadAppStorage() {
+        viewModelScope.launch(Dispatchers.Default) {
+            _appStorageLoading.value = true
+            try {
+                refreshUsagePermission()
+                _appStorage.value = if (_hasUsageStats.value) {
+                    usageCollector.collectAppStorage()
+                } else {
+                    null
+                }
+            } finally {
+                _appStorageLoading.value = false
+            }
+        }
+    }
+
+    fun refreshUsagePermission() {
+        _hasUsageStats.value = usageCollector.hasUsageStatsPermission()
     }
 
     fun setNetworkProbeEnabled(enabled: Boolean) {
