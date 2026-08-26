@@ -18,7 +18,8 @@ data class CpuInfo(
     val architecture: String,
     val supportedAbis: List<String>,
     val hardware: String,
-    val processor: String
+    val processor: String,
+    val boardPlatform: String
 )
 
 data class GpuInfo(
@@ -35,7 +36,11 @@ data class BatteryInfo(
     val voltage: Int,
     val technology: String,
     val isCharging: Boolean,
-    val powerSource: String
+    val powerSource: String,
+    /** Instantaneous current in mA; null if unavailable. Negative often means discharging. */
+    val currentNowMa: Int?,
+    /** Average current in mA; null if unavailable. */
+    val currentAvgMa: Int?
 )
 
 data class MemoryInfo(
@@ -63,10 +68,10 @@ data class DisplayInfo(
 
 data class NetworkInfo(
     val isConnected: Boolean,
-    val networkType: String,          // Wi-Fi, Cellular, Ethernet, None, Unknown
-    val latencyMs: Long?,             // null if measurement failed / offline
-    val latencyTarget: String,        // e.g. "8.8.8.8:53"
-    val latencyStatus: String         // "OK", "Timeout", "No network", "Error: ..."
+    val networkType: String,
+    val latencyMs: Long?,
+    val latencyTarget: String,
+    val latencyStatus: String
 )
 
 data class FullDeviceReport(
