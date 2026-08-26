@@ -63,7 +63,9 @@ fun DashboardScreen(
     onShareText: () -> Unit,
     onShareJson: () -> Unit,
     onCopyText: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onOpenRamDetail: () -> Unit,
+    onOpenStorageDetail: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
 
@@ -146,10 +148,7 @@ fun DashboardScreen(
         ) {
             when {
                 report == null && errorMessage != null -> {
-                    ErrorState(
-                        message = errorMessage,
-                        onRetry = onRefresh
-                    )
+                    ErrorState(message = errorMessage, onRetry = onRefresh)
                 }
                 report == null -> {
                     Column(
@@ -169,11 +168,12 @@ fun DashboardScreen(
                     }
                 }
                 else -> {
-                    val data = report
                     ReportList(
-                        data = data,
+                        data = report,
                         isLive = isLive,
-                        versionName = versionName
+                        versionName = versionName,
+                        onOpenRamDetail = onOpenRamDetail,
+                        onOpenStorageDetail = onOpenStorageDetail
                     )
                 }
             }
@@ -185,7 +185,9 @@ fun DashboardScreen(
 private fun ReportList(
     data: FullDeviceReport,
     isLive: Boolean,
-    versionName: String
+    versionName: String,
+    onOpenRamDetail: () -> Unit,
+    onOpenStorageDetail: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -258,7 +260,10 @@ private fun ReportList(
         }
 
         item(key = "memory") {
-            InfoCard(title = "Memory (RAM) · Live") {
+            InfoCard(
+                title = "Memory (RAM) · Live",
+                onClick = onOpenRamDetail
+            ) {
                 Column {
                     UsageBar(
                         label = "Used",
@@ -286,7 +291,10 @@ private fun ReportList(
         }
 
         item(key = "storage") {
-            InfoCard(title = "Storage") {
+            InfoCard(
+                title = "Storage",
+                onClick = onOpenStorageDetail
+            ) {
                 Column {
                     UsageBar(
                         label = "Used",
