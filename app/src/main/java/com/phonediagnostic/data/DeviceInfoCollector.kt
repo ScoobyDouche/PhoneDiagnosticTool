@@ -46,12 +46,16 @@ class DeviceInfoCollector(private val context: Context) {
         )
     }
 
+    /**
+     * Lightweight live update: battery, memory, uptime only.
+     * Network type is refreshed without a TCP latency probe (probe runs on full refresh).
+     */
     fun collectLive(previous: FullDeviceReport, networkProbe: Boolean = true): FullDeviceReport {
         return previous.copy(
             overview = collectOverview(),
             battery = collectBattery(),
             memory = collectMemory(),
-            network = collectNetwork(networkProbe)
+            network = collectNetworkLight(previous.network, networkProbe)
         )
     }
 
@@ -327,6 +331,46 @@ class DeviceInfoCollector(private val context: Context) {
             density = density,
             refreshRate = refreshRate,
             screenSizeInches = diagonal
+        )
+    }
+
+    /** Connection type only — no TCP probe (used on live ticks). */
+    private fun collectNetworkLight(previous: NetworkInfo, networkProbe: Boolean): NetworkInfo {
+        val connectivityManager =
+            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+        val network = connectivityManager.activeNetwork
+        val capabilities = network?.let { connectivityManager.getNetworkCapabilities(it) }
+
+        val isConnected = capabilities != null && (
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+            )
+
+        val networkType = when {
+            capabilities == null -> "None"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Cellular"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
+            else -> "Unknown"
+        }
+
+        if (!networkProbe) {
+            return previous.copy(
+                isConnected = isConnected,
+                networkType = networkType,
+                latencyMs = null,
+                latencyStatus = "Disabled in Settings"
+            )
+        }
+
+        // Keep last latency values; only refresh type/connected
+        return previous.copy(
+            isConnected = isConnected,
+            networkType = networkType
         )
     }
 
