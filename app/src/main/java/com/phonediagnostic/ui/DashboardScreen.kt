@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -84,9 +83,6 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onRefresh) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh now")
-                    }
                     IconButton(onClick = onToggleLive) {
                         Icon(
                             imageVector = if (isLive) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -165,7 +161,7 @@ fun DashboardScreen(
                         Spacer(modifier = Modifier.size(16.dp))
                         Text("Collecting device info…")
                         Text(
-                            "Pull down anytime to refresh",
+                            "Pull down to refresh",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 8.dp)
@@ -173,7 +169,6 @@ fun DashboardScreen(
                     }
                 }
                 else -> {
-                    // Local non-null for use inside LazyColumn item lambdas
                     val data = report
                     ReportList(
                         data = data,
@@ -197,9 +192,9 @@ private fun ReportList(
         contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        item { LiveBadge(isLive = isLive) }
+        item(key = "live_badge") { LiveBadge(isLive = isLive) }
 
-        item {
+        item(key = "device") {
             InfoCard(title = "Device") {
                 Column {
                     InfoRow("Manufacturer", data.overview.manufacturer)
@@ -213,7 +208,7 @@ private fun ReportList(
             }
         }
 
-        item {
+        item(key = "cpu") {
             InfoCard(title = "CPU / SoC") {
                 Column {
                     InfoRow("Cores", data.cpu.cores.toString())
@@ -226,7 +221,7 @@ private fun ReportList(
             }
         }
 
-        item {
+        item(key = "gpu") {
             InfoCard(title = "GPU") {
                 Column {
                     InfoRow("Renderer", data.gpu.renderer)
@@ -236,7 +231,7 @@ private fun ReportList(
             }
         }
 
-        item {
+        item(key = "battery") {
             InfoCard(title = "Battery · Live") {
                 Column {
                     UsageBar(
@@ -262,7 +257,7 @@ private fun ReportList(
             }
         }
 
-        item {
+        item(key = "memory") {
             InfoCard(title = "Memory (RAM) · Live") {
                 Column {
                     UsageBar(
@@ -275,8 +270,8 @@ private fun ReportList(
             }
         }
 
-        item {
-            InfoCard(title = "Network · Live") {
+        item(key = "network") {
+            InfoCard(title = "Network") {
                 Column {
                     InfoRow("Connection", if (data.network.isConnected) "Connected" else "Disconnected")
                     InfoRow("Type", data.network.networkType)
@@ -290,7 +285,7 @@ private fun ReportList(
             }
         }
 
-        item {
+        item(key = "storage") {
             InfoCard(title = "Storage") {
                 Column {
                     UsageBar(
@@ -311,7 +306,7 @@ private fun ReportList(
             }
         }
 
-        item {
+        item(key = "display") {
             InfoCard(title = "Display") {
                 Column {
                     InfoRow("Resolution", "${data.display.widthPx} × ${data.display.heightPx}")
@@ -331,7 +326,7 @@ private fun ReportList(
             }
         }
 
-        item {
+        item(key = "footer") {
             Text(
                 text = "Phone Diagnostic Tool · v$versionName",
                 style = MaterialTheme.typography.labelSmall,
@@ -407,7 +402,7 @@ private fun LiveBadge(isLive: Boolean) {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isLive) "Updates every 2s · Pull down to refresh"
+                text = if (isLive) "Battery & RAM every 3s · Pull to full refresh"
                 else "Tap play to resume",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
