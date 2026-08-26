@@ -31,7 +31,7 @@ class DeviceInfoCollector(private val context: Context) {
         private const val LATENCY_TIMEOUT_MS = 3000
     }
 
-    fun collect(): FullDeviceReport {
+    fun collect(networkProbe: Boolean = true): FullDeviceReport {
         return FullDeviceReport(
             overview = collectOverview(),
             cpu = collectCpu(),
@@ -40,21 +40,16 @@ class DeviceInfoCollector(private val context: Context) {
             memory = collectMemory(),
             storage = collectStorage(),
             display = collectDisplay(),
-            network = collectNetwork()
+            network = collectNetwork(networkProbe)
         )
     }
 
-    /**
-     * Lightweight update for values that change frequently.
-     * Reuses static parts (CPU, GPU, display, storage totals) from the previous report.
-     * Also refreshes network latency.
-     */
-    fun collectLive(previous: FullDeviceReport): FullDeviceReport {
+    fun collectLive(previous: FullDeviceReport, networkProbe: Boolean = true): FullDeviceReport {
         return previous.copy(
             overview = collectOverview(),
             battery = collectBattery(),
             memory = collectMemory(),
-            network = collectNetwork()
+            network = collectNetwork(networkProbe)
         )
     }
 
@@ -150,7 +145,7 @@ class DeviceInfoCollector(private val context: Context) {
                 egl.eglDestroyContext(display, ctx)
             }
             egl.eglTerminate(display)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Keep defaults
         }
 
@@ -270,7 +265,7 @@ class DeviceInfoCollector(private val context: Context) {
 
         val refreshRate = try {
             windowManager.defaultDisplay.refreshRate
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             60f
         }
 
@@ -288,7 +283,7 @@ class DeviceInfoCollector(private val context: Context) {
         )
     }
 
-    private fun collectNetwork(): NetworkInfo {
+    private fun collectNetwork(networkProbe: Boolean): NetworkInfo {
         val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
@@ -311,17 +306,28 @@ class DeviceInfoCollector(private val context: Context) {
             else -> "Unknown"
         }
 
+        val target = "$LATENCY_HOST:$LATENCY_PORT"
+
+        if (!networkProbe) {
+            return NetworkInfo(
+                isConnected = isConnected,
+                networkType = networkType,
+                latencyMs = null,
+                latencyTarget = target,
+                latencyStatus = "Disabled in Settings"
+            )
+        }
+
         if (!isConnected) {
             return NetworkInfo(
                 isConnected = false,
                 networkType = networkType,
                 latencyMs = null,
-                latencyTarget = "$LATENCY_HOST:$LATENCY_PORT",
+                latencyTarget = target,
                 latencyStatus = "No network"
             )
         }
 
-        // Measure TCP connect latency to Google DNS (port 53)
         return measureLatency(networkType)
     }
 
@@ -341,7 +347,7 @@ class DeviceInfoCollector(private val context: Context) {
                 latencyTarget = target,
                 latencyStatus = "OK"
             )
-        } catch (e: java.net.SocketTimeoutException) {
+        } catch (_: java.net.SocketTimeoutException) {
             NetworkInfo(
                 isConnected = true,
                 networkType = networkType,
