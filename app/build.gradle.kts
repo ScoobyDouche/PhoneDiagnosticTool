@@ -4,9 +4,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-import java.util.Properties
-import java.io.FileInputStream
-
 android {
     namespace = "com.phonediagnostic"
     compileSdk = 35
@@ -15,8 +12,8 @@ android {
         applicationId = "com.phonediagnostic"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -44,7 +41,8 @@ android {
             }
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -63,6 +61,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
