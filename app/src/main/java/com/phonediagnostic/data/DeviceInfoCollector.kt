@@ -14,7 +14,9 @@ import android.os.StatFs
 import android.os.SystemClock
 import android.util.DisplayMetrics
 import android.view.WindowManager
+import java.io.BufferedReader
 import java.io.File
+import java.io.InputStreamReader
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.TimeUnit
@@ -89,23 +91,56 @@ class DeviceInfoCollector(private val context: Context) {
         }
 
         val hardware = Build.HARDWARE
-        val processor = try {
-            File("/proc/cpuinfo").readLines()
-                .firstOrNull { it.startsWith("Processor") || it.startsWith("model name") }
-                ?.substringAfter(":")
-                ?.trim()
-                ?: hardware
-        } catch (e: Exception) {
-            hardware
-        }
+        val boardPlatform = readSystemProperty("ro.board.platform")
+            .ifBlank { readSystemProperty("ro.mediatek.platform") }
+            .ifBlank { readSystemProperty("ro.hardware") }
+            .ifBlank { hardware }
+
+        val processor = resolveProcessorName(hardware, boardPlatform)
 
         return CpuInfo(
             cores = cores,
             architecture = arch,
             supportedAbis = abis,
             hardware = hardware,
-            processor = processor
+            processor = processor,
+            boardPlatform = boardPlatform
         )
+    }
+
+    private fun resolveProcessorName(hardware: String, boardPlatform: String): String {
+        val cpuinfo = try {
+            File("/proc/cpuinfo").readLines()
+        } catch (_: Exception) {
+            emptyList()
+        }
+
+        fun valueFor(prefix: String): String? =
+            cpuinfo.firstOrNull { it.startsWith(prefix, ignoreCase = true) }
+                ?.substringAfter(":")
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+
+        val candidates = listOfNotNull(
+            valueFor("model name"),
+            valueFor("Processor"),
+            valueFor("Hardware"),
+            boardPlatform.takeIf { it.isNotBlank() && !it.equals("qcom", ignoreCase = true) },
+            hardware.takeIf { it.isNotBlank() && !it.equals("qcom", ignoreCase = true) }
+        )
+
+        return candidates.firstOrNull() ?: hardware.ifBlank { boardPlatform }.ifBlank { "Unknown" }
+    }
+
+    private fun readSystemProperty(key: String): String {
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("getprop", key))
+            BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
+                reader.readLine()?.trim().orEmpty()
+            }
+        } catch (_: Exception) {
+            ""
+        }
     }
 
     private fun collectGpu(): GpuInfo {
@@ -200,6 +235,16 @@ class DeviceInfoCollector(private val context: Context) {
 
         val isCharging = status == "Charging" || status == "Full"
 
+        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+        val currentNowMa = batteryManager?.let { bm ->
+            val ua = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+            if (ua == Int.MIN_VALUE || ua == 0 && batteryPct < 0) null else ua / 1000
+        }
+        val currentAvgMa = batteryManager?.let { bm ->
+            val ua = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE)
+            if (ua == Int.MIN_VALUE) null else ua / 1000
+        }
+
         return BatteryInfo(
             level = batteryPct,
             status = status,
@@ -208,7 +253,9 @@ class DeviceInfoCollector(private val context: Context) {
             voltage = voltage,
             technology = technology,
             isCharging = isCharging,
-            powerSource = powerSource
+            powerSource = powerSource,
+            currentNowMa = currentNowMa,
+            currentAvgMa = currentAvgMa
         )
     }
 
