@@ -4,6 +4,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+import java.util.Properties
+import java.io.FileInputStream
+
 android {
     namespace = "com.phonediagnostic"
     compileSdk = 35
@@ -21,7 +24,25 @@ android {
         }
     }
 
+    signingConfigs {
+        create("ciDebug") {
+            val keystoreFile = rootProject.file("keystore/debug.keystore")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            val ciKeystore = rootProject.file("keystore/debug.keystore")
+            if (ciKeystore.exists()) {
+                signingConfig = signingConfigs.getByName("ciDebug")
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
