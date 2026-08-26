@@ -1,5 +1,6 @@
 package com.phonediagnostic
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -10,6 +11,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.phonediagnostic.data.ReportExporter
 import com.phonediagnostic.ui.DashboardScreen
 import com.phonediagnostic.ui.DeviceViewModel
 import com.phonediagnostic.ui.theme.PhoneDiagnosticTheme
@@ -34,7 +36,17 @@ class MainActivity : ComponentActivity() {
                         isLive = isLive,
                         lastUpdated = lastUpdated,
                         onToggleLive = { viewModel.toggleLive() },
-                        onRefresh = { viewModel.refreshNow() }
+                        onRefresh = { viewModel.refreshNow() },
+                        onShare = {
+                            val current = viewModel.report.value ?: return@DashboardScreen
+                            val text = ReportExporter.toShareText(current)
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, "Phone Diagnostic Report")
+                                putExtra(Intent.EXTRA_TEXT, text)
+                            }
+                            startActivity(Intent.createChooser(send, "Share diagnostic report"))
+                        }
                     )
                 }
             }
