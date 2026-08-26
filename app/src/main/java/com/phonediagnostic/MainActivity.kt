@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -13,8 +14,12 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.phonediagnostic.data.ReportExporter
 import com.phonediagnostic.data.ThemeMode
@@ -22,7 +27,9 @@ import com.phonediagnostic.ui.AboutScreen
 import com.phonediagnostic.ui.AppScreen
 import com.phonediagnostic.ui.DashboardScreen
 import com.phonediagnostic.ui.DeviceViewModel
+import com.phonediagnostic.ui.RamDetailScreen
 import com.phonediagnostic.ui.SettingsScreen
+import com.phonediagnostic.ui.StorageDetailScreen
 import com.phonediagnostic.ui.theme.PhoneDiagnosticTheme
 
 class MainActivity : ComponentActivity() {
@@ -50,6 +57,27 @@ class MainActivity : ComponentActivity() {
                     val networkProbe by viewModel.networkProbeEnabled.collectAsStateWithLifecycle()
                     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
                     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+                    val processRam by viewModel.processRam.collectAsStateWithLifecycle()
+                    val processRamLoading by viewModel.processRamLoading.collectAsStateWithLifecycle()
+                    val appStorage by viewModel.appStorage.collectAsStateWithLifecycle()
+                    val appStorageLoading by viewModel.appStorageLoading.collectAsStateWithLifecycle()
+                    val hasUsageStats by viewModel.hasUsageStats.collectAsStateWithLifecycle()
+
+                    val lifecycleOwner = LocalLifecycleOwner.current
+                    DisposableEffect(lifecycleOwner) {
+                        val observer = LifecycleEventObserver { _, event ->
+                            if (event == Lifecycle.Event.ON_RESUME) {
+                                viewModel.refreshUsagePermission()
+                                if (viewModel.screen.value == AppScreen.STORAGE_DETAIL &&
+                                    viewModel.hasUsageStats.value
+                                ) {
+                                    viewModel.loadAppStorage()
+                                }
+                            }
+                        }
+                        lifecycleOwner.lifecycle.addObserver(observer)
+                        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                    }
 
                     when (screen) {
                         AppScreen.DASHBOARD -> {
@@ -65,7 +93,9 @@ class MainActivity : ComponentActivity() {
                                 onShareText = { shareText() },
                                 onShareJson = { shareJson() },
                                 onCopyText = { copyText() },
-                                onOpenSettings = { viewModel.openSettings() }
+                                onOpenSettings = { viewModel.openSettings() },
+                                onOpenRamDetail = { viewModel.openRamDetail() },
+                                onOpenStorageDetail = { viewModel.openStorageDetail() }
                             )
                         }
                         AppScreen.SETTINGS -> {
@@ -84,10 +114,32 @@ class MainActivity : ComponentActivity() {
                                 onBack = { viewModel.openSettings() }
                             )
                         }
+                        AppScreen.RAM_DETAIL -> {
+                            RamDetailScreen(
+                                entries = processRam,
+                                isLoading = processRamLoading,
+                                onBack = { viewModel.openDashboard() },
+                                onRefresh = { viewModel.loadProcessRam() }
+                            )
+                        }
+                        AppScreen.STORAGE_DETAIL -> {
+                            StorageDetailScreen(
+                                entries = appStorage,
+                                isLoading = appStorageLoading,
+                                hasPermission = hasUsageStats,
+                                onBack = { viewModel.openDashboard() },
+                                onRefresh = { viewModel.loadAppStorage() },
+                                onRequestPermission = { openUsageAccessSettings() }
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+
+    private fun openUsageAccessSettings() {
+        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
     }
 
     private fun currentReport() = viewModel.report.value
