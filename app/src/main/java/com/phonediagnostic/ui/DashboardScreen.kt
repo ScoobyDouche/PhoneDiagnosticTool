@@ -12,11 +12,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -27,6 +31,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -46,8 +54,13 @@ fun DashboardScreen(
     lastUpdated: String,
     onToggleLive: () -> Unit,
     onRefresh: () -> Unit,
-    onShare: () -> Unit
+    onShareText: () -> Unit,
+    onShareJson: () -> Unit,
+    onCopyText: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
+    var shareMenuOpen by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -64,8 +77,34 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onShare, enabled = report != null) {
+                    IconButton(onClick = { shareMenuOpen = true }, enabled = report != null) {
                         Icon(Icons.Default.Share, contentDescription = "Share report")
+                    }
+                    DropdownMenu(
+                        expanded = shareMenuOpen,
+                        onDismissRequest = { shareMenuOpen = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Share as text") },
+                            onClick = {
+                                shareMenuOpen = false
+                                onShareText()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Share as JSON") },
+                            onClick = {
+                                shareMenuOpen = false
+                                onShareJson()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Copy text") },
+                            onClick = {
+                                shareMenuOpen = false
+                                onCopyText()
+                            }
+                        )
                     }
                     IconButton(onClick = onRefresh) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh now")
@@ -75,6 +114,9 @@ fun DashboardScreen(
                             imageVector = if (isLive) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = if (isLive) "Pause live updates" else "Resume live updates"
                         )
+                    }
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -229,9 +271,7 @@ fun DashboardScreen(
                     }
                 }
 
-                item {
-                    Spacer(modifier = Modifier.size(16.dp))
-                }
+                item { Spacer(modifier = Modifier.size(16.dp)) }
             }
         }
     }
@@ -261,7 +301,7 @@ private fun LiveBadge(isLive: Boolean) {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isLive) "Updates every 2s · Tap share to export"
+                text = if (isLive) "Updates every 2s · Share / Settings in the top bar"
                 else "Tap play to resume",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
