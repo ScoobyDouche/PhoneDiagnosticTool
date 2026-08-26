@@ -57,7 +57,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
         viewModelScope.launch(Dispatchers.Default) {
             while (isActive) {
-                delay(2000)
+                delay(LIVE_INTERVAL_MS)
                 if (_isLive.value && !_isRefreshing.value) {
                     runCollection(full = _report.value == null)
                 }
@@ -134,5 +134,9 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
             now.get(java.util.Calendar.MINUTE),
             now.get(java.util.Calendar.SECOND)
         )
+    }
+
+    companion object {
+        private const val LIVE_INTERVAL_MS = 3000L
     }
 }
