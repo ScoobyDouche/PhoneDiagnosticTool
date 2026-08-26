@@ -44,27 +44,22 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val _themeMode = MutableStateFlow(prefs.themeMode)
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
     init {
         viewModelScope.launch(Dispatchers.Default) {
-            val initial = collector.collect(networkProbe = _networkProbeEnabled.value)
-            _report.value = initial
-            _lastUpdated.value = currentTimeLabel()
+            runCollection(full = true)
         }
 
         viewModelScope.launch(Dispatchers.Default) {
             while (isActive) {
                 delay(2000)
-                if (_isLive.value) {
-                    val current = _report.value
-                    if (current != null) {
-                        val updated = collector.collectLive(current, networkProbe = _networkProbeEnabled.value)
-                        _report.value = updated
-                        _lastUpdated.value = currentTimeLabel()
-                    } else {
-                        val full = collector.collect(networkProbe = _networkProbeEnabled.value)
-                        _report.value = full
-                        _lastUpdated.value = currentTimeLabel()
-                    }
+                if (_isLive.value && !_isRefreshing.value) {
+                    runCollection(full = _report.value == null)
                 }
             }
         }
@@ -76,10 +71,17 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     fun refreshNow() {
         viewModelScope.launch(Dispatchers.Default) {
-            val full = collector.collect(networkProbe = _networkProbeEnabled.value)
-            _report.value = full
-            _lastUpdated.value = currentTimeLabel()
+            _isRefreshing.value = true
+            try {
+                runCollection(full = true)
+            } finally {
+                _isRefreshing.value = false
+            }
         }
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
     }
 
     fun openSettings() {
@@ -103,6 +105,25 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     fun setThemeMode(mode: ThemeMode) {
         prefs.themeMode = mode
         _themeMode.value = mode
+    }
+
+    private fun runCollection(full: Boolean) {
+        try {
+            val probe = _networkProbeEnabled.value
+            val current = _report.value
+            val next = if (full || current == null) {
+                collector.collect(networkProbe = probe)
+            } else {
+                collector.collectLive(current, networkProbe = probe)
+            }
+            _report.value = next
+            _lastUpdated.value = currentTimeLabel()
+            _errorMessage.value = null
+        } catch (e: Exception) {
+            if (_report.value == null) {
+                _errorMessage.value = e.message ?: e.javaClass.simpleName
+            }
+        }
     }
 
     private fun currentTimeLabel(): String {
