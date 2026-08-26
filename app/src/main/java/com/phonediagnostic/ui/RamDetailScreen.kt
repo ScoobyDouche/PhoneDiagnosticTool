@@ -35,8 +35,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RamDetailScreen(
-    entries: List<ProcessRamEntry>?
-    ,
+    entries: List<ProcessRamEntry>?,
     isLoading: Boolean,
     onBack: () -> Unit,
     onRefresh: () -> Unit
@@ -58,8 +57,9 @@ fun RamDetailScreen(
             )
         }
     ) { padding ->
+        val list = entries
         when {
-            isLoading && entries == null -> {
+            isLoading && list == null -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -72,7 +72,7 @@ fun RamDetailScreen(
                     Text("Scanning processes…")
                 }
             }
-            entries.isNullOrEmpty() -> {
+            list.isNullOrEmpty() -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -82,13 +82,14 @@ fun RamDetailScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        "No process memory data available on this device.",
+                        text = "No process memory data available on this device.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
             else -> {
+                val safeList = list
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
@@ -98,13 +99,16 @@ fun RamDetailScreen(
                 ) {
                     item {
                         Text(
-                            "Processes sorted by memory (PSS). Android limits detail for some apps.",
+                            text = "Processes sorted by memory (PSS). Android limits detail for some apps.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                     }
-                    items(entries, key = { "${it.pid}_${it.processName}" }) { entry ->
+                    items(
+                        items = safeList,
+                        key = { entry -> "${entry.pid}_${entry.processName}" }
+                    ) { entry ->
                         ProcessRow(entry)
                     }
                 }
@@ -117,7 +121,9 @@ fun RamDetailScreen(
 private fun ProcessRow(entry: ProcessRamEntry) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
     ) {
         Row(
             modifier = Modifier
@@ -127,20 +133,20 @@ private fun ProcessRow(entry: ProcessRamEntry) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(entry.appLabel, fontWeight = FontWeight.SemiBold)
+                Text(text = entry.appLabel, fontWeight = FontWeight.SemiBold)
                 Text(
-                    entry.processName,
+                    text = entry.processName,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    entry.importance,
+                    text = entry.importance,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
             Text(
-                String.format(Locale.US, "%.1f MB", entry.pssMb),
+                text = String.format(Locale.US, "%.1f MB", entry.pssMb),
                 fontWeight = FontWeight.Medium
             )
         }
