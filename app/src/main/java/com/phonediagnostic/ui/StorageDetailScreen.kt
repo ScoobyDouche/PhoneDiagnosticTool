@@ -62,6 +62,7 @@ fun StorageDetailScreen(
             )
         }
     ) { padding ->
+        val list = entries
         when {
             !hasPermission -> {
                 Column(
@@ -73,13 +74,13 @@ fun StorageDetailScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        "Usage access needed",
+                        text = "Usage access needed",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Android requires Usage Access to show how much space each app uses. " +
+                        text = "Android requires Usage Access to show how much space each app uses. " +
                             "This stays on your device — we don’t upload anything.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -90,7 +91,7 @@ fun StorageDetailScreen(
                     }
                 }
             }
-            isLoading && entries == null -> {
+            isLoading && list == null -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -103,7 +104,7 @@ fun StorageDetailScreen(
                     Text("Scanning app storage…")
                 }
             }
-            entries.isNullOrEmpty() -> {
+            list.isNullOrEmpty() -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -113,7 +114,7 @@ fun StorageDetailScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        "No per-app storage data returned.",
+                        text = "No per-app storage data returned.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -122,6 +123,7 @@ fun StorageDetailScreen(
                 }
             }
             else -> {
+                val safeList = list
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
@@ -131,13 +133,16 @@ fun StorageDetailScreen(
                 ) {
                     item {
                         Text(
-                            "Sorted by total size (app + data + cache).",
+                            text = "Sorted by total size (app + data + cache).",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                     }
-                    items(entries, key = { it.packageName }) { entry ->
+                    items(
+                        items = safeList,
+                        key = { entry -> entry.packageName }
+                    ) { entry ->
                         StorageRow(entry)
                     }
                 }
@@ -150,7 +155,9 @@ fun StorageDetailScreen(
 private fun StorageRow(entry: AppStorageEntry) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
     ) {
         Column(
             modifier = Modifier
@@ -163,21 +170,21 @@ private fun StorageRow(entry: AppStorageEntry) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(entry.appLabel, fontWeight = FontWeight.SemiBold)
+                    Text(text = entry.appLabel, fontWeight = FontWeight.SemiBold)
                     Text(
-                        entry.packageName,
+                        text = entry.packageName,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(
-                    formatBytes(entry.totalBytes),
+                    text = formatBytes(entry.totalBytes),
                     fontWeight = FontWeight.Medium
                 )
             }
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                "App ${formatBytes(entry.appBytes)} · Data ${formatBytes(entry.dataBytes)} · Cache ${formatBytes(entry.cacheBytes)}",
+                text = "App ${formatBytes(entry.appBytes)} · Data ${formatBytes(entry.dataBytes)} · Cache ${formatBytes(entry.cacheBytes)}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
