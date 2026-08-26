@@ -15,12 +15,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -33,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.phonediagnostic.data.FullDeviceReport
 import com.phonediagnostic.ui.components.InfoCard
 import com.phonediagnostic.ui.components.InfoRow
+import com.phonediagnostic.ui.components.UsageBar
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,17 +45,18 @@ fun DashboardScreen(
     isLive: Boolean,
     lastUpdated: String,
     onToggleLive: () -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onShare: () -> Unit
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text("Phone Diagnostic")
+                        Text("Phone Diagnostic", fontWeight = FontWeight.SemiBold)
                         if (lastUpdated.isNotEmpty()) {
                             Text(
-                                text = if (isLive) "Live · Updated $lastUpdated" else "Paused · $lastUpdated",
+                                text = if (isLive) "Live · $lastUpdated" else "Paused · $lastUpdated",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (isLive) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -60,6 +64,9 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onShare, enabled = report != null) {
+                        Icon(Icons.Default.Share, contentDescription = "Share report")
+                    }
                     IconButton(onClick = onRefresh) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh now")
                     }
@@ -95,14 +102,12 @@ fun DashboardScreen(
                     .fillMaxSize()
                     .padding(innerPadding),
                 contentPadding = PaddingValues(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                item {
-                    LiveBadge(isLive = isLive)
-                }
+                item { LiveBadge(isLive = isLive) }
 
                 item {
-                    InfoCard(title = "Device Overview") {
+                    InfoCard(title = "Device") {
                         Column {
                             InfoRow("Manufacturer", report.overview.manufacturer)
                             InfoRow("Model", report.overview.model)
@@ -122,7 +127,7 @@ fun DashboardScreen(
                             InfoRow("Architecture", report.cpu.architecture)
                             InfoRow("Hardware", report.cpu.hardware)
                             InfoRow("Processor", report.cpu.processor)
-                            InfoRow("Supported ABIs", report.cpu.supportedAbis.joinToString(", "))
+                            InfoRow("ABIs", report.cpu.supportedAbis.joinToString(", "))
                         }
                     }
                 }
@@ -138,9 +143,13 @@ fun DashboardScreen(
                 }
 
                 item {
-                    InfoCard(title = "Battery ⚡ (Live)") {
+                    InfoCard(title = "Battery · Live") {
                         Column {
-                            InfoRow("Level", "${report.battery.level}%")
+                            UsageBar(
+                                label = "Level",
+                                percent = report.battery.level.coerceIn(0, 100),
+                                detail = "${report.battery.level}%"
+                            )
                             InfoRow("Status", report.battery.status)
                             InfoRow("Health", report.battery.health)
                             InfoRow("Temperature", String.format(Locale.US, "%.1f °C", report.battery.temperature))
@@ -152,23 +161,26 @@ fun DashboardScreen(
                 }
 
                 item {
-                    InfoCard(title = "Memory (RAM) ⚡ (Live)") {
+                    InfoCard(title = "Memory (RAM) · Live") {
                         Column {
-                            InfoRow("Total", "${report.memory.totalRamMb} MB")
+                            UsageBar(
+                                label = "Used",
+                                percent = report.memory.usagePercent,
+                                detail = "${report.memory.usedRamMb} / ${report.memory.totalRamMb} MB"
+                            )
                             InfoRow("Available", "${report.memory.availableRamMb} MB")
-                            InfoRow("Used", "${report.memory.usedRamMb} MB (${report.memory.usagePercent}%)")
                         }
                     }
                 }
 
                 item {
-                    InfoCard(title = "Network ⚡ (Live)") {
+                    InfoCard(title = "Network · Live") {
                         Column {
                             InfoRow("Connection", if (report.network.isConnected) "Connected" else "Disconnected")
                             InfoRow("Type", report.network.networkType)
                             InfoRow(
                                 "Latency",
-                                report.network.latencyMs?.let { "${it} ms" } ?: "—"
+                                report.network.latencyMs?.let { "$it ms" } ?: "—"
                             )
                             InfoRow("Target", report.network.latencyTarget)
                             InfoRow("Status", report.network.latencyStatus)
@@ -179,9 +191,20 @@ fun DashboardScreen(
                 item {
                     InfoCard(title = "Storage") {
                         Column {
-                            InfoRow("Total Internal", String.format(Locale.US, "%.2f GB", report.storage.totalInternalGb))
-                            InfoRow("Free", String.format(Locale.US, "%.2f GB", report.storage.freeInternalGb))
-                            InfoRow("Used", String.format(Locale.US, "%.2f GB (%d%%)", report.storage.usedInternalGb, report.storage.usagePercent))
+                            UsageBar(
+                                label = "Used",
+                                percent = report.storage.usagePercent,
+                                detail = String.format(
+                                    Locale.US,
+                                    "%.1f / %.1f GB",
+                                    report.storage.usedInternalGb,
+                                    report.storage.totalInternalGb
+                                )
+                            )
+                            InfoRow(
+                                "Free",
+                                String.format(Locale.US, "%.2f GB", report.storage.freeInternalGb)
+                            )
                         }
                     }
                 }
@@ -190,11 +213,24 @@ fun DashboardScreen(
                     InfoCard(title = "Display") {
                         Column {
                             InfoRow("Resolution", "${report.display.widthPx} × ${report.display.heightPx}")
-                            InfoRow("Density", "${report.display.densityDpi} dpi (×${String.format(Locale.US, "%.2f", report.display.density)})")
-                            InfoRow("Refresh Rate", String.format(Locale.US, "%.1f Hz", report.display.refreshRate))
-                            InfoRow("Approx. Size", String.format(Locale.US, "%.2f\"", report.display.screenSizeInches))
+                            InfoRow(
+                                "Density",
+                                "${report.display.densityDpi} dpi (×${String.format(Locale.US, "%.2f", report.display.density)})"
+                            )
+                            InfoRow(
+                                "Refresh Rate",
+                                String.format(Locale.US, "%.1f Hz", report.display.refreshRate)
+                            )
+                            InfoRow(
+                                "Approx. Size",
+                                String.format(Locale.US, "%.2f\"", report.display.screenSizeInches)
+                            )
                         }
                     }
+                }
+
+                item {
+                    Spacer(modifier = Modifier.size(16.dp))
                 }
             }
         }
@@ -203,23 +239,33 @@ fun DashboardScreen(
 
 @Composable
 private fun LiveBadge(isLive: Boolean) {
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        color = if (isLive)
+            Color(0xFF4CAF50).copy(alpha = 0.12f)
+        else
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        shape = MaterialTheme.shapes.medium
     ) {
-        Text(
-            text = if (isLive) "● LIVE" else "○ PAUSED",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = if (isLive) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = if (isLive) "Battery, RAM, network & uptime every 2s" else "Tap play to resume live updates",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isLive) "● LIVE" else "○ PAUSED",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (isLive) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (isLive) "Updates every 2s · Tap share to export"
+                else "Tap play to resume",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
