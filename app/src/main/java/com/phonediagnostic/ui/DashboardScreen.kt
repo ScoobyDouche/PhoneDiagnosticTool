@@ -16,12 +16,11 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -59,7 +58,7 @@ fun DashboardScreen(
     onCopyText: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
-    var shareMenuOpen by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -77,35 +76,6 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { shareMenuOpen = true }, enabled = report != null) {
-                        Icon(Icons.Default.Share, contentDescription = "Share report")
-                    }
-                    DropdownMenu(
-                        expanded = shareMenuOpen,
-                        onDismissRequest = { shareMenuOpen = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Share as text") },
-                            onClick = {
-                                shareMenuOpen = false
-                                onShareText()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Share as JSON") },
-                            onClick = {
-                                shareMenuOpen = false
-                                onShareJson()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Copy text") },
-                            onClick = {
-                                shareMenuOpen = false
-                                onCopyText()
-                            }
-                        )
-                    }
                     IconButton(onClick = onRefresh) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh now")
                     }
@@ -115,8 +85,45 @@ fun DashboardScreen(
                             contentDescription = if (isLive) "Pause live updates" else "Resume live updates"
                         )
                     }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                    }
+                    DropdownMenu(
+                        expanded = menuOpen,
+                        onDismissRequest = { menuOpen = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Share as text") },
+                            onClick = {
+                                menuOpen = false
+                                onShareText()
+                            },
+                            enabled = report != null
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Share as JSON") },
+                            onClick = {
+                                menuOpen = false
+                                onShareJson()
+                            },
+                            enabled = report != null
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Copy text") },
+                            onClick = {
+                                menuOpen = false
+                                onCopyText()
+                            },
+                            enabled = report != null
+                        )
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text("Settings") },
+                            onClick = {
+                                menuOpen = false
+                                onOpenSettings()
+                            }
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -167,6 +174,7 @@ fun DashboardScreen(
                         Column {
                             InfoRow("Cores", report.cpu.cores.toString())
                             InfoRow("Architecture", report.cpu.architecture)
+                            InfoRow("Board / Platform", report.cpu.boardPlatform)
                             InfoRow("Hardware", report.cpu.hardware)
                             InfoRow("Processor", report.cpu.processor)
                             InfoRow("ABIs", report.cpu.supportedAbis.joinToString(", "))
@@ -196,6 +204,14 @@ fun DashboardScreen(
                             InfoRow("Health", report.battery.health)
                             InfoRow("Temperature", String.format(Locale.US, "%.1f °C", report.battery.temperature))
                             InfoRow("Voltage", "${report.battery.voltage} mV")
+                            InfoRow(
+                                "Current (now)",
+                                report.battery.currentNowMa?.let { "$it mA" } ?: "Unavailable"
+                            )
+                            InfoRow(
+                                "Current (avg)",
+                                report.battery.currentAvgMa?.let { "$it mA" } ?: "Unavailable"
+                            )
                             InfoRow("Technology", report.battery.technology)
                             InfoRow("Power Source", report.battery.powerSource)
                         }
@@ -301,7 +317,7 @@ private fun LiveBadge(isLive: Boolean) {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isLive) "Updates every 2s · Share / Settings in the top bar"
+                text = if (isLive) "Updates every 2s · Menu for share & settings"
                 else "Tap play to resume",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
