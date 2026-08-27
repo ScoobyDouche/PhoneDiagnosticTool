@@ -12,8 +12,8 @@ android {
         applicationId = "com.phonediagnostic"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "1.7.0"
+        versionCode = 14
+        versionName = "1.8.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
