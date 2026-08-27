@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Environment
 import android.os.StatFs
 import android.os.SystemClock
+import android.os.storage.StorageManager
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import java.io.BufferedReader
@@ -46,10 +47,6 @@ class DeviceInfoCollector(private val context: Context) {
         )
     }
 
-    /**
-     * Lightweight live update: battery, memory, uptime only.
-     * Network type is refreshed without a TCP latency probe (probe runs on full refresh).
-     */
     fun collectLive(previous: FullDeviceReport, networkProbe: Boolean = true): FullDeviceReport {
         return previous.copy(
             overview = collectOverview(),
@@ -282,8 +279,8 @@ class DeviceInfoCollector(private val context: Context) {
     }
 
     private fun collectStorage(): StorageInfo {
-        val path = Environment.getDataDirectory()
-        val stat = StatFs(path.path)
+        val dataDir = Environment.getDataDirectory()
+        val stat = StatFs(dataDir.path)
 
         val totalBytes = stat.totalBytes
         val freeBytes = stat.availableBytes
@@ -294,12 +291,107 @@ class DeviceInfoCollector(private val context: Context) {
         val usedGb = usedBytes / (1024.0 * 1024 * 1024)
         val percent = if (totalBytes > 0) ((usedBytes * 100) / totalBytes).toInt() else 0
 
+        val volumes = collectVolumes()
+        val externalState = try {
+            Environment.getExternalStorageState()
+        } catch (_: Exception) {
+            "unknown"
+        }
+
         return StorageInfo(
             totalInternalGb = totalGb,
             freeInternalGb = freeGb,
             usedInternalGb = usedGb,
-            usagePercent = percent
+            usagePercent = percent,
+            volumes = volumes,
+            dataDirectory = dataDir.absolutePath,
+            cacheDirectory = context.cacheDir.absolutePath,
+            filesDirectory = context.filesDir.absolutePath,
+            externalStorageState = externalState,
+            emulatedExternal = Environment.isExternalStorageEmulated()
         )
+    }
+
+    private fun collectVolumes(): List<StorageVolumeInfo> {
+        val result = ArrayList<StorageVolumeInfo>()
+        val sm = context.getSystemService(Context.STORAGE_SERVICE) as? StorageManager
+
+        if (sm != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            for (volume in sm.storageVolumes) {
+                val desc = try {
+                    volume.getDescription(context)
+                } catch (_: Exception) {
+                    if (volume.isPrimary) "Internal shared" else "Storage"
+                }
+                val state = volume.state ?: "unknown"
+                val path = try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        volume.directory?.absolutePath ?: ""
+                    } else {
+                        @Suppress("DEPRECATION")
+                        volume.javaClass.getMethod("getPath").invoke(volume) as? String ?: ""
+                    }
+                } catch (_: Exception) {
+                    ""
+                }
+
+                var total = 0L
+                var free = 0L
+                if (path.isNotBlank() && state == Environment.MEDIA_MOUNTED) {
+                    try {
+                        val s = StatFs(path)
+                        total = s.totalBytes
+                        free = s.availableBytes
+                    } catch (_: Exception) {
+                        // unreadable
+                    }
+                }
+
+                result.add(
+                    StorageVolumeInfo(
+                        name = desc,
+                        path = path.ifBlank { "(path unavailable)" },
+                        description = buildString {
+                            append(if (volume.isPrimary) "Primary" else "Secondary")
+                            if (volume.isRemovable) append(" · Removable")
+                            if (volume.isEmulated) append(" · Emulated")
+                        },
+                        totalBytes = total,
+                        freeBytes = free,
+                        usedBytes = (total - free).coerceAtLeast(0),
+                        isRemovable = volume.isRemovable,
+                        isPrimary = volume.isPrimary,
+                        state = state
+                    )
+                )
+            }
+        }
+
+        // Always include data partition if missing from volumes list
+        if (result.none { it.path == Environment.getDataDirectory().absolutePath }) {
+            val data = Environment.getDataDirectory()
+            try {
+                val s = StatFs(data.path)
+                result.add(
+                    0,
+                    StorageVolumeInfo(
+                        name = "Internal data",
+                        path = data.absolutePath,
+                        description = "App / system data partition",
+                        totalBytes = s.totalBytes,
+                        freeBytes = s.availableBytes,
+                        usedBytes = s.totalBytes - s.availableBytes,
+                        isRemovable = false,
+                        isPrimary = true,
+                        state = Environment.MEDIA_MOUNTED
+                    )
+                )
+            } catch (_: Exception) {
+                // ignore
+            }
+        }
+
+        return result
     }
 
     private fun collectDisplay(): DisplayInfo {
@@ -334,7 +426,6 @@ class DeviceInfoCollector(private val context: Context) {
         )
     }
 
-    /** Connection type only — no TCP probe (used on live ticks). */
     private fun collectNetworkLight(previous: NetworkInfo, networkProbe: Boolean): NetworkInfo {
         val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -367,7 +458,6 @@ class DeviceInfoCollector(private val context: Context) {
             )
         }
 
-        // Keep last latency values; only refresh type/connected
         return previous.copy(
             isConnected = isConnected,
             networkType = networkType
