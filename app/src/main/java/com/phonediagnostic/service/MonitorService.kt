@@ -12,7 +12,6 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.phonediagnostic.MainActivity
-import com.phonediagnostic.R
 import com.phonediagnostic.data.AppPreferences
 import com.phonediagnostic.data.DeviceInfoCollector
 import com.phonediagnostic.data.DiagnosticLog
