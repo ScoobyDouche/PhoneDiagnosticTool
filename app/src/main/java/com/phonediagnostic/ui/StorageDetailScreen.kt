@@ -1,5 +1,6 @@
 package com.phonediagnostic.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,19 +14,29 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -41,8 +52,13 @@ fun StorageDetailScreen(
     hasPermission: Boolean,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
-    onRequestPermission: () -> Unit
+    onRequestPermission: () -> Unit,
+    onOpenAppInfo: (String) -> Unit,
+    onUninstallApp: (String) -> Unit
 ) {
+    var selected by remember { mutableStateOf<AppStorageEntry?>(null) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -143,7 +159,7 @@ fun StorageDetailScreen(
                 ) {
                     item {
                         Text(
-                            text = "Sorted by total size (app + data + cache).",
+                            text = "Tap an app to manage storage (App info / Uninstall).",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 8.dp)
@@ -153,8 +169,82 @@ fun StorageDetailScreen(
                         items = rows,
                         key = { row -> row.packageName }
                     ) { row ->
-                        StorageRow(row = row)
+                        StorageRow(
+                            row = row,
+                            onClick = { selected = row }
+                        )
                     }
+                }
+            }
+        }
+    }
+
+    selected?.let { app ->
+        ModalBottomSheet(
+            onDismissRequest = { selected = null },
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Text(
+                    text = app.appLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = app.packageName,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Box(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Total ${formatBytes(app.totalBytes)} · Cache ${formatBytes(app.cacheBytes)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Box(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
+                TextButton(
+                    onClick = {
+                        onOpenAppInfo(app.packageName)
+                        selected = null
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Filled.Info, contentDescription = null)
+                    Box(modifier = Modifier.padding(horizontal = 8.dp))
+                    Text("App info (clear cache / storage)")
+                }
+                if (!app.isSystemApp) {
+                    TextButton(
+                        onClick = {
+                            onUninstallApp(app.packageName)
+                            selected = null
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Box(modifier = Modifier.padding(horizontal = 8.dp))
+                        Text(
+                            text = "Uninstall",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "System app — uninstall may be blocked. Use App info to disable or clear data.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
                 }
             }
         }
@@ -162,9 +252,14 @@ fun StorageDetailScreen(
 }
 
 @Composable
-private fun StorageRow(row: AppStorageEntry) {
+private fun StorageRow(
+    row: AppStorageEntry,
+    onClick: () -> Unit
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
