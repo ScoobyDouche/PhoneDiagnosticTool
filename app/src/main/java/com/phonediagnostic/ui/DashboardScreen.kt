@@ -291,25 +291,35 @@ private fun ReportList(
         }
 
         item(key = "storage") {
+            val s = data.storage
             InfoCard(
                 title = "Storage",
                 onClick = onOpenStorageDetail
             ) {
                 Column {
                     UsageBar(
-                        label = "Used",
-                        percent = data.storage.usagePercent,
+                        label = "Internal data",
+                        percent = s.usagePercent,
                         detail = String.format(
                             Locale.US,
                             "%.1f / %.1f GB",
-                            data.storage.usedInternalGb,
-                            data.storage.totalInternalGb
+                            s.usedInternalGb,
+                            s.totalInternalGb
                         )
                     )
                     InfoRow(
                         "Free",
-                        String.format(Locale.US, "%.2f GB", data.storage.freeInternalGb)
+                        String.format(Locale.US, "%.2f GB", s.freeInternalGb)
                     )
+                    InfoRow("Volumes", s.volumes.size.toString())
+                    InfoRow(
+                        "External",
+                        if (s.emulatedExternal) "Emulated (${s.externalStorageState})"
+                        else s.externalStorageState.ifBlank { "—" }
+                    )
+                    if (s.dataDirectory.isNotBlank()) {
+                        InfoRow("Data path", s.dataDirectory)
+                    }
                 }
             }
         }
