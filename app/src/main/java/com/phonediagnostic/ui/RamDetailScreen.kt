@@ -1,10 +1,10 @@
 package com.phonediagnostic.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,40 +43,46 @@ fun RamDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("RAM usage") },
+                title = { Text(text = "RAM usage") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 },
                 actions = {
                     IconButton(onClick = onRefresh) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = "Refresh"
+                        )
                     }
                 }
             )
         }
-    ) { padding ->
-        val list = entries
+    ) { contentPadding ->
         when {
-            isLoading && list == null -> {
+            isLoading && entries == null -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding),
+                        .padding(contentPadding),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     CircularProgressIndicator()
-                    Spacer(Modifier = Modifier.height(12.dp))
-                    Text("Scanning processes…")
+                    Box(modifier = Modifier.height(12.dp))
+                    Text(text = "Scanning processes...")
                 }
             }
-            list.isNullOrEmpty() -> {
+
+            entries == null || entries.isEmpty() -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
+                        .padding(contentPadding)
                         .padding(24.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -88,12 +94,13 @@ fun RamDetailScreen(
                     )
                 }
             }
+
             else -> {
-                val safeList = list
+                val rows = entries
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding),
+                        .padding(contentPadding),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -106,10 +113,10 @@ fun RamDetailScreen(
                         )
                     }
                     items(
-                        items = safeList,
-                        key = { entry -> "${entry.pid}_${entry.processName}" }
-                    ) { entry ->
-                        ProcessRow(entry)
+                        items = rows,
+                        key = { row -> "${row.pid}_${row.processName}" }
+                    ) { row ->
+                        ProcessRow(row = row)
                     }
                 }
             }
@@ -118,7 +125,7 @@ fun RamDetailScreen(
 }
 
 @Composable
-private fun ProcessRow(entry: ProcessRamEntry) {
+private fun ProcessRow(row: ProcessRamEntry) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -133,20 +140,20 @@ private fun ProcessRow(entry: ProcessRamEntry) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = entry.appLabel, fontWeight = FontWeight.SemiBold)
+                Text(text = row.appLabel, fontWeight = FontWeight.SemiBold)
                 Text(
-                    text = entry.processName,
+                    text = row.processName,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = entry.importance,
+                    text = row.importance,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
             Text(
-                text = String.format(Locale.US, "%.1f MB", entry.pssMb),
+                text = String.format(Locale.US, "%.1f MB", row.pssMb),
                 fontWeight = FontWeight.Medium
             )
         }
