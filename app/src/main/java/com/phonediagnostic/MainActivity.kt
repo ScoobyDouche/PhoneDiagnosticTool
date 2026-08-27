@@ -125,11 +125,15 @@ class MainActivity : ComponentActivity() {
                         }
                         AppScreen.STORAGE_DETAIL -> {
                             StorageDetailScreen(
+                                storageOverview = report?.storage,
                                 entries = appStorage,
                                 isLoading = appStorageLoading,
                                 hasPermission = hasUsageStats,
                                 onBack = { viewModel.openDashboard() },
-                                onRefresh = { viewModel.loadAppStorage() },
+                                onRefresh = {
+                                    viewModel.refreshNow()
+                                    viewModel.loadAppStorage()
+                                },
                                 onRequestPermission = { openUsageAccessSettings() },
                                 onOpenAppInfo = { openAppInfo(it) },
                                 onUninstallApp = { uninstallApp(it) }
