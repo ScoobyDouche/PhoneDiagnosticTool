@@ -34,11 +34,14 @@ import com.phonediagnostic.data.ThemeMode
 @Composable
 fun SettingsScreen(
     networkProbeEnabled: Boolean,
+    backgroundMonitorEnabled: Boolean,
     themeMode: ThemeMode,
     onNetworkProbeChange: (Boolean) -> Unit,
+    onBackgroundMonitorChange: (Boolean) -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
     onBack: () -> Unit,
-    onOpenAbout: () -> Unit
+    onOpenAbout: () -> Unit,
+    onOpenTools: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -79,12 +82,48 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(modifier.height(24.dp))
             HorizontalDivider()
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier.height(16.dp))
+
+            Text("Background", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Keep monitoring", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Samples battery & RAM every 30s with a persistent notification. " +
+                            "Log is capped at 100 lines (old entries drop).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = backgroundMonitorEnabled,
+                    onCheckedChange = onBackgroundMonitorChange
+                )
+            }
+
+            Spacer(modifier.height(12.dp))
+            Text(
+                text = "Tools · log & load test",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenTools)
+                    .padding(vertical = 12.dp)
+            )
+
+            Spacer(modifier.height(16.dp))
+            HorizontalDivider()
+            Spacer(modifier.height(16.dp))
 
             Text("Appearance", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
+            Spacer(modifier.height(8.dp))
             ThemeMode.entries.forEach { mode ->
                 Row(
                     modifier = Modifier
@@ -112,9 +151,9 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(modifier.height(24.dp))
             HorizontalDivider()
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier.height(16.dp))
 
             Text(
                 text = "About & privacy",
