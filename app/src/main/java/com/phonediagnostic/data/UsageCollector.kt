@@ -82,13 +82,15 @@ class UsageCollector(private val context: Context) {
                 val stats = statsManager.queryStatsForPackage(uuid, app.packageName, Process.myUserHandle())
                 val total = stats.appBytes + stats.dataBytes + stats.cacheBytes
                 if (total <= 0L) continue
+                val isSystem = (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0
                 result.add(
                     AppStorageEntry(
                         packageName = app.packageName,
                         appLabel = labelForPackage(app),
                         appBytes = stats.appBytes,
                         dataBytes = stats.dataBytes,
-                        cacheBytes = stats.cacheBytes
+                        cacheBytes = stats.cacheBytes,
+                        isSystemApp = isSystem
                     )
                 )
             } catch (_: Exception) {
