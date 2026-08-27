@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -32,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -85,6 +87,7 @@ fun StorageDetailScreen(
     var selected by remember { mutableStateOf<AppStorageEntry?>(null) }
     var pendingUninstall by remember { mutableStateOf<AppStorageEntry?>(null) }
     var filter by remember { mutableStateOf(StorageFilter.SAFE_CACHE) }
+    var query by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val volumes = storageOverview?.volumes.orEmpty()
@@ -118,33 +121,41 @@ fun StorageDetailScreen(
                 .fillMaxSize()
                 .padding(contentPadding),
             contentPadding = PaddingValues(all = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            item(key = "vol_header") {
-                Text(
-                    text = "Volumes & partitions",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
             if (overview != null) {
                 item(key = "overview") {
                     OverviewCard(s = overview)
                 }
-                items(
-                    items = volumes,
-                    key = { vol -> vol.path + vol.name }
-                ) { vol ->
-                    VolumeCard(vol = vol)
-                }
-                item(key = "paths") {
-                    PathCard(s = overview)
+                // Only list extra volume cards if more than one distinct volume
+                if (volumes.size > 1) {
+                    item(key = "vol_header") {
+                        Text(
+                            text = "Other volumes",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    items(
+                        items = volumes,
+                        key = { vol -> vol.path + vol.name }
+                    ) { vol ->
+                        VolumeCard(vol = vol)
+                    }
+                } else if (volumes.size == 1) {
+                    item(key = "single_vol_meta") {
+                        val v = volumes.first()
+                        Text(
+                            text = "${v.name} · ${v.path} · ${v.state}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             } else {
                 item(key = "vol_loading") {
                     Text(
-                        text = "Loading volume info...",
+                        text = "Loading storage…",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -153,11 +164,9 @@ fun StorageDetailScreen(
 
             item(key = "apps_header") {
                 Column {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     Text(
-                        text = "Apps (cleanup)",
+                        text = "Apps",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -169,6 +178,8 @@ fun StorageDetailScreen(
                 isLoading = isLoading,
                 entries = entries,
                 filter = filter,
+                query = query,
+                onQueryChange = { query = it },
                 onFilterChange = { filter = it },
                 onRequestPermission = onRequestPermission,
                 onRefresh = onRefresh,
@@ -199,7 +210,7 @@ fun StorageDetailScreen(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Box(modifier = Modifier.height(8.dp))
+                Box(modifier = Modifier.height(10.dp))
                 Text(
                     text = "App ${formatBytes(selectedApp.appBytes)} · Data ${formatBytes(selectedApp.dataBytes)} · Cache ${formatBytes(selectedApp.cacheBytes)}",
                     style = MaterialTheme.typography.bodySmall
@@ -221,7 +232,7 @@ fun StorageDetailScreen(
                         text = if (selectedApp.cacheBytes >= CACHE_SAFE_BYTES) {
                             "Clear cache in App info (recommended)"
                         } else {
-                            "Open App info (clear cache / storage)"
+                            "Open App info"
                         }
                     )
                 }
@@ -240,7 +251,7 @@ fun StorageDetailScreen(
                         )
                         Box(modifier = Modifier.padding(horizontal = 8.dp))
                         Text(
-                            text = "Uninstall...",
+                            text = "Uninstall…",
                             color = MaterialTheme.colorScheme.error
                         )
                     }
@@ -291,6 +302,8 @@ private fun LazyListScope.appCleanupItems(
     isLoading: Boolean,
     entries: List<AppStorageEntry>?,
     filter: StorageFilter,
+    query: String,
+    onQueryChange: (String) -> Unit,
     onFilterChange: (StorageFilter) -> Unit,
     onRequestPermission: () -> Unit,
     onRefresh: () -> Unit,
@@ -300,24 +313,25 @@ private fun LazyListScope.appCleanupItems(
         item(key = "need_permission") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                 )
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Usage access needed for per-app sizes",
+                        text = "Usage access for per-app sizes",
                         fontWeight = FontWeight.SemiBold
                     )
                     Box(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Volumes above work without it. Grant access to list apps and clean safely.",
+                        text = "Overall storage works without this. Grant access to see which apps use space.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Box(modifier = Modifier.height(12.dp))
                     Button(onClick = onRequestPermission) {
-                        Text(text = "Open Usage Access settings")
+                        Text(text = "Open Usage Access")
                     }
                 }
             }
@@ -343,7 +357,7 @@ private fun LazyListScope.appCleanupItems(
         item(key = "apps_empty") {
             Column {
                 Text(
-                    text = "No per-app storage data returned.",
+                    text = "No per-app storage data.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -357,35 +371,80 @@ private fun LazyListScope.appCleanupItems(
     }
 
     val all = entries
+    val totalAppBytes = all.sumOf { it.totalBytes }
+    val totalCacheBytes = all.sumOf { it.cacheBytes }
     val safeCacheTotal = all
         .filter { it.cacheBytes >= CACHE_SAFE_BYTES }
         .sumOf { it.cacheBytes }
-    val filtered = when (filter) {
-        StorageFilter.ALL -> all
-        StorageFilter.SAFE_CACHE ->
-            all.filter { it.cacheBytes >= CACHE_SAFE_BYTES }
-                .sortedByDescending { it.cacheBytes }
-        StorageFilter.USER_APPS -> all.filter { !it.isSystemApp }
-        StorageFilter.LARGE -> all.filter { it.totalBytes >= LARGE_APP_BYTES }
+
+    val q = query.trim().lowercase(Locale.US)
+    val searched = if (q.isEmpty()) {
+        all
+    } else {
+        all.filter {
+            it.appLabel.lowercase(Locale.US).contains(q) ||
+                it.packageName.lowercase(Locale.US).contains(q)
+        }
     }
 
-    item(key = "safety") {
-        SafetyBanner(safeCacheTotalBytes = safeCacheTotal)
+    val filtered = when (filter) {
+        StorageFilter.ALL -> searched
+        StorageFilter.SAFE_CACHE ->
+            searched.filter { it.cacheBytes >= CACHE_SAFE_BYTES }
+                .sortedByDescending { it.cacheBytes }
+        StorageFilter.USER_APPS -> searched.filter { !it.isSystemApp }
+        StorageFilter.LARGE -> searched.filter { it.totalBytes >= LARGE_APP_BYTES }
     }
+
+    item(key = "totals") {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            )
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(text = "Measured across apps", fontWeight = FontWeight.SemiBold)
+                Box(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${formatBytes(totalAppBytes)} total · ${formatBytes(totalCacheBytes)} cache",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (safeCacheTotal > 0L) {
+                    Text(
+                        text = "~${formatBytes(safeCacheTotal)} in large caches (safe to clear)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF2E7D32)
+                    )
+                }
+            }
+        }
+    }
+
+    item(key = "search") {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Search apps") },
+            placeholder = { Text("Name or package") }
+        )
+    }
+
     item(key = "filters") {
         FilterRow(selected = filter, onSelect = onFilterChange)
     }
+
     item(key = "filter_help") {
         Text(
             text = when (filter) {
-                StorageFilter.SAFE_CACHE ->
-                    "Large cache (>=50 MB). Clearing cache is usually safe."
-                StorageFilter.USER_APPS ->
-                    "Apps you installed. Uninstall removes app + data."
-                StorageFilter.LARGE ->
-                    ">=500 MB total. Check data before uninstall."
-                StorageFilter.ALL ->
-                    "All apps. Prefer clear cache over uninstall."
+                StorageFilter.SAFE_CACHE -> "Large cache (≥50 MB). Clear cache is usually safe."
+                StorageFilter.USER_APPS -> "Apps you installed."
+                StorageFilter.LARGE -> "≥500 MB total."
+                StorageFilter.ALL -> "All apps. Prefer clear cache over uninstall."
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -395,7 +454,7 @@ private fun LazyListScope.appCleanupItems(
     if (filtered.isEmpty()) {
         item(key = "filter_empty") {
             Text(
-                text = "Nothing matches this filter.",
+                text = "Nothing matches.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -418,30 +477,26 @@ private fun LazyListScope.appCleanupItems(
 private fun OverviewCard(s: StorageInfo) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
         )
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text(text = "Internal data partition", fontWeight = FontWeight.SemiBold)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = "Internal storage", fontWeight = FontWeight.SemiBold)
             Box(modifier = Modifier.height(8.dp))
             UsageBar(
                 label = "Used",
                 percent = s.usagePercent,
                 detail = String.format(
                     Locale.US,
-                    "%.2f / %.2f GB",
+                    "%.1f / %.1f GB",
                     s.usedInternalGb,
                     s.totalInternalGb
                 )
             )
             Text(
-                text = String.format(
-                    Locale.US,
-                    "Free %.2f GB · %d volume(s)",
-                    s.freeInternalGb,
-                    s.volumes.size
-                ),
+                text = String.format(Locale.US, "%.1f GB free", s.freeInternalGb),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -453,6 +508,7 @@ private fun OverviewCard(s: StorageInfo) {
 private fun VolumeCard(vol: StorageVolumeInfo) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
@@ -476,94 +532,18 @@ private fun VolumeCard(vol: StorageVolumeInfo) {
                     percent = vol.usagePercent,
                     detail = String.format(
                         Locale.US,
-                        "%.2f / %.2f GB",
+                        "%.1f / %.1f GB",
                         vol.usedGb,
                         vol.totalGb
                     )
                 )
-                Text(
-                    text = String.format(
-                        Locale.US,
-                        "Free %.2f GB · State: %s",
-                        vol.freeGb,
-                        vol.state
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             } else {
                 Text(
-                    text = "State: ${vol.state} (size unavailable)",
+                    text = "State: ${vol.state}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun PathCard(s: StorageInfo) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(text = "Paths & flags", fontWeight = FontWeight.SemiBold)
-            Box(modifier = Modifier.height(6.dp))
-            Text(
-                text = "Data: ${s.dataDirectory}",
-                style = MaterialTheme.typography.labelSmall
-            )
-            Text(
-                text = "App files: ${s.filesDirectory}",
-                style = MaterialTheme.typography.labelSmall
-            )
-            Text(
-                text = "App cache: ${s.cacheDirectory}",
-                style = MaterialTheme.typography.labelSmall
-            )
-            val external = if (s.emulatedExternal) {
-                "${s.externalStorageState} (emulated)"
-            } else {
-                s.externalStorageState
-            }
-            Text(
-                text = "External: $external",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun SafetyBanner(safeCacheTotalBytes: Long) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF2E7D32).copy(alpha = 0.12f)
-        )
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text(
-                text = "Safe first: clear cache",
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1B5E20)
-            )
-            Box(modifier = Modifier.height(4.dp))
-            val msg = if (safeCacheTotalBytes > 0L) {
-                "About ${formatBytes(safeCacheTotalBytes)} in large caches."
-            } else {
-                "No large caches found."
-            }
-            Text(
-                text = msg,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -638,6 +618,7 @@ private fun StorageRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
