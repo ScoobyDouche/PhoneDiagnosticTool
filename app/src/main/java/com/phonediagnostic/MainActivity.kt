@@ -181,7 +181,7 @@ class MainActivity : ComponentActivity() {
                                 onBack = { viewModel.openSettings() },
                                 onRefreshLog = { viewModel.refreshLog() },
                                 onClearLog = { viewModel.clearLog() },
-                                onRunLoadTest = { viewModel.runLoadTest() }
+                                onRunLoadTest = { durationSec -> viewModel.runLoadTest(durationSec) }
                             )
                         }
                     }
