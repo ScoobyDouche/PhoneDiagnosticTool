@@ -88,7 +88,7 @@ fun RamDetailScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "No process memory data available on this device.",
+                        text = "Android blocks other apps' process memory on modern versions for privacy. Only this app (and sometimes a few system processes) may appear.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -106,7 +106,11 @@ fun RamDetailScreen(
                 ) {
                     item {
                         Text(
-                            text = "Processes sorted by memory (PSS). Android limits detail for some apps.",
+                            text = if (rows.size <= 2) {
+                                "Android privacy limits mean you usually only see this app's process — not a full task manager. Total RAM is still accurate on the dashboard."
+                            } else {
+                                "Processes sorted by memory (PSS). Visibility is limited by Android."
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 8.dp)
