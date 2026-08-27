@@ -111,10 +111,6 @@ class DeviceInfoCollector(private val context: Context) {
         )
     }
 
-    /**
-     * Avoid matching "processor : 0" CPU index lines in /proc/cpuinfo.
-     * Prefer model name / Hardware, then board platform.
-     */
     private fun resolveProcessorName(hardware: String, boardPlatform: String): String {
         val cpuinfo = try {
             File("/proc/cpuinfo").readLines()
@@ -127,16 +123,15 @@ class DeviceInfoCollector(private val context: Context) {
             return line.substringAfter(":").trim().takeIf { it.isNotBlank() }
         }
 
-        // Do NOT use case-insensitive "processor" — that hits "processor\t: 0" core index lines
         val fromCpuinfo = listOfNotNull(
             valueFor("model name"),
             valueFor("Model Name"),
             valueFor("Hardware"),
-            valueFor("Processor") // capital P only (legacy ARM label, not core index)
+            valueFor("Processor")
         ).firstOrNull { candidate ->
             candidate.isNotBlank() &&
                 candidate != "0" &&
-                !candidate.matches(Regex("^\\d+$") )
+                !candidate.matches(Regex("^\\d+$"))
         }
 
         val fromProps = listOf(
@@ -283,19 +278,10 @@ class DeviceInfoCollector(private val context: Context) {
         )
     }
 
-    /**
-     * API reports microamps. 0 / MIN_VALUE means unsupported on many OEMs — show Unavailable.
-     */
     private fun normalizeBatteryCurrentMa(rawUa: Int): Int? {
         if (rawUa == Int.MIN_VALUE || rawUa == 0) return null
-        // Standard: microamps -> milliamps
         val ma = rawUa / 1000
-        return if (ma == 0 && abs(rawUa) < 1000) {
-            // Tiny residual µA — treat as unavailable rather than 0 mA
-            null
-        } else {
-            ma
-        }
+        return if (ma == 0 && abs(rawUa) < 1000) null else ma
     }
 
     private fun collectMemory(): MemoryInfo {
@@ -305,14 +291,27 @@ class DeviceInfoCollector(private val context: Context) {
 
         val totalMb = memInfo.totalMem / (1024 * 1024)
         val availableMb = memInfo.availMem / (1024 * 1024)
-        val usedMb = totalMb - availableMb
+        val usedMb = (totalMb - availableMb).coerceAtLeast(0)
         val percent = if (totalMb > 0) ((usedMb * 100) / totalMb).toInt() else 0
+        val thresholdMb = memInfo.threshold / (1024 * 1024)
+        val low = memInfo.lowMemory
+
+        // Android intentionally fills RAM with cached apps. High % used while idle is normal.
+        val hint = when {
+            low -> "Under memory pressure — system is freeing caches"
+            availableMb <= thresholdMb * 2 -> "Available is near the system threshold"
+            percent >= 75 -> "Normal when idle — Android keeps apps cached for speed"
+            else -> "Healthy headroom"
+        }
 
         return MemoryInfo(
             totalRamMb = totalMb,
             availableRamMb = availableMb,
             usedRamMb = usedMb,
-            usagePercent = percent
+            usagePercent = percent,
+            thresholdMb = thresholdMb,
+            isLowMemory = low,
+            statusHint = hint
         )
     }
 
@@ -405,7 +404,6 @@ class DeviceInfoCollector(private val context: Context) {
             }
         }
 
-        // Only add /data if no volume already reports the same size pool
         val data = Environment.getDataDirectory()
         try {
             val s = StatFs(data.path)
@@ -439,7 +437,6 @@ class DeviceInfoCollector(private val context: Context) {
             // ignore
         }
 
-        // Dedupe by identical total+free (same physical pool under different mount points)
         return dedupeVolumes(result)
     }
 
@@ -456,7 +453,6 @@ class DeviceInfoCollector(private val context: Context) {
             if (existing == null) {
                 seen[key] = vol
             } else {
-                // Prefer primary / named shared storage over generic "Internal data"
                 val preferNew =
                     (vol.isPrimary && !existing.isPrimary) ||
                         (existing.name.contains("data", ignoreCase = true) &&
