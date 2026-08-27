@@ -27,14 +27,18 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.data.MemoryInfo
 import com.phonediagnostic.data.ProcessRamEntry
+import com.phonediagnostic.ui.components.UsageBar
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RamDetailScreen(
+    memory: MemoryInfo?,
     entries: List<ProcessRamEntry>?,
     isLoading: Boolean,
     onBack: () -> Unit,
@@ -63,57 +67,103 @@ fun RamDetailScreen(
             )
         }
     ) { contentPadding ->
-        when {
-            isLoading && entries == null -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(contentPadding),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CircularProgressIndicator()
-                    Box(modifier = Modifier.height(12.dp))
-                    Text(text = "Scanning processes...")
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(contentPadding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item {
+                IdleRamExplainer(memory = memory)
+            }
+
+            if (memory != null) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(
+                                text = "System memory",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Box(modifier = Modifier.height(8.dp))
+                            UsageBar(
+                                label = "In use (incl. cache)",
+                                percent = memory.usagePercent,
+                                detail = "${memory.usedRamMb} / ${memory.totalRamMb} MB"
+                            )
+                            Text(
+                                text = "Available ${memory.availableRamMb} MB · Threshold ${memory.thresholdMb} MB",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (memory.statusHint.isNotBlank()) {
+                                Box(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = memory.statusHint,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (memory.isLowMemory) {
+                                        MaterialTheme.colorScheme.error
+                                    } else {
+                                        Color(0xFF2E7D32)
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            entries == null || entries.isEmpty() -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(contentPadding)
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Android blocks other apps' process memory on modern versions for privacy. Only this app (and sometimes a few system processes) may appear.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            item {
+                Text(
+                    text = "Processes (limited by Android privacy)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
 
-            else -> {
-                val rows = entries
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(contentPadding),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+            when {
+                isLoading && entries == null -> {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                }
+
+                entries == null || entries.isEmpty() -> {
+                    item {
+                        Text(
+                            text = "Android blocks other apps' process memory on modern versions. " +
+                                "Dashboard totals are still accurate.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                else -> {
+                    val rows = entries
                     item {
                         Text(
                             text = if (rows.size <= 2) {
-                                "Android privacy limits mean you usually only see this app's process — not a full task manager. Total RAM is still accurate on the dashboard."
+                                "Usually only this app appears — not a full task manager."
                             } else {
-                                "Processes sorted by memory (PSS). Visibility is limited by Android."
+                                "Sorted by memory (PSS)."
                             },
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     items(
@@ -124,6 +174,34 @@ fun RamDetailScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun IdleRamExplainer(memory: MemoryInfo?) {
+    val high = (memory?.usagePercent ?: 0) >= 70
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF1565C0).copy(alpha = 0.12f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = if (high) "~${memory?.usagePercent}% RAM while idle is usually fine"
+                else "How Android uses RAM",
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF0D47A1)
+            )
+            Box(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Android keeps recently used apps in RAM so they reopen fast. " +
+                    "That counts as \"used\" even when you're not actively using them. " +
+                    "Watch Available and whether Pressure says Yes — not just the % bar.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
