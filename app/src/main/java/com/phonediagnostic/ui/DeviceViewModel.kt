@@ -1,15 +1,20 @@
 package com.phonediagnostic.ui
 
 import android.app.Application
+import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.phonediagnostic.data.AppPreferences
 import com.phonediagnostic.data.AppStorageEntry
 import com.phonediagnostic.data.DeviceInfoCollector
+import com.phonediagnostic.data.DiagnosticLog
 import com.phonediagnostic.data.FullDeviceReport
+import com.phonediagnostic.data.LoadTestResult
+import com.phonediagnostic.data.LoadTester
 import com.phonediagnostic.data.ProcessRamEntry
 import com.phonediagnostic.data.ThemeMode
 import com.phonediagnostic.data.UsageCollector
+import com.phonediagnostic.service.MonitorService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,14 +28,17 @@ enum class AppScreen {
     SETTINGS,
     ABOUT,
     RAM_DETAIL,
-    STORAGE_DETAIL
+    STORAGE_DETAIL,
+    TOOLS
 }
 
 class DeviceViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val prefs = AppPreferences(application.applicationContext)
-    private val collector = DeviceInfoCollector(application.applicationContext)
-    private val usageCollector = UsageCollector(application.applicationContext)
+    private val appContext = application.applicationContext
+    private val prefs = AppPreferences(appContext)
+    private val collector = DeviceInfoCollector(appContext)
+    private val usageCollector = UsageCollector(appContext)
+    private val log = DiagnosticLog.get(appContext)
 
     private val _report = MutableStateFlow<FullDeviceReport?>(null)
     val report: StateFlow<FullDeviceReport?> = _report.asStateFlow()
@@ -46,6 +54,9 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _networkProbeEnabled = MutableStateFlow(prefs.networkProbeEnabled)
     val networkProbeEnabled: StateFlow<Boolean> = _networkProbeEnabled.asStateFlow()
+
+    private val _backgroundMonitorEnabled = MutableStateFlow(prefs.backgroundMonitorEnabled)
+    val backgroundMonitorEnabled: StateFlow<Boolean> = _backgroundMonitorEnabled.asStateFlow()
 
     private val _themeMode = MutableStateFlow(prefs.themeMode)
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
@@ -71,6 +82,15 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val _hasUsageStats = MutableStateFlow(usageCollector.hasUsageStatsPermission())
     val hasUsageStats: StateFlow<Boolean> = _hasUsageStats.asStateFlow()
 
+    private val _logLines = MutableStateFlow(log.snapshot())
+    val logLines: StateFlow<List<String>> = _logLines.asStateFlow()
+
+    private val _loadTesting = MutableStateFlow(false)
+    val loadTesting: StateFlow<Boolean> = _loadTesting.asStateFlow()
+
+    private val _lastLoadResult = MutableStateFlow<LoadTestResult?>(null)
+    val lastLoadResult: StateFlow<LoadTestResult?> = _lastLoadResult.asStateFlow()
+
     init {
         viewModelScope.launch(Dispatchers.Default) {
             runCollection(full = true)
@@ -83,6 +103,11 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                     runCollection(full = _report.value == null)
                 }
             }
+        }
+
+        // Resume monitor if user left it on
+        if (prefs.backgroundMonitorEnabled) {
+            MonitorService.start(appContext)
         }
     }
 
@@ -115,6 +140,11 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     fun openDashboard() {
         _screen.value = AppScreen.DASHBOARD
+    }
+
+    fun openTools() {
+        refreshLog()
+        _screen.value = AppScreen.TOOLS
     }
 
     fun openRamDetail() {
@@ -167,9 +197,49 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         refreshNow()
     }
 
+    fun setBackgroundMonitorEnabled(enabled: Boolean) {
+        prefs.backgroundMonitorEnabled = enabled
+        _backgroundMonitorEnabled.value = enabled
+        if (enabled) {
+            MonitorService.start(appContext)
+            log.append("Background monitor enabled")
+        } else {
+            MonitorService.stop(appContext)
+            log.append("Background monitor disabled")
+        }
+        refreshLog()
+    }
+
     fun setThemeMode(mode: ThemeMode) {
         prefs.themeMode = mode
         _themeMode.value = mode
+    }
+
+    fun refreshLog() {
+        _logLines.value = log.snapshot()
+    }
+
+    fun clearLog() {
+        log.clear()
+        refreshLog()
+    }
+
+    fun runLoadTest() {
+        if (_loadTesting.value) return
+        viewModelScope.launch(Dispatchers.Default) {
+            _loadTesting.value = true
+            try {
+                val result = LoadTester.run(appContext, durationSec = 5, threads = 4)
+                _lastLoadResult.value = result
+                refreshLog()
+                runCollection(full = true)
+            } catch (e: Exception) {
+                log.append("Load test failed: ${e.message ?: e.javaClass.simpleName}")
+                refreshLog()
+            } finally {
+                _loadTesting.value = false
+            }
+        }
     }
 
     private fun runCollection(full: Boolean) {
