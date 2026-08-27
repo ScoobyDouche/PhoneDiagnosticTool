@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Debug
 import android.os.Process
 import android.os.storage.StorageManager
 
@@ -14,31 +15,77 @@ class UsageCollector(private val context: Context) {
 
     private val pm: PackageManager = context.packageManager
 
+    /**
+     * Android hides other apps' process memory. We always report *this* app accurately
+     * via Debug.MemoryInfo + getProcessMemoryInfo(myPid), then any other visible processes.
+     */
     fun collectProcessRam(): List<ProcessRamEntry> {
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val processes = am.runningAppProcesses ?: return emptyList()
-        if (processes.isEmpty()) return emptyList()
+        val byPid = LinkedHashMap<Int, ProcessRamEntry>()
 
-        val pids = processes.map { it.pid }.toIntArray()
-        val memInfos = try {
-            am.getProcessMemoryInfo(pids)
+        // 1) This app — always accurate
+        val myPid = Process.myPid()
+        val selfPssMb = readPssMb(am, myPid)
+        byPid[myPid] = ProcessRamEntry(
+            pid = myPid,
+            processName = context.packageName,
+            appLabel = "Phone Diagnostic (this app)",
+            importance = "Foreground",
+            pssMb = selfPssMb
+        )
+
+        // 2) Whatever else Android still exposes
+        val processes = try {
+            am.runningAppProcesses
         } catch (_: Exception) {
-            return emptyList()
+            null
+        }
+        if (!processes.isNullOrEmpty()) {
+            val pids = processes.map { it.pid }.distinct().toIntArray()
+            val memInfos = try {
+                am.getProcessMemoryInfo(pids)
+            } catch (_: Exception) {
+                emptyArray()
+            }
+            processes.forEachIndexed { index, proc ->
+                if (byPid.containsKey(proc.pid)) return@forEachIndexed
+                val mem = memInfos.getOrNull(index) ?: return@forEachIndexed
+                val pssKb = mem.totalPss
+                if (pssKb <= 0) return@forEachIndexed
+                val name = proc.processName ?: return@forEachIndexed
+                byPid[proc.pid] = ProcessRamEntry(
+                    pid = proc.pid,
+                    processName = name,
+                    appLabel = labelForProcess(name),
+                    importance = importanceLabel(proc.importance),
+                    pssMb = pssKb / 1024f
+                )
+            }
         }
 
-        return processes.mapIndexedNotNull { index, proc ->
-            val mem = memInfos.getOrNull(index) ?: return@mapIndexedNotNull null
-            val pssKb = mem.totalPss
-            if (pssKb <= 0) return@mapIndexedNotNull null
-            val name = proc.processName ?: "unknown"
-            ProcessRamEntry(
-                pid = proc.pid,
-                processName = name,
-                appLabel = labelForProcess(name),
-                importance = importanceLabel(proc.importance),
-                pssMb = pssKb / 1024f
-            )
-        }.sortedByDescending { it.pssMb }
+        return byPid.values.sortedByDescending { it.pssMb }
+    }
+
+    private fun readPssMb(am: ActivityManager, pid: Int): Float {
+        try {
+            val info = am.getProcessMemoryInfo(intArrayOf(pid)).firstOrNull()
+            if (info != null && info.totalPss > 0) {
+                return info.totalPss / 1024f
+            }
+        } catch (_: Exception) {
+            // fall through
+        }
+        // Fallback: Debug for current process only
+        if (pid == Process.myPid()) {
+            val mi = Debug.MemoryInfo()
+            Debug.getMemoryInfo(mi)
+            if (mi.totalPss > 0) return mi.totalPss / 1024f
+            // Last resort: Java heap
+            val rt = Runtime.getRuntime()
+            val used = (rt.totalMemory() - rt.freeMemory()) / (1024f * 1024f)
+            return used.coerceAtLeast(0.1f)
+        }
+        return 0f
     }
 
     fun hasUsageStatsPermission(): Boolean {
@@ -79,7 +126,11 @@ class UsageCollector(private val context: Context) {
 
         for (app in apps) {
             try {
-                val stats = statsManager.queryStatsForPackage(uuid, app.packageName, Process.myUserHandle())
+                val stats = statsManager.queryStatsForPackage(
+                    uuid,
+                    app.packageName,
+                    Process.myUserHandle()
+                )
                 val total = stats.appBytes + stats.dataBytes + stats.cacheBytes
                 if (total <= 0L) continue
                 val isSystem = (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0
