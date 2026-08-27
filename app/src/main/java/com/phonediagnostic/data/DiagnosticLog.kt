@@ -9,7 +9,10 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Ring buffer log — never grows past [MAX_ENTRIES].
- * Persisted to SharedPreferences as a small JSON array.
+ * Persisted to SharedPreferences as a JSON array.
+ *
+ * Size estimate at full capacity (~5000 lines × ~100–150 chars):
+ * about 0.5–1 MB on disk. Still tiny vs photos/apps.
  */
 class DiagnosticLog(context: Context) {
 
@@ -71,8 +74,8 @@ class DiagnosticLog(context: Context) {
     companion object {
         private const val PREFS = "diagnostic_log"
         private const val KEY = "lines"
-        /** Hard cap — ~100 short lines keeps storage tiny. */
-        const val MAX_ENTRIES = 100
+        /** Cap — ~0.5–1 MB when full; oldest lines drop. */
+        const val MAX_ENTRIES = 5000
 
         @Volatile
         private var instance: DiagnosticLog? = null
