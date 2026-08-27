@@ -1,9 +1,9 @@
 package com.phonediagnostic.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -63,7 +63,7 @@ fun SettingsScreen(
                 .padding(16.dp)
         ) {
             Text("Privacy & network", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -82,12 +82,12 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Box(modifier = Modifier.height(24.dp))
             HorizontalDivider()
-            Spacer(modifier = Modifier.height(16.dp))
+            Box(modifier = Modifier.height(16.dp))
 
             Text("Background", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -107,7 +107,7 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Box(modifier = Modifier.height(12.dp))
             Text(
                 text = "Tools · log & load test",
                 style = MaterialTheme.typography.bodyLarge,
@@ -118,12 +118,12 @@ fun SettingsScreen(
                     .padding(vertical = 12.dp)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Box(modifier = Modifier.height(16.dp))
             HorizontalDivider()
-            Spacer(modifier = Modifier.height(16.dp))
+            Box(modifier = Modifier.height(16.dp))
 
             Text("Appearance", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.height(8.dp))
             ThemeMode.entries.forEach { mode ->
                 Row(
                     modifier = Modifier
@@ -151,9 +151,9 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Box(modifier = Modifier.height(24.dp))
             HorizontalDivider()
-            Spacer(modifier = Modifier.height(16.dp))
+            Box(modifier = Modifier.height(16.dp))
 
             Text(
                 text = "About & privacy",
