@@ -117,6 +117,7 @@ class MainActivity : ComponentActivity() {
                         }
                         AppScreen.RAM_DETAIL -> {
                             RamDetailScreen(
+                                memory = report?.memory,
                                 entries = processRam,
                                 isLoading = processRamLoading,
                                 onBack = { viewModel.openDashboard() },
