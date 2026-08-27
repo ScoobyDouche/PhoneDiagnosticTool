@@ -260,17 +260,37 @@ private fun ReportList(
         }
 
         item(key = "memory") {
+            val m = data.memory
             InfoCard(
                 title = "Memory (RAM) · Live",
                 onClick = onOpenRamDetail
             ) {
                 Column {
                     UsageBar(
-                        label = "Used",
-                        percent = data.memory.usagePercent,
-                        detail = "${data.memory.usedRamMb} / ${data.memory.totalRamMb} MB"
+                        label = "In use (incl. cache)",
+                        percent = m.usagePercent,
+                        detail = "${m.usedRamMb} / ${m.totalRamMb} MB"
                     )
-                    InfoRow("Available", "${data.memory.availableRamMb} MB")
+                    InfoRow("Available", "${m.availableRamMb} MB")
+                    if (m.thresholdMb > 0) {
+                        InfoRow("Low-mem threshold", "${m.thresholdMb} MB")
+                    }
+                    InfoRow(
+                        "Pressure",
+                        if (m.isLowMemory) "Yes — freeing caches" else "No"
+                    )
+                    if (m.statusHint.isNotBlank()) {
+                        Text(
+                            text = m.statusHint,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (m.isLowMemory) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                Color(0xFF2E7D32)
+                            },
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                    }
                 }
             }
         }
