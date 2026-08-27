@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,6 +25,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -46,7 +47,7 @@ fun ToolsScreen(
     onBack: () -> Unit,
     onRefreshLog: () -> Unit,
     onClearLog: () -> Unit,
-    onRunLoadTest: () -> Unit
+    onRunLoadTest: (durationSec: Int) -> Unit
 ) {
     val listState = rememberLazyListState()
 
@@ -93,25 +94,42 @@ fun ToolsScreen(
                         Text("Load test", fontWeight = FontWeight.SemiBold)
                         Box(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Runs a short CPU stress (≈5s) and records RAM / battery before & after. One log line only.",
+                            text = "CPU stress test. Phone may warm up and drain battery. " +
+                                "Records RAM / battery before & after. One log line only.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Box(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = onRunLoadTest,
-                            enabled = !loadTesting,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            if (loadTesting) {
+                        if (loadTesting) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.height(18.dp),
+                                    modifier = Modifier.height(20.dp),
                                     strokeWidth = 2.dp
                                 )
-                                Box(modifier = Modifier.padding(horizontal = 8.dp))
-                                Text("Running…")
-                            } else {
-                                Text("Run 5s load test")
+                                Box(modifier = Modifier.padding(horizontal = 10.dp))
+                                Text("Running load test… keep app open")
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { onRunLoadTest(60) },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("1 min") }
+                                OutlinedButton(
+                                    onClick = { onRunLoadTest(300) },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("5 min") }
+                                Button(
+                                    onClick = { onRunLoadTest(600) },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("10 min") }
                             }
                         }
                         if (lastLoadResult != null) {
@@ -140,7 +158,7 @@ fun ToolsScreen(
                     )
                 }
                 Text(
-                    text = "Oldest lines drop automatically. Background monitor appends every 30s when enabled.",
+                    text = "Max ~0.5–1 MB when full. Oldest lines drop. Background monitor adds a line every 30s.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -155,10 +173,10 @@ fun ToolsScreen(
                     )
                 }
             } else {
-                items(
+                itemsIndexed(
                     items = logLines.asReversed(),
-                    key = { it }
-                ) { line ->
+                    key = { index, line -> "$index-$line" }
+                ) { _, line ->
                     Text(
                         text = line,
                         style = MaterialTheme.typography.labelSmall,
