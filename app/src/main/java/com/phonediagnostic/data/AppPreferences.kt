@@ -24,9 +24,14 @@ class AppPreferences(context: Context) {
         }
         set(value) = prefs.edit().putString(KEY_THEME, value.name).apply()
 
+    var backgroundMonitorEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BG_MONITOR, false)
+        set(value) = prefs.edit().putBoolean(KEY_BG_MONITOR, value).apply()
+
     companion object {
         private const val PREFS_NAME = "phone_diagnostic_prefs"
         private const val KEY_NETWORK_PROBE = "network_probe_enabled"
         private const val KEY_THEME = "theme_mode"
+        private const val KEY_BG_MONITOR = "background_monitor_enabled"
     }
 }
