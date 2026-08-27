@@ -47,7 +47,13 @@ data class MemoryInfo(
     val totalRamMb: Long,
     val availableRamMb: Long,
     val usedRamMb: Long,
-    val usagePercent: Int
+    val usagePercent: Int,
+    /** Android low-memory threshold (MB). Below this, system starts killing caches. */
+    val thresholdMb: Long = 0,
+    /** True only when system is under real memory pressure. */
+    val isLowMemory: Boolean = false,
+    /** Short human status for UI. */
+    val statusHint: String = ""
 )
 
 data class StorageVolumeInfo(
