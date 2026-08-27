@@ -1,10 +1,10 @@
 package com.phonediagnostic.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -46,29 +46,34 @@ fun StorageDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Storage by app") },
+                title = { Text(text = "Storage by app") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 },
                 actions = {
                     if (hasPermission) {
                         IconButton(onClick = onRefresh) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = "Refresh"
+                            )
                         }
                     }
                 }
             )
         }
-    ) { padding ->
-        val list = entries
+    ) { contentPadding ->
         when {
             !hasPermission -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
+                        .padding(contentPadding)
                         .padding(24.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -78,37 +83,39 @@ fun StorageDetailScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Android requires Usage Access to show how much space each app uses. " +
-                            "This stays on your device — we don’t upload anything.",
+                            "This stays on your device - nothing is uploaded.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Box(modifier = Modifier.height(20.dp))
                     Button(onClick = onRequestPermission) {
-                        Text("Open Usage Access settings")
+                        Text(text = "Open Usage Access settings")
                     }
                 }
             }
-            isLoading && list == null -> {
+
+            isLoading && entries == null -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding),
+                        .padding(contentPadding),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("Scanning app storage…")
+                    Box(modifier = Modifier.height(12.dp))
+                    Text(text = "Scanning app storage...")
                 }
             }
-            list.isNullOrEmpty() -> {
+
+            entries == null || entries.isEmpty() -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
+                        .padding(contentPadding)
                         .padding(24.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -118,16 +125,19 @@ fun StorageDetailScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(onClick = onRefresh) { Text("Try again") }
+                    Box(modifier = Modifier.height(12.dp))
+                    Button(onClick = onRefresh) {
+                        Text(text = "Try again")
+                    }
                 }
             }
+
             else -> {
-                val safeList = list
+                val rows = entries
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding),
+                        .padding(contentPadding),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -140,10 +150,10 @@ fun StorageDetailScreen(
                         )
                     }
                     items(
-                        items = safeList,
-                        key = { entry -> entry.packageName }
-                    ) { entry ->
-                        StorageRow(entry)
+                        items = rows,
+                        key = { row -> row.packageName }
+                    ) { row ->
+                        StorageRow(row = row)
                     }
                 }
             }
@@ -152,7 +162,7 @@ fun StorageDetailScreen(
 }
 
 @Composable
-private fun StorageRow(entry: AppStorageEntry) {
+private fun StorageRow(row: AppStorageEntry) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -170,21 +180,21 @@ private fun StorageRow(entry: AppStorageEntry) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = entry.appLabel, fontWeight = FontWeight.SemiBold)
+                    Text(text = row.appLabel, fontWeight = FontWeight.SemiBold)
                     Text(
-                        text = entry.packageName,
+                        text = row.packageName,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(
-                    text = formatBytes(entry.totalBytes),
+                    text = formatBytes(row.totalBytes),
                     fontWeight = FontWeight.Medium
                 )
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Box(modifier = Modifier.height(6.dp))
             Text(
-                text = "App ${formatBytes(entry.appBytes)} · Data ${formatBytes(entry.dataBytes)} · Cache ${formatBytes(entry.cacheBytes)}",
+                text = "App ${formatBytes(row.appBytes)} · Data ${formatBytes(row.dataBytes)} · Cache ${formatBytes(row.cacheBytes)}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
