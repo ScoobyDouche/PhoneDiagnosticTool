@@ -25,6 +25,7 @@ import javax.microedition.khronos.egl.EGL10
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.egl.EGLContext
 import javax.microedition.khronos.egl.EGLDisplay
+import kotlin.math.abs
 
 class DeviceInfoCollector(private val context: Context) {
 
@@ -81,7 +82,7 @@ class DeviceInfoCollector(private val context: Context) {
     }
 
     private fun collectCpu(): CpuInfo {
-        val cores = Runtime.getRuntime().availableProcessors()
+        val cores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
         val abis = Build.SUPPORTED_ABIS.toList()
         val arch = when {
             abis.any { it.contains("arm64") } -> "ARM64"
@@ -91,10 +92,11 @@ class DeviceInfoCollector(private val context: Context) {
             else -> "Unknown"
         }
 
-        val hardware = Build.HARDWARE
+        val hardware = Build.HARDWARE.ifBlank { "Unknown" }
         val boardPlatform = readSystemProperty("ro.board.platform")
             .ifBlank { readSystemProperty("ro.mediatek.platform") }
-            .ifBlank { readSystemProperty("ro.hardware") }
+            .ifBlank { readSystemProperty("ro.soc.model") }
+            .ifBlank { readSystemProperty("ro.product.board") }
             .ifBlank { hardware }
 
         val processor = resolveProcessorName(hardware, boardPlatform)
@@ -109,6 +111,10 @@ class DeviceInfoCollector(private val context: Context) {
         )
     }
 
+    /**
+     * Avoid matching "processor : 0" CPU index lines in /proc/cpuinfo.
+     * Prefer model name / Hardware, then board platform.
+     */
     private fun resolveProcessorName(hardware: String, boardPlatform: String): String {
         val cpuinfo = try {
             File("/proc/cpuinfo").readLines()
@@ -116,21 +122,36 @@ class DeviceInfoCollector(private val context: Context) {
             emptyList()
         }
 
-        fun valueFor(prefix: String): String? =
-            cpuinfo.firstOrNull { it.startsWith(prefix, ignoreCase = true) }
-                ?.substringAfter(":")
-                ?.trim()
-                ?.takeIf { it.isNotBlank() }
+        fun valueFor(prefix: String): String? {
+            val line = cpuinfo.firstOrNull { it.startsWith(prefix) } ?: return null
+            return line.substringAfter(":").trim().takeIf { it.isNotBlank() }
+        }
 
-        val candidates = listOfNotNull(
+        // Do NOT use case-insensitive "processor" — that hits "processor\t: 0" core index lines
+        val fromCpuinfo = listOfNotNull(
             valueFor("model name"),
-            valueFor("Processor"),
+            valueFor("Model Name"),
             valueFor("Hardware"),
-            boardPlatform.takeIf { it.isNotBlank() && !it.equals("qcom", ignoreCase = true) },
-            hardware.takeIf { it.isNotBlank() && !it.equals("qcom", ignoreCase = true) }
-        )
+            valueFor("Processor") // capital P only (legacy ARM label, not core index)
+        ).firstOrNull { candidate ->
+            candidate.isNotBlank() &&
+                candidate != "0" &&
+                !candidate.matches(Regex("^\\d+$") )
+        }
 
-        return candidates.firstOrNull() ?: hardware.ifBlank { boardPlatform }.ifBlank { "Unknown" }
+        val fromProps = listOf(
+            readSystemProperty("ro.soc.model"),
+            readSystemProperty("ro.chipname"),
+            boardPlatform,
+            hardware
+        ).firstOrNull { p ->
+            p.isNotBlank() &&
+                !p.equals("qcom", ignoreCase = true) &&
+                !p.equals("unknown", ignoreCase = true) &&
+                p != "0"
+        }
+
+        return fromCpuinfo ?: fromProps ?: hardware.ifBlank { boardPlatform }.ifBlank { "Unknown" }
     }
 
     private fun readSystemProperty(key: String): String {
@@ -238,12 +259,14 @@ class DeviceInfoCollector(private val context: Context) {
 
         val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
         val currentNowMa = batteryManager?.let { bm ->
-            val ua = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-            if (ua == Int.MIN_VALUE || ua == 0 && batteryPct < 0) null else ua / 1000
+            normalizeBatteryCurrentMa(
+                bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+            )
         }
         val currentAvgMa = batteryManager?.let { bm ->
-            val ua = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE)
-            if (ua == Int.MIN_VALUE) null else ua / 1000
+            normalizeBatteryCurrentMa(
+                bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE)
+            )
         }
 
         return BatteryInfo(
@@ -258,6 +281,21 @@ class DeviceInfoCollector(private val context: Context) {
             currentNowMa = currentNowMa,
             currentAvgMa = currentAvgMa
         )
+    }
+
+    /**
+     * API reports microamps. 0 / MIN_VALUE means unsupported on many OEMs — show Unavailable.
+     */
+    private fun normalizeBatteryCurrentMa(rawUa: Int): Int? {
+        if (rawUa == Int.MIN_VALUE || rawUa == 0) return null
+        // Standard: microamps -> milliamps
+        val ma = rawUa / 1000
+        return if (ma == 0 && abs(rawUa) < 1000) {
+            // Tiny residual µA — treat as unavailable rather than 0 mA
+            null
+        } else {
+            ma
+        }
     }
 
     private fun collectMemory(): MemoryInfo {
@@ -321,7 +359,7 @@ class DeviceInfoCollector(private val context: Context) {
                 val desc = try {
                     volume.getDescription(context)
                 } catch (_: Exception) {
-                    if (volume.isPrimary) "Internal shared" else "Storage"
+                    if (volume.isPrimary) "Internal shared storage" else "Storage"
                 }
                 val state = volume.state ?: "unknown"
                 val path = try {
@@ -367,31 +405,74 @@ class DeviceInfoCollector(private val context: Context) {
             }
         }
 
-        // Always include data partition if missing from volumes list
-        if (result.none { it.path == Environment.getDataDirectory().absolutePath }) {
-            val data = Environment.getDataDirectory()
-            try {
-                val s = StatFs(data.path)
+        // Only add /data if no volume already reports the same size pool
+        val data = Environment.getDataDirectory()
+        try {
+            val s = StatFs(data.path)
+            val dataTotal = s.totalBytes
+            val dataFree = s.availableBytes
+            val alreadySamePool = result.any { vol ->
+                vol.totalBytes > 0 &&
+                    vol.totalBytes == dataTotal &&
+                    vol.freeBytes == dataFree
+            }
+            val pathAlreadyListed = result.any {
+                it.path == data.absolutePath || it.path.startsWith("/data")
+            }
+            if (!alreadySamePool && !pathAlreadyListed) {
                 result.add(
                     0,
                     StorageVolumeInfo(
                         name = "Internal data",
                         path = data.absolutePath,
                         description = "App / system data partition",
-                        totalBytes = s.totalBytes,
-                        freeBytes = s.availableBytes,
-                        usedBytes = s.totalBytes - s.availableBytes,
+                        totalBytes = dataTotal,
+                        freeBytes = dataFree,
+                        usedBytes = dataTotal - dataFree,
                         isRemovable = false,
                         isPrimary = true,
                         state = Environment.MEDIA_MOUNTED
                     )
                 )
-            } catch (_: Exception) {
-                // ignore
             }
+        } catch (_: Exception) {
+            // ignore
         }
 
-        return result
+        // Dedupe by identical total+free (same physical pool under different mount points)
+        return dedupeVolumes(result)
+    }
+
+    private fun dedupeVolumes(volumes: List<StorageVolumeInfo>): List<StorageVolumeInfo> {
+        if (volumes.size <= 1) return volumes
+        val seen = LinkedHashMap<String, StorageVolumeInfo>()
+        for (vol in volumes) {
+            val key = if (vol.totalBytes > 0) {
+                "${vol.totalBytes}_${vol.freeBytes}"
+            } else {
+                vol.path
+            }
+            val existing = seen[key]
+            if (existing == null) {
+                seen[key] = vol
+            } else {
+                // Prefer primary / named shared storage over generic "Internal data"
+                val preferNew =
+                    (vol.isPrimary && !existing.isPrimary) ||
+                        (existing.name.contains("data", ignoreCase = true) &&
+                            !vol.name.contains("data", ignoreCase = true))
+                if (preferNew) {
+                    seen[key] = vol.copy(
+                        description = existing.description + " · also ${existing.path}"
+                    )
+                } else if (!existing.description.contains(vol.path)) {
+                    seen[key] = existing.copy(
+                        description = existing.description + " · also ${vol.path}"
+                    )
+                }
+            }
+        }
+        return seen.values.toList()
     }
 
     private fun collectDisplay(): DisplayInfo {
