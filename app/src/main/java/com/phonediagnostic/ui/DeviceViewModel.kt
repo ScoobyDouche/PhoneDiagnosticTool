@@ -1,7 +1,6 @@
 package com.phonediagnostic.ui
 
 import android.app.Application
-import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.phonediagnostic.data.AppPreferences
@@ -105,7 +104,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
 
-        // Resume monitor if user left it on
         if (prefs.backgroundMonitorEnabled) {
             MonitorService.start(appContext)
         }
@@ -224,12 +222,14 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         refreshLog()
     }
 
-    fun runLoadTest() {
+    fun runLoadTest(durationSec: Int) {
         if (_loadTesting.value) return
         viewModelScope.launch(Dispatchers.Default) {
             _loadTesting.value = true
             try {
-                val result = LoadTester.run(appContext, durationSec = 5, threads = 4)
+                log.append("Load test starting (${durationSec / 60} min)")
+                refreshLog()
+                val result = LoadTester.run(appContext, durationSec = durationSec, threads = 4)
                 _lastLoadResult.value = result
                 refreshLog()
                 runCollection(full = true)
