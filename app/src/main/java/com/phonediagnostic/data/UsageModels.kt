@@ -13,7 +13,8 @@ data class AppStorageEntry(
     val appLabel: String,
     val appBytes: Long,
     val dataBytes: Long,
-    val cacheBytes: Long
+    val cacheBytes: Long,
+    val isSystemApp: Boolean
 ) {
     val totalBytes: Long get() = appBytes + dataBytes + cacheBytes
 }
