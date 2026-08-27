@@ -50,11 +50,35 @@ data class MemoryInfo(
     val usagePercent: Int
 )
 
+data class StorageVolumeInfo(
+    val name: String,
+    val path: String,
+    val description: String,
+    val totalBytes: Long,
+    val freeBytes: Long,
+    val usedBytes: Long,
+    val isRemovable: Boolean,
+    val isPrimary: Boolean,
+    val state: String
+) {
+    val totalGb: Double get() = totalBytes / (1024.0 * 1024 * 1024)
+    val freeGb: Double get() = freeBytes / (1024.0 * 1024 * 1024)
+    val usedGb: Double get() = usedBytes / (1024.0 * 1024 * 1024)
+    val usagePercent: Int
+        get() = if (totalBytes > 0) ((usedBytes * 100) / totalBytes).toInt() else 0
+}
+
 data class StorageInfo(
     val totalInternalGb: Double,
     val freeInternalGb: Double,
     val usedInternalGb: Double,
-    val usagePercent: Int
+    val usagePercent: Int,
+    val volumes: List<StorageVolumeInfo> = emptyList(),
+    val dataDirectory: String = "",
+    val cacheDirectory: String = "",
+    val filesDirectory: String = "",
+    val externalStorageState: String = "",
+    val emulatedExternal: Boolean = false
 )
 
 data class DisplayInfo(
