@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
@@ -129,7 +130,9 @@ class MainActivity : ComponentActivity() {
                                 hasPermission = hasUsageStats,
                                 onBack = { viewModel.openDashboard() },
                                 onRefresh = { viewModel.loadAppStorage() },
-                                onRequestPermission = { openUsageAccessSettings() }
+                                onRequestPermission = { openUsageAccessSettings() },
+                                onOpenAppInfo = { openAppInfo(it) },
+                                onUninstallApp = { uninstallApp(it) }
                             )
                         }
                     }
@@ -140,6 +143,30 @@ class MainActivity : ComponentActivity() {
 
     private fun openUsageAccessSettings() {
         startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+    }
+
+    private fun openAppInfo(packageName: String) {
+        try {
+            startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", packageName, null)
+                }
+            )
+        } catch (_: Exception) {
+            Toast.makeText(this, "Could not open app info", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun uninstallApp(packageName: String) {
+        try {
+            startActivity(
+                Intent(Intent.ACTION_DELETE).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+            )
+        } catch (_: Exception) {
+            Toast.makeText(this, "Could not start uninstall", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun currentReport() = viewModel.report.value
