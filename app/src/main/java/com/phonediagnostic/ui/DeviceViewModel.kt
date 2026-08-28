@@ -8,6 +8,7 @@ import com.phonediagnostic.data.AppStorageEntry
 import com.phonediagnostic.data.DeviceInfoCollector
 import com.phonediagnostic.data.DiagnosticLog
 import com.phonediagnostic.data.FullDeviceReport
+import com.phonediagnostic.data.LoadTestProgress
 import com.phonediagnostic.data.LoadTestResult
 import com.phonediagnostic.data.LoadTester
 import com.phonediagnostic.data.ProcessRamEntry
@@ -87,6 +88,9 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val _loadTesting = MutableStateFlow(false)
     val loadTesting: StateFlow<Boolean> = _loadTesting.asStateFlow()
 
+    private val _loadProgress = MutableStateFlow<LoadTestProgress?>(null)
+    val loadProgress: StateFlow<LoadTestProgress?> = _loadProgress.asStateFlow()
+
     private val _lastLoadResult = MutableStateFlow<LoadTestResult?>(null)
     val lastLoadResult: StateFlow<LoadTestResult?> = _lastLoadResult.asStateFlow()
 
@@ -98,7 +102,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.Default) {
             while (isActive) {
                 delay(LIVE_INTERVAL_MS)
-                if (_isLive.value && !_isRefreshing.value) {
+                if (_isLive.value && !_isRefreshing.value && !_loadTesting.value) {
                     runCollection(full = _report.value == null)
                 }
             }
@@ -226,10 +230,18 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         if (_loadTesting.value) return
         viewModelScope.launch(Dispatchers.Default) {
             _loadTesting.value = true
+            _loadProgress.value = null
             try {
                 log.append("Load test starting (${durationSec / 60} min)")
                 refreshLog()
-                val result = LoadTester.run(appContext, durationSec = durationSec, threads = 4)
+                val result = LoadTester.run(
+                    context = appContext,
+                    durationSec = durationSec,
+                    threads = 4,
+                    onProgress = { progress ->
+                        _loadProgress.value = progress
+                    }
+                )
                 _lastLoadResult.value = result
                 refreshLog()
                 runCollection(full = true)
@@ -238,6 +250,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                 refreshLog()
             } finally {
                 _loadTesting.value = false
+                _loadProgress.value = null
             }
         }
     }
