@@ -85,6 +85,7 @@ class MainActivity : ComponentActivity() {
                     val hasUsageStats by viewModel.hasUsageStats.collectAsStateWithLifecycle()
                     val logLines by viewModel.logLines.collectAsStateWithLifecycle()
                     val loadTesting by viewModel.loadTesting.collectAsStateWithLifecycle()
+                    val loadProgress by viewModel.loadProgress.collectAsStateWithLifecycle()
                     val lastLoadResult by viewModel.lastLoadResult.collectAsStateWithLifecycle()
 
                     val lifecycleOwner = LocalLifecycleOwner.current
@@ -177,6 +178,7 @@ class MainActivity : ComponentActivity() {
                             ToolsScreen(
                                 logLines = logLines,
                                 loadTesting = loadTesting,
+                                loadProgress = loadProgress,
                                 lastLoadResult = lastLoadResult,
                                 onBack = { viewModel.openSettings() },
                                 onRefreshLog = { viewModel.refreshLog() },
