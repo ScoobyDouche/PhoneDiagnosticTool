@@ -5,9 +5,27 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.sqrt
+
+data class LoadTestProgress(
+    val running: Boolean,
+    val durationSec: Int,
+    val elapsedSec: Int,
+    val operations: Long,
+    val ramUsedMb: Long,
+    val batteryPct: Int,
+    val tempC: Float,
+    val phase: String
+) {
+    val fraction: Float
+        get() = if (durationSec <= 0) 0f else (elapsedSec.toFloat() / durationSec).coerceIn(0f, 1f)
+}
 
 data class LoadTestResult(
     val durationMs: Long,
@@ -23,47 +41,86 @@ data class LoadTestResult(
 )
 
 /**
- * Synthetic CPU load to see how the device responds under stress.
- * Supports 1 / 5 / 10 minute runs. One log line only — no storage growth.
+ * Synthetic CPU load with live progress updates (task-manager style).
  */
 object LoadTester {
 
-    /** Allowed durations in seconds: 1 min, 5 min, 10 min. */
     val ALLOWED_DURATIONS_SEC = listOf(60, 300, 600)
 
     suspend fun run(
         context: Context,
         durationSec: Int = 60,
-        threads: Int = 4
+        threads: Int = 4,
+        onProgress: (LoadTestProgress) -> Unit = {}
     ): LoadTestResult = withContext(Dispatchers.Default) {
         val collector = DeviceInfoCollector(context)
-        val before = collector.collect(networkProbe = false)
-        val ops = AtomicLong(0)
         val sec = durationSec.coerceIn(60, 600)
         val durationMs = sec * 1000L
         val threadCount = threads.coerceIn(1, 8)
-        val endAt = System.nanoTime() + durationMs * 1_000_000L
+        val ops = AtomicLong(0)
+        val stopFlag = AtomicBoolean(false)
 
-        coroutineScope {
-            (0 until threadCount).map {
-                async {
-                    var local = 0L
-                    var x = 1.000001
-                    while (System.nanoTime() < endAt) {
-                        x = sqrt(x * x + 1.000001)
-                        local++
-                        // Yield often so the UI / system can still schedule
-                        if (local and 0x3FFL == 0L) {
-                            Thread.yield()
-                        }
-                    }
-                    ops.addAndGet(local)
-                }
-            }.awaitAll()
+        fun sampleProgress(elapsed: Int, phase: String) {
+            val snap = try {
+                collector.collect(networkProbe = false)
+            } catch (_: Exception) {
+                null
+            }
+            onProgress(
+                LoadTestProgress(
+                    running = true,
+                    durationSec = sec,
+                    elapsedSec = elapsed,
+                    operations = ops.get(),
+                    ramUsedMb = snap?.memory?.usedRamMb ?: 0L,
+                    batteryPct = snap?.battery?.level ?: 0,
+                    tempC = snap?.battery?.temperature ?: 0f,
+                    phase = phase
+                )
+            )
         }
 
+        sampleProgress(0, "Starting")
+        val before = collector.collect(networkProbe = false)
+        val endAt = System.nanoTime() + durationMs * 1_000_000L
+        val startMs = System.currentTimeMillis()
+
+        // Progress sampler on a sibling coroutine
+        val sampler = launch {
+            var tick = 0
+            while (isActive && !stopFlag.get()) {
+                delay(1000L)
+                tick++
+                val elapsed = ((System.currentTimeMillis() - startMs) / 1000L).toInt().coerceAtMost(sec)
+                sampleProgress(elapsed, "Stressing CPU")
+            }
+        }
+
+        try {
+            coroutineScope {
+                (0 until threadCount).map {
+                    async {
+                        var local = 0L
+                        var x = 1.000001
+                        while (System.nanoTime() < endAt && !stopFlag.get()) {
+                            x = sqrt(x * x + 1.000001)
+                            local++
+                            if (local and 0x3FFL == 0L) {
+                                Thread.yield()
+                            }
+                        }
+                        ops.addAndGet(local)
+                    }
+                }.awaitAll()
+            }
+        } finally {
+            stopFlag.set(true)
+            sampler.cancel()
+        }
+
+        sampleProgress(sec, "Cooling down")
         System.gc()
-        Thread.sleep(300)
+        delay(400)
 
         val after = collector.collect(networkProbe = false)
         val mins = sec / 60
@@ -82,6 +139,19 @@ object LoadTester {
         }
 
         DiagnosticLog.get(context).append(summary)
+
+        onProgress(
+            LoadTestProgress(
+                running = false,
+                durationSec = sec,
+                elapsedSec = sec,
+                operations = ops.get(),
+                ramUsedMb = after.memory.usedRamMb,
+                batteryPct = after.battery.level,
+                tempC = after.battery.temperature,
+                phase = "Done"
+            )
+        )
 
         LoadTestResult(
             durationMs = durationMs,
