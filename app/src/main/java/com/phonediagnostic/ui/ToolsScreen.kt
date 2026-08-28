@@ -20,10 +20,10 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.phonediagnostic.data.DiagnosticLog
+import com.phonediagnostic.data.LoadTestProgress
 import com.phonediagnostic.data.LoadTestResult
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,6 +44,7 @@ import com.phonediagnostic.data.LoadTestResult
 fun ToolsScreen(
     logLines: List<String>,
     loadTesting: Boolean,
+    loadProgress: LoadTestProgress?,
     lastLoadResult: LoadTestResult?,
     onBack: () -> Unit,
     onRefreshLog: () -> Unit,
@@ -56,7 +58,7 @@ fun ToolsScreen(
             TopAppBar(
                 title = { Text("Tools") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, enabled = !loadTesting) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
@@ -64,10 +66,10 @@ fun ToolsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onRefreshLog) {
+                    IconButton(onClick = onRefreshLog, enabled = !loadTesting) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh log")
                     }
-                    IconButton(onClick = onClearLog) {
+                    IconButton(onClick = onClearLog, enabled = !loadTesting) {
                         Icon(Icons.Filled.Delete, contentDescription = "Clear log")
                     }
                 }
@@ -95,24 +97,14 @@ fun ToolsScreen(
                         Box(modifier = Modifier.height(6.dp))
                         Text(
                             text = "CPU stress test. Phone may warm up and drain battery. " +
-                                "Records RAM / battery before & after. One log line only.",
+                                "Live stats update while running.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Box(modifier = Modifier.height(12.dp))
-                        if (loadTesting) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.height(20.dp),
-                                    strokeWidth = 2.dp
-                                )
-                                Box(modifier = Modifier.padding(horizontal = 10.dp))
-                                Text("Running load test… keep app open")
-                            }
+
+                        if (loadTesting && loadProgress != null) {
+                            LiveLoadPanel(progress = loadProgress)
                         } else {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -120,25 +112,34 @@ fun ToolsScreen(
                             ) {
                                 OutlinedButton(
                                     onClick = { onRunLoadTest(60) },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f),
+                                    enabled = !loadTesting
                                 ) { Text("1 min") }
                                 OutlinedButton(
                                     onClick = { onRunLoadTest(300) },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f),
+                                    enabled = !loadTesting
                                 ) { Text("5 min") }
                                 Button(
                                     onClick = { onRunLoadTest(600) },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f),
+                                    enabled = !loadTesting
                                 ) { Text("10 min") }
                             }
-                        }
-                        if (lastLoadResult != null) {
-                            Box(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = lastLoadResult.summary,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontFamily = FontFamily.Monospace
-                            )
+                            if (lastLoadResult != null) {
+                                Box(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Last result",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Box(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = lastLoadResult.summary,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
                         }
                     }
                 }
@@ -186,5 +187,86 @@ fun ToolsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LiveLoadPanel(progress: LoadTestProgress) {
+    val elapsedLabel = formatClock(progress.elapsedSec)
+    val totalLabel = formatClock(progress.durationSec)
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = progress.phase,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Box(modifier = Modifier.height(8.dp))
+        LinearProgressIndicator(
+            progress = { progress.fraction },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+        )
+        Box(modifier = Modifier.height(6.dp))
+        Text(
+            text = "$elapsedLabel / $totalLabel",
+            style = MaterialTheme.typography.labelLarge,
+            fontFamily = FontFamily.Monospace
+        )
+        Box(modifier = Modifier.height(12.dp))
+        Text("Live stats", fontWeight = FontWeight.SemiBold)
+        Box(modifier = Modifier.height(6.dp))
+        MetricRow("RAM used", "${progress.ramUsedMb} MB")
+        MetricRow("Battery", "${progress.batteryPct}%")
+        MetricRow(
+            "Temperature",
+            String.format("%.1f °C", progress.tempC)
+        )
+        MetricRow("CPU ops", formatOps(progress.operations))
+        MetricRow("Threads", "4 active")
+        Box(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Keep this screen open. UI may feel slower under full CPU load.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun MetricRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+private fun formatClock(totalSec: Int): String {
+    val m = totalSec / 60
+    val s = totalSec % 60
+    return String.format("%d:%02d", m, s)
+}
+
+private fun formatOps(ops: Long): String {
+    return when {
+        ops >= 1_000_000_000L -> String.format("%.2fB", ops / 1_000_000_000.0)
+        ops >= 1_000_000L -> String.format("%.1fM", ops / 1_000_000.0)
+        ops >= 1_000L -> String.format("%.1fK", ops / 1_000.0)
+        else -> ops.toString()
     }
 }
