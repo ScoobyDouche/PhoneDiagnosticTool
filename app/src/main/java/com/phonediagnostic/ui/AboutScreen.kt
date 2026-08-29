@@ -2,6 +2,7 @@ package com.phonediagnostic.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -27,6 +28,7 @@ fun AboutScreen(
     onBack: () -> Unit
 ) {
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = { Text("About") },
@@ -47,15 +49,15 @@ fun AboutScreen(
         ) {
             Text("Phone Diagnostic Tool", style = MaterialTheme.typography.headlineSmall)
             Text("Version $versionName", style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             Text(
                 "On-device hardware and system diagnostics for Android. " +
                     "No accounts. No analytics SDKs.",
                 style = MaterialTheme.typography.bodyMedium
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             Text("Privacy", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 "Diagnostics run on your device. The optional network latency check " +
                     "opens a short TCP connection to 8.8.8.8:53 and does not upload reports. " +
@@ -63,17 +65,17 @@ fun AboutScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             Text("License", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 "MIT License. See LICENSE in the project repository.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             Text("Source", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 "github.com/ScoobyDouche/PhoneDiagnosticTool",
                 style = MaterialTheme.typography.bodyMedium,
