@@ -31,7 +31,6 @@ import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Sensors
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -186,7 +185,7 @@ class MainActivity : ComponentActivity() {
                                         sensors = report?.sensors.orEmpty(),
                                         cameras = report?.cameras.orEmpty(),
                                         isRefreshing = isRefreshing,
-                                        onBack = { viewModel.openDashboard() },
+                                        onBack = null,
                                         onRefresh = { viewModel.refreshNow() }
                                     )
                                 }
