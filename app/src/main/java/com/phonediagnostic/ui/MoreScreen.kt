@@ -13,8 +13,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material3.Card
@@ -43,8 +45,13 @@ fun MoreScreen(
     onOpenStorage: () -> Unit,
     onOpenTools: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenAbout: () -> Unit
+    onOpenAbout: () -> Unit,
+    onShareText: () -> Unit,
+    onShareJson: () -> Unit,
+    onCopyText: () -> Unit
 ) {
+    val hasReport = report != null
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
@@ -67,6 +74,50 @@ fun MoreScreen(
                 )
             }
 
+            item {
+                Text(
+                    text = "Report",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                )
+            }
+            item {
+                MoreLink(
+                    icon = Icons.Filled.Share,
+                    title = "Share as text",
+                    subtitle = if (hasReport) "Plain-text diagnostic report" else "Collect a report first",
+                    enabled = hasReport,
+                    onClick = onShareText
+                )
+            }
+            item {
+                MoreLink(
+                    icon = Icons.Filled.Share,
+                    title = "Share as JSON",
+                    subtitle = if (hasReport) "Machine-readable export" else "Collect a report first",
+                    enabled = hasReport,
+                    onClick = onShareJson
+                )
+            }
+            item {
+                MoreLink(
+                    icon = Icons.Filled.ContentCopy,
+                    title = "Copy text",
+                    subtitle = if (hasReport) "Copy report to clipboard" else "Collect a report first",
+                    enabled = hasReport,
+                    onClick = onCopyText
+                )
+            }
+
+            item {
+                Text(
+                    text = "Details & tools",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                )
+            }
             item {
                 MoreLink(
                     icon = Icons.Outlined.Memory,
@@ -120,15 +171,20 @@ private fun MoreLink(
     icon: ImageVector,
     title: String,
     subtitle: String,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
+    val alpha = if (enabled) 1f else 0.45f
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clickable(onClick = onClick),
+            .then(
+                if (enabled) Modifier.clickable(onClick = onClick)
+                else Modifier
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = alpha)
         )
     ) {
         Row(
@@ -141,25 +197,28 @@ private fun MoreLink(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = alpha)
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
                 )
             }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (enabled) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
