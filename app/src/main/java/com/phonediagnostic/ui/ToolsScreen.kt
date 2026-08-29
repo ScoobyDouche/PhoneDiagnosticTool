@@ -1,10 +1,14 @@
 package com.phonediagnostic.ui
 
 import android.content.Context
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,16 +42,19 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.phonediagnostic.data.DiagnosticLog
 import com.phonediagnostic.data.LoadTestProgress
 import com.phonediagnostic.data.LoadTestResult
@@ -68,6 +75,48 @@ fun ToolsScreen(
     val listState = rememberLazyListState()
     val context = LocalContext.current
     var maxPointers by remember { mutableIntStateOf(0) }
+    var showDisplayTest by remember { mutableStateOf(false) }
+    var displayColorIndex by remember { mutableIntStateOf(0) }
+
+    val displayColors = listOf(
+        Color.Red to "Red",
+        Color.Green to "Green",
+        Color.Blue to "Blue",
+        Color.White to "White",
+        Color.Black to "Black",
+        Color.Cyan to "Cyan",
+        Color.Magenta to "Magenta",
+        Color.Yellow to "Yellow"
+    )
+
+    if (showDisplayTest) {
+        Dialog(
+            onDismissRequest = { showDisplayTest = false },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            )
+        ) {
+            val (color, name) = displayColors[displayColorIndex % displayColors.size]
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(color)
+                    .clickable {
+                        displayColorIndex = (displayColorIndex + 1) % displayColors.size
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "$name\nTap to cycle · Back to exit",
+                    color = if (color == Color.Black || color == Color.Blue) Color.White else Color.Black,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -190,6 +239,19 @@ fun ToolsScreen(
                                 modifier = Modifier.weight(1f),
                                 enabled = !loadTesting
                             ) { Text("Vibrate") }
+                            OutlinedButton(
+                                onClick = { playTone(context) },
+                                modifier = Modifier.weight(1f),
+                                enabled = !loadTesting
+                            ) { Text("Tone") }
+                            OutlinedButton(
+                                onClick = {
+                                    displayColorIndex = 0
+                                    showDisplayTest = true
+                                },
+                                modifier = Modifier.weight(1f),
+                                enabled = !loadTesting
+                            ) { Text("Display") }
                         }
                         Box(modifier = Modifier.height(12.dp))
                         Text(
@@ -201,6 +263,10 @@ fun ToolsScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(100.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    RoundedCornerShape(12.dp)
+                                )
                                 .pointerInput(Unit) {
                                     awaitPointerEventScope {
                                         while (true) {
@@ -285,6 +351,16 @@ private fun vibrateShort(context: Context) {
         }
     } catch (_: Exception) {
         // no vibrator
+    }
+}
+
+private fun playTone(context: Context) {
+    try {
+        val tg = ToneGenerator(AudioManager.STREAM_MUSIC, 80)
+        tg.startTone(ToneGenerator.TONE_PROP_BEEP, 200)
+        // ToneGenerator releases itself after delay on most devices; safe to let GC handle
+    } catch (_: Exception) {
+        // no audio
     }
 }
 
