@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -65,18 +66,17 @@ fun DashboardScreen(
     onCopyText: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenRamDetail: () -> Unit,
-    onOpenStorageDetail: () -> Unit,
-    onOpenSensors: () -> Unit,
-    onOpenThermals: () -> Unit
+    onOpenStorageDetail: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text("Phone Diagnostic", fontWeight = FontWeight.SemiBold)
+                        Text("Overview", fontWeight = FontWeight.SemiBold)
                         if (lastUpdated.isNotEmpty()) {
                             Text(
                                 text = if (isLive) "Live · $lastUpdated" else "Paused · $lastUpdated",
@@ -175,9 +175,7 @@ fun DashboardScreen(
                         isLive = isLive,
                         versionName = versionName,
                         onOpenRamDetail = onOpenRamDetail,
-                        onOpenStorageDetail = onOpenStorageDetail,
-                        onOpenSensors = onOpenSensors,
-                        onOpenThermals = onOpenThermals
+                        onOpenStorageDetail = onOpenStorageDetail
                     )
                 }
             }
@@ -191,9 +189,7 @@ private fun ReportList(
     isLive: Boolean,
     versionName: String,
     onOpenRamDetail: () -> Unit,
-    onOpenStorageDetail: () -> Unit,
-    onOpenSensors: () -> Unit,
-    onOpenThermals: () -> Unit
+    onOpenStorageDetail: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -237,69 +233,12 @@ private fun ReportList(
             }
         }
 
-        item(key = "cpu") {
-            InfoCard(title = "CPU / SoC · Live") {
-                Column {
-                    InfoRow("Cores", data.cpu.cores.toString())
-                    InfoRow("Architecture", data.cpu.architecture)
-                    InfoRow("Board / Platform", data.cpu.boardPlatform)
-                    InfoRow("Hardware", data.cpu.hardware)
-                    InfoRow("Processor", data.cpu.processor)
-                    InfoRow("ABIs", data.cpu.supportedAbis.joinToString(", "))
-                    if (data.cpu.minFreqMhz != null || data.cpu.maxFreqMhz != null) {
-                        val min = data.cpu.minFreqMhz?.toString() ?: "?"
-                        val max = data.cpu.maxFreqMhz?.toString() ?: "?"
-                        InfoRow("Freq range", "$min – $max MHz")
-                    }
-                    if (data.cpu.currentFreqMhz.isNotEmpty()) {
-                        InfoRow(
-                            "Current (cores)",
-                            data.cpu.currentFreqMhz.joinToString(", ") { "$it" } + " MHz"
-                        )
-                    }
-                }
-            }
-        }
-
         item(key = "gpu") {
             InfoCard(title = "GPU") {
                 Column {
                     InfoRow("Renderer", data.gpu.renderer)
                     InfoRow("Vendor", data.gpu.vendor)
                     InfoRow("Version", data.gpu.version)
-                }
-            }
-        }
-
-        item(key = "battery") {
-            InfoCard(title = "Battery · Live") {
-                Column {
-                    UsageBar(
-                        label = "Level",
-                        percent = data.battery.level.coerceIn(0, 100),
-                        detail = "${data.battery.level}%"
-                    )
-                    InfoRow("Status", data.battery.status)
-                    InfoRow("Health", data.battery.health)
-                    InfoRow("Temperature", String.format(Locale.US, "%.1f °C", data.battery.temperature))
-                    InfoRow("Voltage", "${data.battery.voltage} mV")
-                    InfoRow(
-                        "Current (now)",
-                        data.battery.currentNowMa?.let { "$it mA" } ?: "Unavailable"
-                    )
-                    InfoRow(
-                        "Current (avg)",
-                        data.battery.currentAvgMa?.let { "$it mA" } ?: "Unavailable"
-                    )
-                    if (data.battery.capacityMah != null) {
-                        InfoRow("Design capacity", "${data.battery.capacityMah} mAh")
-                    }
-                    if (data.battery.chargeCounterUah != null) {
-                        val mah = data.battery.chargeCounterUah / 1000.0
-                        InfoRow("Charge counter", String.format(Locale.US, "%.0f mAh", mah))
-                    }
-                    InfoRow("Technology", data.battery.technology)
-                    InfoRow("Power Source", data.battery.powerSource)
                 }
             }
         }
@@ -389,9 +328,6 @@ private fun ReportList(
                         if (s.emulatedExternal) "Emulated (${s.externalStorageState})"
                         else s.externalStorageState.ifBlank { "—" }
                     )
-                    if (s.dataDirectory.isNotBlank()) {
-                        InfoRow("Data path", s.dataDirectory)
-                    }
                 }
             }
         }
@@ -416,79 +352,15 @@ private fun ReportList(
             }
         }
 
-        item(key = "thermals") {
-            InfoCard(
-                title = "Thermals · Live",
-                onClick = onOpenThermals
-            ) {
-                Column {
-                    InfoRow("Zones", data.thermals.size.toString())
-                    if (data.thermals.isEmpty()) {
-                        Text(
-                            text = "No readable zones (vendor may restrict /sys)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    } else {
-                        data.thermals.take(5).forEach { zone ->
-                            val label = zone.type.ifBlank { zone.name }
-                            InfoRow(
-                                label.take(28),
-                                String.format(Locale.US, "%.1f °C", zone.tempC)
-                            )
-                        }
-                        if (data.thermals.size > 5) {
-                            Text(
-                                text = "Tap for all ${data.thermals.size} zones",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 6.dp)
-                            )
-                        } else {
-                            Text(
-                                text = "Tap for full list",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 6.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        item(key = "sensors") {
-            InfoCard(
-                title = "Sensors & cameras",
-                onClick = onOpenSensors
-            ) {
-                Column {
-                    InfoRow("Sensors", data.sensors.size.toString())
-                    InfoRow("Cameras", data.cameras.size.toString())
-                    if (data.cameras.isNotEmpty()) {
-                        val summary = data.cameras.joinToString(" · ") {
-                            "${it.facing} (${it.pixelArraySize})"
-                        }
-                        InfoRow("Facing", summary)
-                    }
-                    val withLive = data.sensors.count { it.liveValues.isNotBlank() }
-                    if (withLive > 0) {
-                        InfoRow("Live samples", "$withLive sensors")
-                    }
-                }
-            }
-        }
-
         item(key = "footer") {
             Text(
-                text = "Phone Diagnostic Tool · v$versionName",
+                text = "Use bottom tabs for CPU · Battery · Sensors\nPhone Diagnostic Tool · v$versionName",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 20.dp)
+                    .padding(horizontal = 16.dp, vertical = 16.dp)
             )
         }
     }
@@ -556,7 +428,7 @@ private fun LiveBadge(isLive: Boolean) {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isLive) "Battery, RAM, CPU freq, sensors, thermals every 3s · Pull to full refresh"
+                text = if (isLive) "Updates every 3s · Pull to full refresh"
                 else "Tap play to resume",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
