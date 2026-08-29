@@ -38,7 +38,7 @@ fun SensorsScreen(
     sensors: List<SensorEntry>,
     cameras: List<CameraEntry>,
     isRefreshing: Boolean,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     onRefresh: () -> Unit
 ) {
     Scaffold(
@@ -46,11 +46,13 @@ fun SensorsScreen(
             TopAppBar(
                 title = { Text("Sensors & cameras") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
                     }
                 },
                 actions = {
