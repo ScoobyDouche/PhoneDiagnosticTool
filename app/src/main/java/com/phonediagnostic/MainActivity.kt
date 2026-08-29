@@ -185,6 +185,7 @@ class MainActivity : ComponentActivity() {
                                 onBack = { viewModel.openSettings() },
                                 onRefreshLog = { viewModel.refreshLog() },
                                 onClearLog = { viewModel.clearLog() },
+                                onShareLog = { shareLog() },
                                 onRunLoadTest = { durationSec -> viewModel.runLoadTest(durationSec) }
                             )
                         }
@@ -273,6 +274,25 @@ class MainActivity : ComponentActivity() {
                     putExtra(Intent.EXTRA_TEXT, json)
                 },
                 "Share JSON report"
+            )
+        )
+    }
+
+    private fun shareLog() {
+        val lines = viewModel.logLines.value
+        if (lines.isEmpty()) {
+            Toast.makeText(this, "Log is empty", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val text = lines.joinToString("\n")
+        startActivity(
+            Intent.createChooser(
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "Phone Diagnostic Log")
+                    putExtra(Intent.EXTRA_TEXT, text)
+                },
+                "Share diagnostic log"
             )
         )
     }
