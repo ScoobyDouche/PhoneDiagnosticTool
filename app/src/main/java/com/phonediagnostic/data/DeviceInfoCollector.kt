@@ -4,6 +4,12 @@ import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.opengl.GLES20
@@ -20,6 +26,7 @@ import java.io.File
 import java.io.InputStreamReader
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import javax.microedition.khronos.egl.EGL10
 import javax.microedition.khronos.egl.EGLConfig
@@ -33,6 +40,7 @@ class DeviceInfoCollector(private val context: Context) {
         private const val LATENCY_HOST = "8.8.8.8"
         private const val LATENCY_PORT = 53
         private const val LATENCY_TIMEOUT_MS = 3000
+        private const val SENSOR_SAMPLE_MS = 250L
     }
 
     fun collect(networkProbe: Boolean = true): FullDeviceReport {
@@ -44,7 +52,9 @@ class DeviceInfoCollector(private val context: Context) {
             memory = collectMemory(),
             storage = collectStorage(),
             display = collectDisplay(),
-            network = collectNetwork(networkProbe)
+            network = collectNetwork(networkProbe),
+            sensors = collectSensors(live = true),
+            cameras = collectCameras()
         )
     }
 
@@ -53,7 +63,11 @@ class DeviceInfoCollector(private val context: Context) {
             overview = collectOverview(),
             battery = collectBattery(),
             memory = collectMemory(),
-            network = collectNetworkLight(previous.network, networkProbe)
+            network = collectNetworkLight(previous.network, networkProbe),
+            cpu = previous.cpu.copy(
+                currentFreqMhz = readCpuFrequenciesMhz()
+            ),
+            sensors = collectSensors(live = true)
         )
     }
 
@@ -77,7 +91,14 @@ class DeviceInfoCollector(private val context: Context) {
             } else {
                 "N/A"
             },
-            uptime = uptimeStr
+            uptime = uptimeStr,
+            fingerprint = Build.FINGERPRINT.orEmpty(),
+            board = Build.BOARD.orEmpty(),
+            bootloader = Build.BOOTLOADER.orEmpty(),
+            hardware = Build.HARDWARE.orEmpty(),
+            host = Build.HOST.orEmpty(),
+            tags = Build.TAGS.orEmpty(),
+            type = Build.TYPE.orEmpty()
         )
     }
 
@@ -100,6 +121,8 @@ class DeviceInfoCollector(private val context: Context) {
             .ifBlank { hardware }
 
         val processor = resolveProcessorName(hardware, boardPlatform)
+        val freqs = readCpuFrequenciesMhz()
+        val (minF, maxF) = readCpuFreqRangeMhz()
 
         return CpuInfo(
             cores = cores,
@@ -107,7 +130,10 @@ class DeviceInfoCollector(private val context: Context) {
             supportedAbis = abis,
             hardware = hardware,
             processor = processor,
-            boardPlatform = boardPlatform
+            boardPlatform = boardPlatform,
+            currentFreqMhz = freqs,
+            minFreqMhz = minF,
+            maxFreqMhz = maxF
         )
     }
 
@@ -158,6 +184,60 @@ class DeviceInfoCollector(private val context: Context) {
         } catch (_: Exception) {
             ""
         }
+    }
+
+    /** Best-effort: read scaling_cur_freq from cpuN cpufreq nodes (kHz → MHz). */
+    private fun readCpuFrequenciesMhz(): List<Int> {
+        val result = ArrayList<Int>()
+        for (i in 0 until 16) {
+            val path = "/sys/devices/system/cpu/cpu$i/cpufreq/scaling_cur_freq"
+            val f = File(path)
+            if (!f.canRead()) continue
+            try {
+                val khz = f.readText().trim().toLongOrNull() ?: continue
+                result.add((khz / 1000L).toInt())
+            } catch (_: Exception) {
+                // skip
+            }
+        }
+        return result
+    }
+
+    private fun readCpuFreqRangeMhz(): Pair<Int?, Int?> {
+        var min: Long? = null
+        var max: Long? = null
+        val candidates = listOf(
+            "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq",
+            "/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq",
+            "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_min_freq"
+        )
+        val maxCandidates = listOf(
+            "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq",
+            "/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq",
+            "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_max_freq"
+        )
+        for (p in candidates) {
+            try {
+                val f = File(p)
+                if (f.canRead()) {
+                    min = f.readText().trim().toLongOrNull()
+                    if (min != null) break
+                }
+            } catch (_: Exception) {}
+        }
+        for (p in maxCandidates) {
+            try {
+                val f = File(p)
+                if (f.canRead()) {
+                    max = f.readText().trim().toLongOrNull()
+                    if (max != null) break
+                }
+            } catch (_: Exception) {}
+        }
+        return Pair(
+            min?.let { (it / 1000L).toInt() },
+            max?.let { (it / 1000L).toInt() }
+        )
     }
 
     private fun collectGpu(): GpuInfo {
@@ -296,7 +376,6 @@ class DeviceInfoCollector(private val context: Context) {
         val thresholdMb = memInfo.threshold / (1024 * 1024)
         val low = memInfo.lowMemory
 
-        // Android intentionally fills RAM with cached apps. High % used while idle is normal.
         val hint = when {
             low -> "Under memory pressure — system is freeing caches"
             availableMb <= thresholdMb * 2 -> "Available is near the system threshold"
@@ -501,6 +580,180 @@ class DeviceInfoCollector(private val context: Context) {
             refreshRate = refreshRate,
             screenSizeInches = diagonal
         )
+    }
+
+    private fun collectSensors(live: Boolean): List<SensorEntry> {
+        val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+            ?: return emptyList()
+
+        val sensors = try {
+            sm.getSensorList(Sensor.TYPE_ALL)
+        } catch (_: Exception) {
+            emptyList()
+        }
+
+        if (sensors.isEmpty()) return emptyList()
+
+        val liveMap = if (live) sampleLiveSensors(sm, sensors) else emptyMap()
+
+        return sensors.map { s ->
+            SensorEntry(
+                name = s.name ?: "Unknown",
+                type = sensorTypeName(s.type),
+                vendor = s.vendor ?: "",
+                powerMa = s.power,
+                resolution = s.resolution,
+                maxRange = s.maximumRange,
+                minDelayUs = s.minDelay,
+                liveValues = liveMap[s] ?: ""
+            )
+        }.sortedWith(compareBy({ it.type }, { it.name }))
+    }
+
+    private fun sampleLiveSensors(
+        sm: SensorManager,
+        sensors: List<Sensor>
+    ): Map<Sensor, String> {
+        // Prefer common interactive sensors; sampling all can be heavy
+        val interesting = sensors.filter { s ->
+            when (s.type) {
+                Sensor.TYPE_ACCELEROMETER,
+                Sensor.TYPE_GYROSCOPE,
+                Sensor.TYPE_MAGNETIC_FIELD,
+                Sensor.TYPE_LIGHT,
+                Sensor.TYPE_PROXIMITY,
+                Sensor.TYPE_PRESSURE,
+                Sensor.TYPE_AMBIENT_TEMPERATURE,
+                Sensor.TYPE_RELATIVE_HUMIDITY,
+                Sensor.TYPE_GRAVITY,
+                Sensor.TYPE_LINEAR_ACCELERATION,
+                Sensor.TYPE_ROTATION_VECTOR,
+                Sensor.TYPE_STEP_COUNTER,
+                Sensor.TYPE_HEART_RATE -> true
+                else -> false
+            }
+        }.take(12)
+
+        if (interesting.isEmpty()) return emptyMap()
+
+        val results = mutableMapOf<Sensor, String>()
+        val latch = CountDownLatch(interesting.size)
+        val listeners = mutableListOf<SensorEventListener>()
+
+        interesting.forEach { sensor ->
+            val listener = object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent?) {
+                    if (event == null) return
+                    val values = event.values?.take(3)?.joinToString(", ") {
+                        String.format("%.3f", it)
+                    } ?: return
+                    synchronized(results) {
+                        if (!results.containsKey(sensor)) {
+                            results[sensor] = values
+                            latch.countDown()
+                        }
+                    }
+                    try {
+                        sm.unregisterListener(this)
+                    } catch (_: Exception) {}
+                }
+
+                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+            }
+            listeners.add(listener)
+            try {
+                sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+            } catch (_: Exception) {
+                latch.countDown()
+            }
+        }
+
+        try {
+            latch.await(SENSOR_SAMPLE_MS, TimeUnit.MILLISECONDS)
+        } catch (_: Exception) {}
+
+        listeners.forEach { l ->
+            try {
+                sm.unregisterListener(l)
+            } catch (_: Exception) {}
+        }
+
+        return results
+    }
+
+    private fun sensorTypeName(type: Int): String {
+        return when (type) {
+            Sensor.TYPE_ACCELEROMETER -> "Accelerometer"
+            Sensor.TYPE_GYROSCOPE -> "Gyroscope"
+            Sensor.TYPE_MAGNETIC_FIELD -> "Magnetic field"
+            Sensor.TYPE_LIGHT -> "Light"
+            Sensor.TYPE_PROXIMITY -> "Proximity"
+            Sensor.TYPE_PRESSURE -> "Pressure"
+            Sensor.TYPE_AMBIENT_TEMPERATURE -> "Ambient temperature"
+            Sensor.TYPE_RELATIVE_HUMIDITY -> "Humidity"
+            Sensor.TYPE_GRAVITY -> "Gravity"
+            Sensor.TYPE_LINEAR_ACCELERATION -> "Linear acceleration"
+            Sensor.TYPE_ROTATION_VECTOR -> "Rotation vector"
+            Sensor.TYPE_STEP_COUNTER -> "Step counter"
+            Sensor.TYPE_STEP_DETECTOR -> "Step detector"
+            Sensor.TYPE_HEART_RATE -> "Heart rate"
+            Sensor.TYPE_ORIENTATION -> "Orientation"
+            else -> "Type $type"
+        }
+    }
+
+    private fun collectCameras(): List<CameraEntry> {
+        val cm = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
+            ?: return emptyList()
+
+        val ids = try {
+            cm.cameraIdList
+        } catch (_: Exception) {
+            return emptyList()
+        }
+
+        val result = ArrayList<CameraEntry>()
+        for (id in ids) {
+            try {
+                val chars = cm.getCameraCharacteristics(id)
+                val facing = when (chars.get(CameraCharacteristics.LENS_FACING)) {
+                    CameraCharacteristics.LENS_FACING_FRONT -> "Front"
+                    CameraCharacteristics.LENS_FACING_BACK -> "Back"
+                    CameraCharacteristics.LENS_FACING_EXTERNAL -> "External"
+                    else -> "Unknown"
+                }
+                val orientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+                val level = when (chars.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)) {
+                    CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY -> "Legacy"
+                    CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED -> "Limited"
+                    CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_FULL -> "Full"
+                    CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_3 -> "Level 3"
+                    CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL -> "External"
+                    else -> "Unknown"
+                }
+                val size = chars.get(CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE)
+                val pixelArray = if (size != null) "${size.width}×${size.height}" else "—"
+                val focals = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+                    ?.joinToString(", ") { String.format("%.2f mm", it) } ?: "—"
+                val apertures = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES)
+                    ?.joinToString(", ") { String.format("f/%.1f", it) } ?: "—"
+
+                result.add(
+                    CameraEntry(
+                        id = id,
+                        facing = facing,
+                        sensorOrientation = orientation,
+                        hardwareLevel = level,
+                        pixelArraySize = pixelArray,
+                        focalLengths = focals,
+                        aperture = apertures
+                    )
+                )
+            } catch (_: Exception) {
+                // skip inaccessible cameras
+            }
+        }
+        return result
     }
 
     private fun collectNetworkLight(previous: NetworkInfo, networkProbe: Boolean): NetworkInfo {
