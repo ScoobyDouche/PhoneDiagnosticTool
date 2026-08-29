@@ -17,7 +17,9 @@ data class DeviceOverview(
     val hardware: String = "",
     val host: String = "",
     val tags: String = "",
-    val type: String = ""
+    val type: String = "",
+    val kernelVersion: String = "",
+    val radioVersion: String = ""
 )
 
 data class CpuInfo(
@@ -52,7 +54,11 @@ data class BatteryInfo(
     /** Instantaneous current in mA; null if unavailable. Negative often means discharging. */
     val currentNowMa: Int?,
     /** Average current in mA; null if unavailable. */
-    val currentAvgMa: Int?
+    val currentAvgMa: Int?,
+    /** Design / reported capacity in mAh when exposed. */
+    val capacityMah: Int? = null,
+    /** Charge counter (µAh) when exposed. */
+    val chargeCounterUah: Long? = null
 )
 
 data class MemoryInfo(
@@ -113,7 +119,13 @@ data class NetworkInfo(
     val networkType: String,
     val latencyMs: Long?,
     val latencyTarget: String,
-    val latencyStatus: String
+    val latencyStatus: String,
+    /** Downstream link bandwidth in Mbps when reported by the system. */
+    val downstreamMbps: Int? = null,
+    /** Upstream link bandwidth in Mbps when reported. */
+    val upstreamMbps: Int? = null,
+    val validated: Boolean = false,
+    val metered: Boolean = false
 )
 
 data class SensorEntry(
@@ -138,6 +150,12 @@ data class CameraEntry(
     val aperture: String
 )
 
+data class ThermalZone(
+    val name: String,
+    val tempC: Float,
+    val type: String = ""
+)
+
 data class FullDeviceReport(
     val overview: DeviceOverview,
     val cpu: CpuInfo,
@@ -148,5 +166,6 @@ data class FullDeviceReport(
     val display: DisplayInfo,
     val network: NetworkInfo,
     val sensors: List<SensorEntry> = emptyList(),
-    val cameras: List<CameraEntry> = emptyList()
+    val cameras: List<CameraEntry> = emptyList(),
+    val thermals: List<ThermalZone> = emptyList()
 )
