@@ -29,7 +29,8 @@ enum class AppScreen {
     ABOUT,
     RAM_DETAIL,
     STORAGE_DETAIL,
-    TOOLS
+    TOOLS,
+    SENSORS
 }
 
 class DeviceViewModel(application: Application) : AndroidViewModel(application) {
@@ -147,6 +148,10 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     fun openTools() {
         refreshLog()
         _screen.value = AppScreen.TOOLS
+    }
+
+    fun openSensors() {
+        _screen.value = AppScreen.SENSORS
     }
 
     fun openRamDetail() {
