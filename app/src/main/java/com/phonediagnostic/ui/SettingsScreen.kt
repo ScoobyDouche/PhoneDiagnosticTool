@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.data.DiagnosticLog
 import com.phonediagnostic.data.ThemeMode
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,7 +97,7 @@ fun SettingsScreen(
                     Text("Keep monitoring", style = MaterialTheme.typography.bodyLarge)
                     Text(
                         "Samples battery & RAM every 30s with a persistent notification. " +
-                            "Log is capped at 100 lines (old entries drop).",
+                            "Log is capped at ${DiagnosticLog.MAX_ENTRIES} lines (oldest drop; ~0.5–1 MB full).",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

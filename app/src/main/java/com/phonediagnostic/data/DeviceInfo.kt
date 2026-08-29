@@ -10,7 +10,14 @@ data class DeviceOverview(
     val apiLevel: Int,
     val buildId: String,
     val securityPatch: String,
-    val uptime: String
+    val uptime: String,
+    val fingerprint: String = "",
+    val board: String = "",
+    val bootloader: String = "",
+    val hardware: String = "",
+    val host: String = "",
+    val tags: String = "",
+    val type: String = ""
 )
 
 data class CpuInfo(
@@ -19,7 +26,12 @@ data class CpuInfo(
     val supportedAbis: List<String>,
     val hardware: String,
     val processor: String,
-    val boardPlatform: String
+    val boardPlatform: String,
+    /** Best-effort current frequencies in MHz (one per online core when readable). */
+    val currentFreqMhz: List<Int> = emptyList(),
+    /** Best-effort min/max from cpufreq policy when readable. */
+    val minFreqMhz: Int? = null,
+    val maxFreqMhz: Int? = null
 )
 
 data class GpuInfo(
@@ -104,6 +116,28 @@ data class NetworkInfo(
     val latencyStatus: String
 )
 
+data class SensorEntry(
+    val name: String,
+    val type: String,
+    val vendor: String,
+    val powerMa: Float,
+    val resolution: Float,
+    val maxRange: Float,
+    val minDelayUs: Int,
+    /** Live reading when available (joined values). */
+    val liveValues: String = ""
+)
+
+data class CameraEntry(
+    val id: String,
+    val facing: String,
+    val sensorOrientation: Int,
+    val hardwareLevel: String,
+    val pixelArraySize: String,
+    val focalLengths: String,
+    val aperture: String
+)
+
 data class FullDeviceReport(
     val overview: DeviceOverview,
     val cpu: CpuInfo,
@@ -112,5 +146,7 @@ data class FullDeviceReport(
     val memory: MemoryInfo,
     val storage: StorageInfo,
     val display: DisplayInfo,
-    val network: NetworkInfo
+    val network: NetworkInfo,
+    val sensors: List<SensorEntry> = emptyList(),
+    val cameras: List<CameraEntry> = emptyList()
 )
