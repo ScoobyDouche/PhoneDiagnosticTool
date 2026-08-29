@@ -25,13 +25,25 @@ import kotlinx.coroutines.launch
 
 enum class AppScreen {
     DASHBOARD,
+    CPU,
+    BATTERY,
+    SENSORS,
+    MORE,
     SETTINGS,
     ABOUT,
     RAM_DETAIL,
     STORAGE_DETAIL,
     TOOLS,
-    SENSORS,
     THERMALS
+}
+
+fun AppScreen.isMainTab(): Boolean = when (this) {
+    AppScreen.DASHBOARD,
+    AppScreen.CPU,
+    AppScreen.BATTERY,
+    AppScreen.SENSORS,
+    AppScreen.MORE -> true
+    else -> false
 }
 
 class DeviceViewModel(application: Application) : AndroidViewModel(application) {
@@ -134,6 +146,12 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         _errorMessage.value = null
     }
 
+    fun selectMainTab(tab: AppScreen) {
+        if (tab.isMainTab()) {
+            _screen.value = tab
+        }
+    }
+
     fun openSettings() {
         _screen.value = AppScreen.SETTINGS
     }
@@ -144,6 +162,18 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     fun openDashboard() {
         _screen.value = AppScreen.DASHBOARD
+    }
+
+    fun openMore() {
+        _screen.value = AppScreen.MORE
+    }
+
+    fun openCpu() {
+        _screen.value = AppScreen.CPU
+    }
+
+    fun openBattery() {
+        _screen.value = AppScreen.BATTERY
     }
 
     fun openTools() {
