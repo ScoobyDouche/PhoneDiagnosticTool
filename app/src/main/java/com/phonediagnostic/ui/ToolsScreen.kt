@@ -1,5 +1,10 @@
 package com.phonediagnostic.ui
 
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -30,11 +36,18 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.gestures.detectTransformGestures
 import com.phonediagnostic.data.DiagnosticLog
 import com.phonediagnostic.data.LoadTestProgress
 import com.phonediagnostic.data.LoadTestResult
@@ -49,9 +62,12 @@ fun ToolsScreen(
     onBack: () -> Unit,
     onRefreshLog: () -> Unit,
     onClearLog: () -> Unit,
+    onShareLog: () -> Unit,
     onRunLoadTest: (durationSec: Int) -> Unit
 ) {
     val listState = rememberLazyListState()
+    val context = LocalContext.current
+    var maxPointers by remember { mutableIntStateOf(0) }
 
     Scaffold(
         topBar = {
@@ -66,6 +82,9 @@ fun ToolsScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onShareLog, enabled = !loadTesting && logLines.isNotEmpty()) {
+                        Icon(Icons.Filled.Share, contentDescription = "Share log")
+                    }
                     IconButton(onClick = onRefreshLog, enabled = !loadTesting) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh log")
                     }
@@ -146,6 +165,64 @@ fun ToolsScreen(
             }
 
             item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Hardware checks", fontWeight = FontWeight.SemiBold)
+                        Box(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Quick on-device tests. No data leaves the phone.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Box(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { vibrateShort(context) },
+                                modifier = Modifier.weight(1f),
+                                enabled = !loadTesting
+                            ) { Text("Vibrate") }
+                        }
+                        Box(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Multi-touch: put fingers on the pad below",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Box(modifier = Modifier.height(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(100.dp)
+                                .pointerInput(Unit) {
+                                    awaitPointerEventScope {
+                                        while (true) {
+                                            val event = awaitPointerEvent()
+                                            val count = event.changes.count { it.pressed }
+                                            if (count > maxPointers) maxPointers = count
+                                        }
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (maxPointers == 0) "Touch here" else "Max fingers: $maxPointers",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -190,6 +267,27 @@ fun ToolsScreen(
     }
 }
 
+@Suppress("DEPRECATION")
+private fun vibrateShort(context: Context) {
+    try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vm.defaultVibrator.vibrate(
+                VibrationEffect.createOneShot(80, VibrationEffect.DEFAULT_AMPLITUDE)
+            )
+        } else {
+            val v = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                v.vibrate(VibrationEffect.createOneShot(80, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                v.vibrate(80)
+            }
+        }
+    } catch (_: Exception) {
+        // no vibrator
+    }
+}
+
 @Composable
 private fun LiveLoadPanel(progress: LoadTestProgress) {
     val elapsedLabel = formatClock(progress.elapsedSec)
@@ -219,10 +317,7 @@ private fun LiveLoadPanel(progress: LoadTestProgress) {
         Box(modifier = Modifier.height(6.dp))
         MetricRow("RAM used", "${progress.ramUsedMb} MB")
         MetricRow("Battery", "${progress.batteryPct}%")
-        MetricRow(
-            "Temperature",
-            String.format("%.1f °C", progress.tempC)
-        )
+        MetricRow("Temperature", String.format("%.1f °C", progress.tempC))
         MetricRow("CPU ops", formatOps(progress.operations))
         MetricRow("Threads", "4 active")
         Box(modifier = Modifier.height(8.dp))
