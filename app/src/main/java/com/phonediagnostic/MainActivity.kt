@@ -34,6 +34,7 @@ import com.phonediagnostic.ui.AppScreen
 import com.phonediagnostic.ui.DashboardScreen
 import com.phonediagnostic.ui.DeviceViewModel
 import com.phonediagnostic.ui.RamDetailScreen
+import com.phonediagnostic.ui.SensorsScreen
 import com.phonediagnostic.ui.SettingsScreen
 import com.phonediagnostic.ui.StorageDetailScreen
 import com.phonediagnostic.ui.ToolsScreen
@@ -121,7 +122,8 @@ class MainActivity : ComponentActivity() {
                                 onCopyText = { copyText() },
                                 onOpenSettings = { viewModel.openSettings() },
                                 onOpenRamDetail = { viewModel.openRamDetail() },
-                                onOpenStorageDetail = { viewModel.openStorageDetail() }
+                                onOpenStorageDetail = { viewModel.openStorageDetail() },
+                                onOpenSensors = { viewModel.openSensors() }
                             )
                         }
                         AppScreen.SETTINGS -> {
@@ -184,6 +186,15 @@ class MainActivity : ComponentActivity() {
                                 onRefreshLog = { viewModel.refreshLog() },
                                 onClearLog = { viewModel.clearLog() },
                                 onRunLoadTest = { durationSec -> viewModel.runLoadTest(durationSec) }
+                            )
+                        }
+                        AppScreen.SENSORS -> {
+                            SensorsScreen(
+                                sensors = report?.sensors.orEmpty(),
+                                cameras = report?.cameras.orEmpty(),
+                                isRefreshing = isRefreshing,
+                                onBack = { viewModel.openDashboard() },
+                                onRefresh = { viewModel.refreshNow() }
                             )
                         }
                     }
