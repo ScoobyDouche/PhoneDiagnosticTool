@@ -65,7 +65,8 @@ fun DashboardScreen(
     onCopyText: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenRamDetail: () -> Unit,
-    onOpenStorageDetail: () -> Unit
+    onOpenStorageDetail: () -> Unit,
+    onOpenSensors: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
 
@@ -173,7 +174,8 @@ fun DashboardScreen(
                         isLive = isLive,
                         versionName = versionName,
                         onOpenRamDetail = onOpenRamDetail,
-                        onOpenStorageDetail = onOpenStorageDetail
+                        onOpenStorageDetail = onOpenStorageDetail,
+                        onOpenSensors = onOpenSensors
                     )
                 }
             }
@@ -187,7 +189,8 @@ private fun ReportList(
     isLive: Boolean,
     versionName: String,
     onOpenRamDetail: () -> Unit,
-    onOpenStorageDetail: () -> Unit
+    onOpenStorageDetail: () -> Unit,
+    onOpenSensors: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -205,13 +208,28 @@ private fun ReportList(
                     InfoRow("Android", "${data.overview.androidVersion} (API ${data.overview.apiLevel})")
                     InfoRow("Security Patch", data.overview.securityPatch)
                     InfoRow("Build ID", data.overview.buildId)
+                    if (data.overview.board.isNotBlank()) {
+                        InfoRow("Board", data.overview.board)
+                    }
+                    if (data.overview.bootloader.isNotBlank()) {
+                        InfoRow("Bootloader", data.overview.bootloader)
+                    }
+                    if (data.overview.hardware.isNotBlank()) {
+                        InfoRow("Hardware", data.overview.hardware)
+                    }
+                    if (data.overview.type.isNotBlank()) {
+                        InfoRow("Build type", data.overview.type)
+                    }
                     InfoRow("Uptime", data.overview.uptime)
+                    if (data.overview.fingerprint.isNotBlank()) {
+                        InfoRow("Fingerprint", data.overview.fingerprint)
+                    }
                 }
             }
         }
 
         item(key = "cpu") {
-            InfoCard(title = "CPU / SoC") {
+            InfoCard(title = "CPU / SoC · Live") {
                 Column {
                     InfoRow("Cores", data.cpu.cores.toString())
                     InfoRow("Architecture", data.cpu.architecture)
@@ -219,6 +237,17 @@ private fun ReportList(
                     InfoRow("Hardware", data.cpu.hardware)
                     InfoRow("Processor", data.cpu.processor)
                     InfoRow("ABIs", data.cpu.supportedAbis.joinToString(", "))
+                    if (data.cpu.minFreqMhz != null || data.cpu.maxFreqMhz != null) {
+                        val min = data.cpu.minFreqMhz?.toString() ?: "?"
+                        val max = data.cpu.maxFreqMhz?.toString() ?: "?"
+                        InfoRow("Freq range", "$min – $max MHz")
+                    }
+                    if (data.cpu.currentFreqMhz.isNotEmpty()) {
+                        InfoRow(
+                            "Current (cores)",
+                            data.cpu.currentFreqMhz.joinToString(", ") { "$it" } + " MHz"
+                        )
+                    }
                 }
             }
         }
@@ -364,6 +393,28 @@ private fun ReportList(
             }
         }
 
+        item(key = "sensors") {
+            InfoCard(
+                title = "Sensors & cameras",
+                onClick = onOpenSensors
+            ) {
+                Column {
+                    InfoRow("Sensors", data.sensors.size.toString())
+                    InfoRow("Cameras", data.cameras.size.toString())
+                    if (data.cameras.isNotEmpty()) {
+                        val summary = data.cameras.joinToString(" · ") {
+                            "${it.facing} (${it.pixelArraySize})"
+                        }
+                        InfoRow("Facing", summary)
+                    }
+                    val withLive = data.sensors.count { it.liveValues.isNotBlank() }
+                    if (withLive > 0) {
+                        InfoRow("Live samples", "$withLive sensors")
+                    }
+                }
+            }
+        }
+
         item(key = "footer") {
             Text(
                 text = "Phone Diagnostic Tool · v$versionName",
@@ -440,7 +491,7 @@ private fun LiveBadge(isLive: Boolean) {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isLive) "Battery & RAM every 3s · Pull to full refresh"
+                text = if (isLive) "Battery, RAM, CPU freq, sensors every 3s · Pull to full refresh"
                 else "Tap play to resume",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
