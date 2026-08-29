@@ -158,10 +158,6 @@ class MainActivity : ComponentActivity() {
                                         versionName = BuildConfig.VERSION_NAME,
                                         onToggleLive = { viewModel.toggleLive() },
                                         onRefresh = { viewModel.refreshNow() },
-                                        onShareText = { shareText() },
-                                        onShareJson = { shareJson() },
-                                        onCopyText = { copyText() },
-                                        onOpenSettings = { viewModel.openSettings() },
                                         onOpenRamDetail = { viewModel.openRamDetail() },
                                         onOpenStorageDetail = { viewModel.openStorageDetail() }
                                     )
@@ -201,7 +197,10 @@ class MainActivity : ComponentActivity() {
                                         onOpenStorage = { viewModel.openStorageDetail() },
                                         onOpenTools = { viewModel.openTools() },
                                         onOpenSettings = { viewModel.openSettings() },
-                                        onOpenAbout = { viewModel.openAbout() }
+                                        onOpenAbout = { viewModel.openAbout() },
+                                        onShareText = { shareText() },
+                                        onShareJson = { shareJson() },
+                                        onCopyText = { copyText() }
                                     )
                                 }
                                 AppScreen.SETTINGS -> {
