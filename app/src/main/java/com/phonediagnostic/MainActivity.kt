@@ -17,6 +17,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -131,6 +132,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     Scaffold(
+                        contentWindowInsets = WindowInsets(0, 0, 0, 0),
                         bottomBar = {
                             if (screen.isMainTab()) {
                                 MainBottomBar(
@@ -140,7 +142,11 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     ) { innerPadding ->
-                        Surface(modifier = Modifier.padding(innerPadding)) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding)
+                        ) {
                             when (screen) {
                                 AppScreen.DASHBOARD -> {
                                     DashboardScreen(
@@ -157,9 +163,7 @@ class MainActivity : ComponentActivity() {
                                         onCopyText = { copyText() },
                                         onOpenSettings = { viewModel.openSettings() },
                                         onOpenRamDetail = { viewModel.openRamDetail() },
-                                        onOpenStorageDetail = { viewModel.openStorageDetail() },
-                                        onOpenSensors = { viewModel.openSensors() },
-                                        onOpenThermals = { viewModel.openThermals() }
+                                        onOpenStorageDetail = { viewModel.openStorageDetail() }
                                     )
                                 }
                                 AppScreen.CPU -> {
@@ -195,7 +199,6 @@ class MainActivity : ComponentActivity() {
                                         versionName = BuildConfig.VERSION_NAME,
                                         onOpenRam = { viewModel.openRamDetail() },
                                         onOpenStorage = { viewModel.openStorageDetail() },
-                                        onOpenThermals = { viewModel.openThermals() },
                                         onOpenTools = { viewModel.openTools() },
                                         onOpenSettings = { viewModel.openSettings() },
                                         onOpenAbout = { viewModel.openAbout() }
