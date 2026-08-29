@@ -376,20 +376,21 @@ class DeviceInfoCollector(private val context: Context) {
             base.listFiles()?.filter { it.name.startsWith("thermal_zone") }?.sortedBy { it.name }?.forEach { dir ->
                 val type = try { File(dir, "type").readText().trim() } catch (_: Exception) { dir.name }
                 val tempRaw = try { File(dir, "temp").readText().trim().toLongOrNull() } catch (_: Exception) { null }
-                if (tempRaw != null && tempRaw != 0L) {
-                    // milli-C or deci-C depending on vendor
+                if (tempRaw != null) {
+                    // milli-C or deci-C depending on vendor; 0 often means unread/disabled
                     val tempC = when {
+                        tempRaw == 0L -> null
                         tempRaw > 1000 -> tempRaw / 1000f
                         tempRaw > 200 -> tempRaw / 10f
                         else -> tempRaw.toFloat()
                     }
-                    if (tempC in -40f..150f) {
+                    if (tempC != null && tempC in -40f..150f) {
                         zones.add(ThermalZone(name = dir.name, tempC = tempC, type = type))
                     }
                 }
             }
         } catch (_: Exception) {}
-        return zones.sortedByDescending { it.tempC }.take(12)
+        return zones.sortedByDescending { it.tempC }
     }
 
     private fun collectSensors(live: Boolean): List<SensorEntry> {
