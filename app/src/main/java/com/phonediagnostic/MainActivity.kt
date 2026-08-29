@@ -37,6 +37,7 @@ import com.phonediagnostic.ui.RamDetailScreen
 import com.phonediagnostic.ui.SensorsScreen
 import com.phonediagnostic.ui.SettingsScreen
 import com.phonediagnostic.ui.StorageDetailScreen
+import com.phonediagnostic.ui.ThermalsScreen
 import com.phonediagnostic.ui.ToolsScreen
 import com.phonediagnostic.ui.theme.PhoneDiagnosticTheme
 
@@ -123,7 +124,8 @@ class MainActivity : ComponentActivity() {
                                 onOpenSettings = { viewModel.openSettings() },
                                 onOpenRamDetail = { viewModel.openRamDetail() },
                                 onOpenStorageDetail = { viewModel.openStorageDetail() },
-                                onOpenSensors = { viewModel.openSensors() }
+                                onOpenSensors = { viewModel.openSensors() },
+                                onOpenThermals = { viewModel.openThermals() }
                             )
                         }
                         AppScreen.SETTINGS -> {
@@ -193,6 +195,15 @@ class MainActivity : ComponentActivity() {
                             SensorsScreen(
                                 sensors = report?.sensors.orEmpty(),
                                 cameras = report?.cameras.orEmpty(),
+                                isRefreshing = isRefreshing,
+                                onBack = { viewModel.openDashboard() },
+                                onRefresh = { viewModel.refreshNow() }
+                            )
+                        }
+                        AppScreen.THERMALS -> {
+                            ThermalsScreen(
+                                thermals = report?.thermals.orEmpty(),
+                                isLive = isLive,
                                 isRefreshing = isRefreshing,
                                 onBack = { viewModel.openDashboard() },
                                 onRefresh = { viewModel.refreshNow() }
