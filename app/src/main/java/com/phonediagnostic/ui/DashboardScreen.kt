@@ -221,6 +221,12 @@ private fun ReportList(
                         InfoRow("Build type", data.overview.type)
                     }
                     InfoRow("Uptime", data.overview.uptime)
+                    if (data.overview.kernelVersion.isNotBlank()) {
+                        InfoRow("Kernel", data.overview.kernelVersion)
+                    }
+                    if (data.overview.radioVersion.isNotBlank()) {
+                        InfoRow("Radio", data.overview.radioVersion)
+                    }
                     if (data.overview.fingerprint.isNotBlank()) {
                         InfoRow("Fingerprint", data.overview.fingerprint)
                     }
@@ -282,6 +288,13 @@ private fun ReportList(
                         "Current (avg)",
                         data.battery.currentAvgMa?.let { "$it mA" } ?: "Unavailable"
                     )
+                    if (data.battery.capacityMah != null) {
+                        InfoRow("Design capacity", "${data.battery.capacityMah} mAh")
+                    }
+                    if (data.battery.chargeCounterUah != null) {
+                        val mah = data.battery.chargeCounterUah / 1000.0
+                        InfoRow("Charge counter", String.format(Locale.US, "%.0f mAh", mah))
+                    }
                     InfoRow("Technology", data.battery.technology)
                     InfoRow("Power Source", data.battery.powerSource)
                 }
@@ -335,6 +348,13 @@ private fun ReportList(
                     )
                     InfoRow("Target", data.network.latencyTarget)
                     InfoRow("Status", data.network.latencyStatus)
+                    if (data.network.downstreamMbps != null || data.network.upstreamMbps != null) {
+                        val down = data.network.downstreamMbps?.toString() ?: "?"
+                        val up = data.network.upstreamMbps?.toString() ?: "?"
+                        InfoRow("Link bandwidth", "$down ↓ / $up ↑ Mbps")
+                    }
+                    InfoRow("Validated", if (data.network.validated) "Yes" else "No")
+                    InfoRow("Metered", if (data.network.metered) "Yes" else "No")
                 }
             }
         }
@@ -389,6 +409,25 @@ private fun ReportList(
                         "Approx. Size",
                         String.format(Locale.US, "%.2f\"", data.display.screenSizeInches)
                     )
+                }
+            }
+        }
+
+        if (data.thermals.isNotEmpty()) {
+            item(key = "thermals") {
+                InfoCard(title = "Thermals · Live") {
+                    Column {
+                        data.thermals.take(8).forEach { zone ->
+                            val label = zone.type.ifBlank { zone.name }
+                            InfoRow(
+                                label.take(28),
+                                String.format(Locale.US, "%.1f °C", zone.tempC)
+                            )
+                        }
+                        if (data.thermals.size > 8) {
+                            InfoRow("…", "+${data.thermals.size - 8} more zones")
+                        }
+                    }
                 }
             }
         }
@@ -491,7 +530,7 @@ private fun LiveBadge(isLive: Boolean) {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isLive) "Battery, RAM, CPU freq, sensors every 3s · Pull to full refresh"
+                text = if (isLive) "Battery, RAM, CPU freq, sensors, thermals every 3s · Pull to full refresh"
                 else "Tap play to resume",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
