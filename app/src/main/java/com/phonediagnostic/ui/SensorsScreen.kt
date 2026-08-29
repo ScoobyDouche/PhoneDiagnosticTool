@@ -140,7 +140,7 @@ private fun SensorCard(sensor: SensorEntry) {
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary
             )
-            Spacer(Modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             if (sensor.vendor.isNotBlank()) {
                 MetaRow("Vendor", sensor.vendor)
             }
@@ -151,7 +151,7 @@ private fun SensorCard(sensor: SensorEntry) {
                 MetaRow("Min delay", "${sensor.minDelayUs} µs")
             }
             if (sensor.liveValues.isNotBlank()) {
-                Spacer(Modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Live: ${sensor.liveValues}",
                     style = MaterialTheme.typography.bodySmall,
@@ -177,7 +177,7 @@ private fun CameraCard(cam: CameraEntry) {
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold
             )
-            Spacer(Modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             MetaRow("Hardware level", cam.hardwareLevel)
             MetaRow("Pixel array", cam.pixelArraySize)
             MetaRow("Orientation", "${cam.sensorOrientation}°")
