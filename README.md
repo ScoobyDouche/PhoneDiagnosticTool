@@ -1,16 +1,22 @@
 # Phone Diagnostic Tool
 
-Privacy-focused Android diagnostics: CPU, GPU, battery, RAM, storage, display, and optional network latency — all on-device.
+Privacy-focused Android diagnostics: CPU, GPU, battery, RAM, storage, display, sensors, cameras, and optional network latency — all on-device.
 
 **No accounts. No analytics SDKs. No cloud upload of reports.**
 
 ## Features
 
-- Device overview (model, Android version, security patch, uptime)
-- CPU / SoC and GPU (OpenGL ES)
+- Device overview (model, Android version, security patch, fingerprint, board, bootloader, uptime)
+- CPU / SoC with best-effort current core frequencies and min/max range
+- GPU (OpenGL ES)
 - Live battery, RAM, and network status
+- Sensors list + brief live samples (accelerometer, gyro, light, proximity, etc.)
+- Camera characteristics (facing, pixel array, focal lengths, hardware level)
 - Optional TCP latency check to `8.8.8.8:53` (can be disabled in Settings)
-- Storage and display metrics
+- Storage volumes + per-app breakdown (with Usage Access)
+- Process RAM detail
+- Background monitor with rotating log (capped at **5000** lines)
+- CPU load test (1 / 5 / 10 min)
 - Share as text or JSON, or copy to clipboard
 - Theme: system / light / dark
 - Settings + About (license & privacy summary)
@@ -50,12 +56,19 @@ APK output: `app/build/outputs/apk/debug/`
 |------------|-----|
 | `INTERNET` | Optional latency measurement only |
 | `ACCESS_NETWORK_STATE` | Detect Wi‑Fi / cellular / etc. |
+| `PACKAGE_USAGE_STATS` | Per-app storage (user must grant Usage Access) |
+| `REQUEST_DELETE_PACKAGES` | Uninstall from storage detail |
+| `FOREGROUND_SERVICE` / `SPECIAL_USE` | Optional background monitor |
+| `POST_NOTIFICATIONS` | Background monitor notification (Android 13+) |
+
+Camera and sensors use system APIs without requesting CAMERA permission (characteristics only; no capture).
 
 ## Tech
 
 - Kotlin, Jetpack Compose, Material 3
 - ViewModel + StateFlow
 - Min SDK 26 · Target / compile SDK 35
+- Version **1.9.0**
 
 ## License
 
