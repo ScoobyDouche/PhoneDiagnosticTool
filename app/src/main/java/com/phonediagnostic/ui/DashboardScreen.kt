@@ -66,7 +66,8 @@ fun DashboardScreen(
     onOpenSettings: () -> Unit,
     onOpenRamDetail: () -> Unit,
     onOpenStorageDetail: () -> Unit,
-    onOpenSensors: () -> Unit
+    onOpenSensors: () -> Unit,
+    onOpenThermals: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
 
@@ -175,7 +176,8 @@ fun DashboardScreen(
                         versionName = versionName,
                         onOpenRamDetail = onOpenRamDetail,
                         onOpenStorageDetail = onOpenStorageDetail,
-                        onOpenSensors = onOpenSensors
+                        onOpenSensors = onOpenSensors,
+                        onOpenThermals = onOpenThermals
                     )
                 }
             }
@@ -190,7 +192,8 @@ private fun ReportList(
     versionName: String,
     onOpenRamDetail: () -> Unit,
     onOpenStorageDetail: () -> Unit,
-    onOpenSensors: () -> Unit
+    onOpenSensors: () -> Unit,
+    onOpenThermals: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -413,19 +416,42 @@ private fun ReportList(
             }
         }
 
-        if (data.thermals.isNotEmpty()) {
-            item(key = "thermals") {
-                InfoCard(title = "Thermals · Live") {
-                    Column {
-                        data.thermals.take(8).forEach { zone ->
+        item(key = "thermals") {
+            InfoCard(
+                title = "Thermals · Live",
+                onClick = onOpenThermals
+            ) {
+                Column {
+                    InfoRow("Zones", data.thermals.size.toString())
+                    if (data.thermals.isEmpty()) {
+                        Text(
+                            text = "No readable zones (vendor may restrict /sys)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    } else {
+                        data.thermals.take(5).forEach { zone ->
                             val label = zone.type.ifBlank { zone.name }
                             InfoRow(
                                 label.take(28),
                                 String.format(Locale.US, "%.1f °C", zone.tempC)
                             )
                         }
-                        if (data.thermals.size > 8) {
-                            InfoRow("…", "+${data.thermals.size - 8} more zones")
+                        if (data.thermals.size > 5) {
+                            Text(
+                                text = "Tap for all ${data.thermals.size} zones",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 6.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "Tap for full list",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 6.dp)
+                            )
                         }
                     }
                 }
