@@ -32,6 +32,8 @@ object ReportExporter {
             if (o.hardware.isNotBlank()) appendLine("  Hardware: ${o.hardware}")
             if (o.type.isNotBlank()) appendLine("  Build type: ${o.type}")
             appendLine("  Uptime: ${o.uptime}")
+            if (o.kernelVersion.isNotBlank()) appendLine("  Kernel: ${o.kernelVersion}")
+            if (o.radioVersion.isNotBlank()) appendLine("  Radio: ${o.radioVersion}")
             if (o.fingerprint.isNotBlank()) appendLine("  Fingerprint: ${o.fingerprint}")
             appendLine()
             appendLine("CPU / SoC")
@@ -61,6 +63,10 @@ object ReportExporter {
             appendLine("  Voltage: ${b.voltage} mV")
             appendLine("  Current (now): ${b.currentNowMa?.let { "$it mA" } ?: "Unavailable"}")
             appendLine("  Current (avg): ${b.currentAvgMa?.let { "$it mA" } ?: "Unavailable"}")
+            if (b.capacityMah != null) appendLine("  Design capacity: ${b.capacityMah} mAh")
+            if (b.chargeCounterUah != null) {
+                appendLine("  Charge counter: ${String.format(Locale.US, "%.0f", b.chargeCounterUah / 1000.0)} mAh")
+            }
             appendLine("  Technology: ${b.technology}")
             appendLine("  Power Source: ${b.powerSource}")
             appendLine()
@@ -75,6 +81,11 @@ object ReportExporter {
             appendLine("  Latency: ${n.latencyMs?.let { "$it ms" } ?: "—"}")
             appendLine("  Target: ${n.latencyTarget}")
             appendLine("  Status: ${n.latencyStatus}")
+            if (n.downstreamMbps != null || n.upstreamMbps != null) {
+                appendLine("  Link bandwidth: ${n.downstreamMbps ?: "?"} ↓ / ${n.upstreamMbps ?: "?"} ↑ Mbps")
+            }
+            appendLine("  Validated: ${n.validated}")
+            appendLine("  Metered: ${n.metered}")
             appendLine()
             appendLine("STORAGE")
             appendLine("  Internal total: ${String.format(Locale.US, "%.2f", s.totalInternalGb)} GB")
@@ -101,6 +112,13 @@ object ReportExporter {
             appendLine("  Refresh Rate: ${String.format(Locale.US, "%.1f", d.refreshRate)} Hz")
             appendLine("  Approx. Size: ${String.format(Locale.US, "%.2f", d.screenSizeInches)}\"")
             appendLine()
+            if (report.thermals.isNotEmpty()) {
+                appendLine("THERMALS (${report.thermals.size})")
+                report.thermals.forEach { z ->
+                    appendLine("  ${z.type.ifBlank { z.name }}: ${String.format(Locale.US, "%.1f", z.tempC)} °C")
+                }
+                appendLine()
+            }
             appendLine("SENSORS (${report.sensors.size})")
             report.sensors.take(40).forEach { sens ->
                 appendLine("  ${sens.type}: ${sens.name} (${sens.vendor})")
@@ -151,6 +169,8 @@ object ReportExporter {
             put("host", o.host)
             put("tags", o.tags)
             put("type", o.type)
+            put("kernelVersion", o.kernelVersion)
+            put("radioVersion", o.radioVersion)
         })
         root.put("cpu", JSONObject().apply {
             put("cores", c.cores)
@@ -176,6 +196,8 @@ object ReportExporter {
             put("voltageMv", b.voltage)
             put("currentNowMa", b.currentNowMa ?: JSONObject.NULL)
             put("currentAvgMa", b.currentAvgMa ?: JSONObject.NULL)
+            put("capacityMah", b.capacityMah ?: JSONObject.NULL)
+            put("chargeCounterUah", b.chargeCounterUah ?: JSONObject.NULL)
             put("technology", b.technology)
             put("powerSource", b.powerSource)
         })
@@ -191,6 +213,10 @@ object ReportExporter {
             put("latencyMs", n.latencyMs ?: JSONObject.NULL)
             put("latencyTarget", n.latencyTarget)
             put("latencyStatus", n.latencyStatus)
+            put("downstreamMbps", n.downstreamMbps ?: JSONObject.NULL)
+            put("upstreamMbps", n.upstreamMbps ?: JSONObject.NULL)
+            put("validated", n.validated)
+            put("metered", n.metered)
         })
         root.put("storage", JSONObject().apply {
             put("totalInternalGb", s.totalInternalGb)
@@ -225,6 +251,15 @@ object ReportExporter {
             put("density", d.density)
             put("refreshRate", d.refreshRate)
             put("screenSizeInches", d.screenSizeInches)
+        })
+        root.put("thermals", JSONArray().apply {
+            report.thermals.forEach { z ->
+                put(JSONObject().apply {
+                    put("name", z.name)
+                    put("type", z.type)
+                    put("tempC", z.tempC)
+                })
+            }
         })
         root.put("sensors", JSONArray().apply {
             report.sensors.forEach { sens ->
