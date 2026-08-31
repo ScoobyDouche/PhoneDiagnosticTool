@@ -71,9 +71,6 @@ fun InfoCard(
 
 @Composable
 fun InfoRow(label: String, value: String) {
-    if (value.isBlank() || value == "Unavailable" || value == "—") {
-        // Still show, but quieter
-    }
     Row(
         modifier = Modifier
             .fillMaxWidth()

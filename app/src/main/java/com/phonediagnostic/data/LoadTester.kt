@@ -2,13 +2,10 @@ package com.phonediagnostic.data
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.sqrt
@@ -18,6 +15,8 @@ data class LoadTestProgress(
     val durationSec: Int,
     val elapsedSec: Int,
     val operations: Long,
+    val opsPerSec: Long,
+    val threads: Int,
     val ramUsedMb: Long,
     val batteryPct: Int,
     val tempC: Float,
@@ -31,17 +30,25 @@ data class LoadTestResult(
     val durationMs: Long,
     val threads: Int,
     val operations: Long,
+    /** Thousands of operations per second across all worker threads. */
+    val score: Long,
     val beforeRamUsedMb: Long,
     val afterRamUsedMb: Long,
     val beforeBatteryPct: Int,
     val afterBatteryPct: Int,
     val beforeTempC: Float,
     val afterTempC: Float,
+    /** Highest battery temperature seen while the test ran. */
+    val peakTempC: Float,
     val summary: String
 )
 
 /**
  * Synthetic CPU load with live progress updates (task-manager style).
+ *
+ * The workers run on plain threads rather than coroutines: they never suspend,
+ * so scheduling them onto [Dispatchers.Default] starved the sampler that is
+ * supposed to report progress.
  */
 object LoadTester {
 
@@ -60,110 +67,120 @@ object LoadTester {
         val ops = AtomicLong(0)
         val stopFlag = AtomicBoolean(false)
 
-        fun sampleProgress(elapsed: Int, phase: String) {
-            val snap = try {
-                collector.collect(networkProbe = false)
-            } catch (_: Exception) {
-                null
-            }
+        // Battery + memory only. A full collect here would spin up an EGL context,
+        // enumerate cameras and wake every sensor once per second, which both
+        // distorts the measurement and burns the battery we are reporting on.
+        val before = collector.collectSample()
+        var peakTempC = before.batteryTempC
+
+        fun emit(elapsed: Int, phase: String, running: Boolean, sample: MetricSample) {
+            if (sample.batteryTempC > peakTempC) peakTempC = sample.batteryTempC
+            val total = ops.get()
             onProgress(
                 LoadTestProgress(
-                    running = true,
+                    running = running,
                     durationSec = sec,
                     elapsedSec = elapsed,
-                    operations = ops.get(),
-                    ramUsedMb = snap?.memory?.usedRamMb ?: 0L,
-                    batteryPct = snap?.battery?.level ?: 0,
-                    tempC = snap?.battery?.temperature ?: 0f,
+                    operations = total,
+                    opsPerSec = if (elapsed > 0) total / elapsed else 0L,
+                    threads = threadCount,
+                    ramUsedMb = sample.ramUsedMb,
+                    batteryPct = sample.batteryPct,
+                    tempC = sample.batteryTempC,
                     phase = phase
                 )
             )
         }
 
-        sampleProgress(0, "Starting")
-        val before = collector.collect(networkProbe = false)
-        val endAt = System.nanoTime() + durationMs * 1_000_000L
-        val startMs = System.currentTimeMillis()
+        emit(0, "Starting", running = true, sample = before)
 
-        // Progress sampler on a sibling coroutine
-        val sampler = launch {
-            var tick = 0
-            while (isActive && !stopFlag.get()) {
-                delay(1000L)
-                tick++
-                val elapsed = ((System.currentTimeMillis() - startMs) / 1000L).toInt().coerceAtMost(sec)
-                sampleProgress(elapsed, "Stressing CPU")
+        val startMs = System.currentTimeMillis()
+        val endAt = System.nanoTime() + durationMs * 1_000_000L
+
+        val workers = (0 until threadCount).map { index ->
+            Thread({
+                var local = 0L
+                var x = 1.000001
+                while (System.nanoTime() < endAt && !stopFlag.get()) {
+                    x = sqrt(x * x + 1.000001)
+                    local++
+                    // Publish periodically so the live counter actually moves;
+                    // it previously only landed once the worker finished.
+                    if (local % PUBLISH_EVERY == 0L) {
+                        ops.addAndGet(PUBLISH_EVERY)
+                    }
+                }
+                // The tail that never reached a publish boundary.
+                ops.addAndGet(local % PUBLISH_EVERY)
+            }, "load-test-$index").apply {
+                isDaemon = true
+                start()
             }
         }
 
         try {
-            coroutineScope {
-                (0 until threadCount).map {
-                    async {
-                        var local = 0L
-                        var x = 1.000001
-                        while (System.nanoTime() < endAt && !stopFlag.get()) {
-                            x = sqrt(x * x + 1.000001)
-                            local++
-                            if (local and 0x3FFL == 0L) {
-                                Thread.yield()
-                            }
-                        }
-                        ops.addAndGet(local)
-                    }
-                }.awaitAll()
+            while (isActive && System.nanoTime() < endAt && !stopFlag.get()) {
+                delay(PROGRESS_INTERVAL_MS)
+                val elapsed = ((System.currentTimeMillis() - startMs) / 1000L)
+                    .toInt().coerceIn(0, sec)
+                emit(elapsed, "Stressing CPU", running = true, sample = collector.collectSample())
             }
         } finally {
             stopFlag.set(true)
-            sampler.cancel()
+            workers.forEach { worker ->
+                runCatching { worker.join(WORKER_JOIN_MS) }
+            }
         }
 
-        sampleProgress(sec, "Cooling down")
-        System.gc()
-        delay(400)
+        emit(sec, "Cooling down", running = true, sample = collector.collectSample())
+        delay(COOLDOWN_MS)
 
-        val after = collector.collect(networkProbe = false)
-        val mins = sec / 60
+        val after = collector.collectSample()
+        if (after.batteryTempC > peakTempC) peakTempC = after.batteryTempC
+
+        val elapsedSec = ((System.currentTimeMillis() - startMs) / 1000L).coerceAtLeast(1L)
+        val totalOps = ops.get()
+        val score = totalOps / elapsedSec / 1000L
+
         val summary = buildString {
-            append("Load test ${mins}m × ${threadCount} threads · ")
-            append("${ops.get()} ops · ")
-            append("RAM ${before.memory.usedRamMb}→${after.memory.usedRamMb} MB · ")
-            append("Bat ${before.battery.level}%→${after.battery.level}% · ")
+            append("Load test ${sec / 60}m x $threadCount threads - ")
+            append("${score}k ops/s - ")
+            append("RAM ${before.ramUsedMb}->${after.ramUsedMb} MB - ")
+            append("Bat ${before.batteryPct}%->${after.batteryPct}% - ")
             append(
                 String.format(
-                    "%.1f→%.1f°C",
-                    before.battery.temperature,
-                    after.battery.temperature
+                    Locale.US,
+                    "%.1f->%.1f C (peak %.1f)",
+                    before.batteryTempC,
+                    after.batteryTempC,
+                    peakTempC
                 )
             )
         }
 
         DiagnosticLog.get(context).append(summary)
 
-        onProgress(
-            LoadTestProgress(
-                running = false,
-                durationSec = sec,
-                elapsedSec = sec,
-                operations = ops.get(),
-                ramUsedMb = after.memory.usedRamMb,
-                batteryPct = after.battery.level,
-                tempC = after.battery.temperature,
-                phase = "Done"
-            )
-        )
+        emit(sec, "Done", running = false, sample = after)
 
         LoadTestResult(
             durationMs = durationMs,
             threads = threadCount,
-            operations = ops.get(),
-            beforeRamUsedMb = before.memory.usedRamMb,
-            afterRamUsedMb = after.memory.usedRamMb,
-            beforeBatteryPct = before.battery.level,
-            afterBatteryPct = after.battery.level,
-            beforeTempC = before.battery.temperature,
-            afterTempC = after.battery.temperature,
+            operations = totalOps,
+            score = score,
+            beforeRamUsedMb = before.ramUsedMb,
+            afterRamUsedMb = after.ramUsedMb,
+            beforeBatteryPct = before.batteryPct,
+            afterBatteryPct = after.batteryPct,
+            beforeTempC = before.batteryTempC,
+            afterTempC = after.batteryTempC,
+            peakTempC = peakTempC,
             summary = summary
         )
     }
+
+    /** Workers batch their counter updates this coarsely to avoid contention. */
+    private const val PUBLISH_EVERY = 65_536L
+    private const val PROGRESS_INTERVAL_MS = 1000L
+    private const val WORKER_JOIN_MS = 2000L
+    private const val COOLDOWN_MS = 400L
 }

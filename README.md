@@ -11,13 +11,16 @@ Privacy-focused Android diagnostics: CPU, GPU, battery, RAM, storage, display, s
 - GPU (OpenGL ES)
 - Live battery, RAM, and network status
 - Sensors list + brief live samples (accelerometer, gyro, light, proximity, etc.)
+- Tap any sensor to stream it live with per-axis charts
 - Camera characteristics (facing, pixel array, focal lengths, hardware level)
 - Optional TCP latency check to `8.8.8.8:53` (can be disabled in Settings)
+- Network detail: IP addresses, DNS & private DNS, Wi‑Fi link speed / band / signal, carrier, plus a 5-probe latency burst with min / avg / max / jitter / loss
 - Storage volumes + per-app breakdown (with Usage Access)
 - Process RAM detail
+- History: battery, temperature and RAM trends charted from up to 24 h of samples
 - Background monitor with rotating log (capped at **5000** lines)
-- CPU load test (1 / 5 / 10 min)
-- Share as text or JSON, or copy to clipboard
+- CPU load test (1 / 5 / 10 min) with a k-ops/s score
+- Share as text or JSON, share as a file attachment, save to a file, or copy to clipboard
 - Theme: system / light / dark
 - Settings + About (license & privacy summary)
 
@@ -55,7 +58,9 @@ APK output: `app/build/outputs/apk/debug/`
 | Permission | Why |
 |------------|-----|
 | `INTERNET` | Optional latency measurement only |
-| `ACCESS_NETWORK_STATE` | Detect Wi‑Fi / cellular / etc. |
+| `ACCESS_NETWORK_STATE` | Detect Wi‑Fi / cellular / etc.; DNS and link details on the Network screen |
+| `ACCESS_WIFI_STATE` | Wi‑Fi link speed, band and signal strength |
+| `VIBRATE` | Vibration hardware check under Tools |
 | `PACKAGE_USAGE_STATS` | Per-app storage (user must grant Usage Access) |
 | `REQUEST_DELETE_PACKAGES` | Uninstall from storage detail |
 | `FOREGROUND_SERVICE` / `SPECIAL_USE` | Optional background monitor |
@@ -68,7 +73,11 @@ Camera and sensors use system APIs without requesting CAMERA permission (charact
 - Kotlin, Jetpack Compose, Material 3
 - ViewModel + StateFlow
 - Min SDK 26 · Target / compile SDK 35
-- Version **1.9.0**
+- Version **1.12.0**
+
+Diagnostics are stored only on the device: a rotating log and a 24 h metric
+history live in internal storage, and the app opts out of Android cloud backup
+and device transfer entirely (`allowBackup="false"`).
 
 ## License
 

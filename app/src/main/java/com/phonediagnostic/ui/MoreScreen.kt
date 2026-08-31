@@ -12,12 +12,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,13 +45,19 @@ import java.util.Locale
 fun MoreScreen(
     report: FullDeviceReport?,
     versionName: String,
+    historySamples: Int,
     onOpenRam: () -> Unit,
     onOpenStorage: () -> Unit,
+    onOpenNetwork: () -> Unit,
+    onOpenHistory: () -> Unit,
     onOpenTools: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAbout: () -> Unit,
     onShareText: () -> Unit,
     onShareJson: () -> Unit,
+    onShareFile: () -> Unit,
+    onSaveText: () -> Unit,
+    onSaveJson: () -> Unit,
     onCopyText: () -> Unit
 ) {
     val hasReport = report != null
@@ -102,6 +112,37 @@ fun MoreScreen(
             }
             item {
                 MoreLink(
+                    icon = Icons.Filled.AttachFile,
+                    title = "Share as file",
+                    subtitle = if (hasReport) {
+                        "Send a .txt attachment — survives long reports"
+                    } else {
+                        "Collect a report first"
+                    },
+                    enabled = hasReport,
+                    onClick = onShareFile
+                )
+            }
+            item {
+                MoreLink(
+                    icon = Icons.Filled.Save,
+                    title = "Save as .txt",
+                    subtitle = if (hasReport) "Choose where to save it" else "Collect a report first",
+                    enabled = hasReport,
+                    onClick = onSaveText
+                )
+            }
+            item {
+                MoreLink(
+                    icon = Icons.Filled.Save,
+                    title = "Save as .json",
+                    subtitle = if (hasReport) "Machine-readable file" else "Collect a report first",
+                    enabled = hasReport,
+                    onClick = onSaveJson
+                )
+            }
+            item {
+                MoreLink(
                     icon = Icons.Filled.ContentCopy,
                     title = "Copy text",
                     subtitle = if (hasReport) "Copy report to clipboard" else "Collect a report first",
@@ -136,6 +177,28 @@ fun MoreScreen(
                         String.format(Locale.US, "%.1f GB free", it.freeInternalGb)
                     } ?: "Volumes & apps",
                     onClick = onOpenStorage
+                )
+            }
+            item {
+                MoreLink(
+                    icon = Icons.Filled.Wifi,
+                    title = "Network",
+                    subtitle = report?.network?.let {
+                        "${it.networkType} · addresses, DNS, latency"
+                    } ?: "Addresses, DNS, latency",
+                    onClick = onOpenNetwork
+                )
+            }
+            item {
+                MoreLink(
+                    icon = Icons.Filled.ShowChart,
+                    title = "History",
+                    subtitle = if (historySamples > 0) {
+                        "$historySamples samples · battery, temp, RAM"
+                    } else {
+                        "Battery, temperature and RAM trends"
+                    },
+                    onClick = onOpenHistory
                 )
             }
             item {

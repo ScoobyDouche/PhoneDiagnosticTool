@@ -15,14 +15,18 @@ import com.phonediagnostic.MainActivity
 import com.phonediagnostic.data.AppPreferences
 import com.phonediagnostic.data.DeviceInfoCollector
 import com.phonediagnostic.data.DiagnosticLog
+import com.phonediagnostic.data.MetricHistory
+import com.phonediagnostic.data.MetricSample
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 /**
  * Optional background sampler. Foreground notification required by Android.
@@ -89,15 +93,29 @@ class MonitorService : Service() {
     private suspend fun sampleLoop() {
         val collector = DeviceInfoCollector(applicationContext)
         val log = DiagnosticLog.get(this)
-        while (scope.isActive) {
+        val history = MetricHistory.get(this)
+        while (currentCoroutineContext().isActive) {
             try {
-                val report = collector.collect(networkProbe = false)
-                val b = report.battery
-                val m = report.memory
+                // Battery and memory only. A full collect here spun up an EGL
+                // context, enumerated cameras and woke every sensor — twice a
+                // minute, forever, on a service whose whole point is to be cheap.
+                val b = collector.collectBattery()
+                val m = collector.collectMemory()
                 log.append(
-                    "BAT ${b.level}% ${b.status} ${String.format("%.1f", b.temperature)}°C · " +
-                        "RAM ${m.usedRamMb}/${m.totalRamMb}MB avail ${m.availableRamMb} · " +
+                    "BAT ${b.level}% ${b.status} " +
+                        "${String.format(Locale.US, "%.1f", b.temperature)}\u00b0C \u00b7 " +
+                        "RAM ${m.usedRamMb}/${m.totalRamMb}MB avail ${m.availableRamMb} \u00b7 " +
                         if (m.isLowMemory) "PRESSURE" else "ok"
+                )
+                history.record(
+                    MetricSample(
+                        timestampMs = System.currentTimeMillis(),
+                        batteryPct = b.level,
+                        batteryTempC = b.temperature,
+                        ramUsedMb = m.usedRamMb,
+                        ramTotalMb = m.totalRamMb,
+                        charging = b.isCharging
+                    )
                 )
             } catch (e: Exception) {
                 log.append("Sample error: ${e.message ?: e.javaClass.simpleName}")

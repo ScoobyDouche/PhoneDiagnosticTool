@@ -8,9 +8,13 @@ import com.phonediagnostic.data.AppStorageEntry
 import com.phonediagnostic.data.DeviceInfoCollector
 import com.phonediagnostic.data.DiagnosticLog
 import com.phonediagnostic.data.FullDeviceReport
+import com.phonediagnostic.data.LatencyStats
 import com.phonediagnostic.data.LoadTestProgress
 import com.phonediagnostic.data.LoadTestResult
 import com.phonediagnostic.data.LoadTester
+import com.phonediagnostic.data.MetricHistory
+import com.phonediagnostic.data.MetricSample
+import com.phonediagnostic.data.NetworkDetail
 import com.phonediagnostic.data.ProcessRamEntry
 import com.phonediagnostic.data.ThemeMode
 import com.phonediagnostic.data.UsageCollector
@@ -22,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class AppScreen {
     DASHBOARD,
@@ -34,7 +39,10 @@ enum class AppScreen {
     RAM_DETAIL,
     STORAGE_DETAIL,
     TOOLS,
-    THERMALS
+    THERMALS,
+    HISTORY,
+    NETWORK,
+    SENSOR_DETAIL
 }
 
 fun AppScreen.isMainTab(): Boolean = when (this) {
@@ -53,6 +61,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val collector = DeviceInfoCollector(appContext)
     private val usageCollector = UsageCollector(appContext)
     private val log = DiagnosticLog.get(appContext)
+    private val history = MetricHistory.get(appContext)
 
     private val _report = MutableStateFlow<FullDeviceReport?>(null)
     val report: StateFlow<FullDeviceReport?> = _report.asStateFlow()
@@ -65,6 +74,13 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _screen = MutableStateFlow(AppScreen.DASHBOARD)
     val screen: StateFlow<AppScreen> = _screen.asStateFlow()
+
+    /** Drives whether the system back gesture is intercepted. */
+    private val _canNavigateBack = MutableStateFlow(false)
+    val canNavigateBack: StateFlow<Boolean> = _canNavigateBack.asStateFlow()
+
+    /** Screens visited before the current one. Mutated from the main thread only. */
+    private val backStack = ArrayList<AppScreen>()
 
     private val _networkProbeEnabled = MutableStateFlow(prefs.networkProbeEnabled)
     val networkProbeEnabled: StateFlow<Boolean> = _networkProbeEnabled.asStateFlow()
@@ -108,6 +124,25 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val _lastLoadResult = MutableStateFlow<LoadTestResult?>(null)
     val lastLoadResult: StateFlow<LoadTestResult?> = _lastLoadResult.asStateFlow()
 
+    private val _metricHistory = MutableStateFlow(history.snapshot())
+    val metricHistory: StateFlow<List<MetricSample>> = _metricHistory.asStateFlow()
+
+    private val _networkDetail = MutableStateFlow<NetworkDetail?>(null)
+    val networkDetail: StateFlow<NetworkDetail?> = _networkDetail.asStateFlow()
+
+    private val _networkDetailLoading = MutableStateFlow(false)
+    val networkDetailLoading: StateFlow<Boolean> = _networkDetailLoading.asStateFlow()
+
+    private val _latencyStats = MutableStateFlow<LatencyStats?>(null)
+    val latencyStats: StateFlow<LatencyStats?> = _latencyStats.asStateFlow()
+
+    private val _latencyRunning = MutableStateFlow(false)
+    val latencyRunning: StateFlow<Boolean> = _latencyRunning.asStateFlow()
+
+    /** Name of the sensor opened in the live detail view, if any. */
+    private val _selectedSensor = MutableStateFlow<String?>(null)
+    val selectedSensor: StateFlow<String?> = _selectedSensor.asStateFlow()
+
     init {
         viewModelScope.launch(Dispatchers.Default) {
             runCollection(full = true)
@@ -142,65 +177,93 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun clearError() {
-        _errorMessage.value = null
-    }
+    // ---------------------------------------------------------------- navigation
 
-    fun selectMainTab(tab: AppScreen) {
-        if (tab.isMainTab()) {
-            _screen.value = tab
+    private fun navigateTo(target: AppScreen) {
+        val current = _screen.value
+        if (current == target) return
+        backStack.add(current)
+        while (backStack.size > MAX_BACK_STACK) {
+            backStack.removeAt(0)
         }
+        _screen.value = target
+        _canNavigateBack.value = true
     }
 
-    fun openSettings() {
-        _screen.value = AppScreen.SETTINGS
+    /**
+     * Bottom-tab destinations are roots. Selecting one clears the stack, but a
+     * non-Overview tab still returns to Overview on back, matching how the
+     * bottom bar reads.
+     */
+    fun selectMainTab(tab: AppScreen) {
+        if (!tab.isMainTab()) return
+        backStack.clear()
+        if (tab != AppScreen.DASHBOARD) {
+            backStack.add(AppScreen.DASHBOARD)
+        }
+        _screen.value = tab
+        _canNavigateBack.value = backStack.isNotEmpty()
     }
 
-    fun openAbout() {
-        _screen.value = AppScreen.ABOUT
+    /**
+     * Pops one entry.
+     *
+     * @return false when nothing was left to pop, so the caller can let the
+     *   system handle back and leave the app.
+     */
+    fun navigateBack(): Boolean {
+        if (backStack.isEmpty()) {
+            _canNavigateBack.value = false
+            return false
+        }
+        // removeAt rather than removeLast: the latter collides with the JDK 21
+        // SequencedCollection method, which does not exist below API 35.
+        val previous = backStack.removeAt(backStack.size - 1)
+        _screen.value = previous
+        _canNavigateBack.value = backStack.isNotEmpty()
+        return true
     }
 
-    fun openDashboard() {
-        _screen.value = AppScreen.DASHBOARD
-    }
+    fun openSettings() = navigateTo(AppScreen.SETTINGS)
 
-    fun openMore() {
-        _screen.value = AppScreen.MORE
-    }
+    fun openAbout() = navigateTo(AppScreen.ABOUT)
 
-    fun openCpu() {
-        _screen.value = AppScreen.CPU
-    }
-
-    fun openBattery() {
-        _screen.value = AppScreen.BATTERY
-    }
+    fun openThermals() = navigateTo(AppScreen.THERMALS)
 
     fun openTools() {
         refreshLog()
-        _screen.value = AppScreen.TOOLS
-    }
-
-    fun openSensors() {
-        _screen.value = AppScreen.SENSORS
-    }
-
-    fun openThermals() {
-        _screen.value = AppScreen.THERMALS
+        navigateTo(AppScreen.TOOLS)
     }
 
     fun openRamDetail() {
-        _screen.value = AppScreen.RAM_DETAIL
+        navigateTo(AppScreen.RAM_DETAIL)
         loadProcessRam()
     }
 
     fun openStorageDetail() {
-        _screen.value = AppScreen.STORAGE_DETAIL
+        navigateTo(AppScreen.STORAGE_DETAIL)
         refreshUsagePermission()
         if (_hasUsageStats.value) {
             loadAppStorage()
         }
     }
+
+    fun openHistory() {
+        refreshHistory()
+        navigateTo(AppScreen.HISTORY)
+    }
+
+    fun openNetwork() {
+        navigateTo(AppScreen.NETWORK)
+        loadNetworkDetail()
+    }
+
+    fun openSensorDetail(sensorName: String) {
+        _selectedSensor.value = sensorName
+        navigateTo(AppScreen.SENSOR_DETAIL)
+    }
+
+    // ------------------------------------------------------------------- details
 
     fun loadProcessRam() {
         viewModelScope.launch(Dispatchers.Default) {
@@ -229,13 +292,61 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun loadNetworkDetail() {
+        viewModelScope.launch(Dispatchers.Default) {
+            _networkDetailLoading.value = true
+            try {
+                _networkDetail.value = collector.collectNetworkDetail()
+            } catch (_: Exception) {
+                _networkDetail.value = null
+            } finally {
+                _networkDetailLoading.value = false
+            }
+        }
+    }
+
+    fun runLatencyTest(samples: Int = 5) {
+        if (_latencyRunning.value) return
+        if (!_networkProbeEnabled.value) return
+        viewModelScope.launch {
+            _latencyRunning.value = true
+            try {
+                // Blocking socket work belongs on IO, not on the small
+                // Default pool that also serves collection.
+                _latencyStats.value = withContext(Dispatchers.IO) {
+                    collector.measureLatencyStats(samples)
+                }
+            } catch (_: Exception) {
+                _latencyStats.value = null
+            } finally {
+                _latencyRunning.value = false
+            }
+        }
+    }
+
     fun refreshUsagePermission() {
         _hasUsageStats.value = usageCollector.hasUsageStatsPermission()
     }
 
+    fun refreshHistory() {
+        _metricHistory.value = history.snapshot()
+    }
+
+    fun clearHistory() {
+        history.clear()
+        refreshHistory()
+        log.append("Metric history cleared")
+        refreshLog()
+    }
+
+    // ------------------------------------------------------------------ settings
+
     fun setNetworkProbeEnabled(enabled: Boolean) {
         prefs.networkProbeEnabled = enabled
         _networkProbeEnabled.value = enabled
+        if (!enabled) {
+            _latencyStats.value = null
+        }
         refreshNow()
     }
 
@@ -266,6 +377,8 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         refreshLog()
     }
 
+    // ----------------------------------------------------------------- load test
+
     fun runLoadTest(durationSec: Int) {
         if (_loadTesting.value) return
         viewModelScope.launch(Dispatchers.Default) {
@@ -277,7 +390,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                 val result = LoadTester.run(
                     context = appContext,
                     durationSec = durationSec,
-                    threads = 4,
+                    threads = LOAD_TEST_THREADS,
                     onProgress = { progress ->
                         _loadProgress.value = progress
                     }
@@ -295,18 +408,24 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    // ---------------------------------------------------------------- collection
+
     private fun runCollection(full: Boolean) {
         try {
             val probe = _networkProbeEnabled.value
             val current = _report.value
+            // Sampling sensors wakes them, so only do it where readings are shown.
+            val sampleSensors = _screen.value == AppScreen.SENSORS ||
+                _screen.value == AppScreen.SENSOR_DETAIL
             val next = if (full || current == null) {
-                collector.collect(networkProbe = probe)
+                collector.collect(networkProbe = probe, sampleSensors = sampleSensors)
             } else {
-                collector.collectLive(current, networkProbe = probe)
+                collector.collectLive(current, networkProbe = probe, sampleSensors = sampleSensors)
             }
             _report.value = next
             _lastUpdated.value = currentTimeLabel()
             _errorMessage.value = null
+            recordHistory(next)
         } catch (e: Exception) {
             if (_report.value == null) {
                 _errorMessage.value = e.message ?: e.javaClass.simpleName
@@ -314,9 +433,31 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * Feeds foreground samples into the same history the background monitor
+     * writes, so trends exist even with the monitor switched off.
+     * [MetricHistory] rate-limits, so offering every tick is fine.
+     */
+    private fun recordHistory(report: FullDeviceReport) {
+        val stored = history.record(
+            MetricSample(
+                timestampMs = System.currentTimeMillis(),
+                batteryPct = report.battery.level,
+                batteryTempC = report.battery.temperature,
+                ramUsedMb = report.memory.usedRamMb,
+                ramTotalMb = report.memory.totalRamMb,
+                charging = report.battery.isCharging
+            )
+        )
+        if (stored && _screen.value == AppScreen.HISTORY) {
+            _metricHistory.value = history.snapshot()
+        }
+    }
+
     private fun currentTimeLabel(): String {
         val now = java.util.Calendar.getInstance()
         return String.format(
+            java.util.Locale.US,
             "%02d:%02d:%02d",
             now.get(java.util.Calendar.HOUR_OF_DAY),
             now.get(java.util.Calendar.MINUTE),
@@ -326,5 +467,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     companion object {
         private const val LIVE_INTERVAL_MS = 3000L
+        private const val MAX_BACK_STACK = 16
+        private const val LOAD_TEST_THREADS = 4
     }
 }

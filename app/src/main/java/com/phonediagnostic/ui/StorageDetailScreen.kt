@@ -15,10 +15,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
@@ -102,7 +103,7 @@ fun StorageDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.Filled.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
@@ -138,10 +139,12 @@ fun StorageDetailScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
-                    items(
+                    itemsIndexed(
                         items = volumes,
-                        key = { vol -> vol.path + vol.name }
-                    ) { vol ->
+                        // Unmounted volumes share the placeholder path, and their
+                        // descriptions can match too; index keeps keys unique.
+                        key = { index, vol -> "vol-$index-${vol.path}-${vol.name}" }
+                    ) { _, vol ->
                         VolumeCard(vol = vol)
                     }
                 } else if (volumes.size == 1) {

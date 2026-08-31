@@ -54,7 +54,9 @@ fun DashboardScreen(
     onToggleLive: () -> Unit,
     onRefresh: () -> Unit,
     onOpenRamDetail: () -> Unit,
-    onOpenStorageDetail: () -> Unit
+    onOpenStorageDetail: () -> Unit,
+    onOpenNetwork: () -> Unit,
+    onOpenHistory: () -> Unit
 ) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -121,7 +123,9 @@ fun DashboardScreen(
                         isLive = isLive,
                         versionName = versionName,
                         onOpenRamDetail = onOpenRamDetail,
-                        onOpenStorageDetail = onOpenStorageDetail
+                        onOpenStorageDetail = onOpenStorageDetail,
+                        onOpenNetwork = onOpenNetwork,
+                        onOpenHistory = onOpenHistory
                     )
                 }
             }
@@ -135,7 +139,9 @@ private fun ReportList(
     isLive: Boolean,
     versionName: String,
     onOpenRamDetail: () -> Unit,
-    onOpenStorageDetail: () -> Unit
+    onOpenStorageDetail: () -> Unit,
+    onOpenNetwork: () -> Unit,
+    onOpenHistory: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -225,8 +231,19 @@ private fun ReportList(
             }
         }
 
+        item(key = "trends") {
+            InfoCard(title = "Trends", subtitle = "History ›", onClick = onOpenHistory) {
+                Text(
+                    text = "Battery, temperature and RAM over time, from samples this " +
+                        "app records while it runs.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         item(key = "network") {
-            InfoCard(title = "Network") {
+            InfoCard(title = "Network", subtitle = "Details ›", onClick = onOpenNetwork) {
                 Column {
                     InfoRow("Connection", if (data.network.isConnected) "Connected" else "Disconnected")
                     InfoRow("Type", data.network.networkType)
@@ -300,7 +317,8 @@ private fun ReportList(
 
         item(key = "footer") {
             Text(
-                text = "Use bottom tabs for CPU · Battery · Sensors\nShare & settings are under More · v$versionName",
+                text = "Use bottom tabs for CPU · Battery · Sensors\n" +
+                    "Network, history, sharing & settings are under More · v$versionName",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

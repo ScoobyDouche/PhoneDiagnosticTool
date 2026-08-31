@@ -47,12 +47,17 @@ class UsageCollector(private val context: Context) {
             } catch (_: Exception) {
                 emptyArray()
             }
-            processes.forEachIndexed { index, proc ->
-                if (byPid.containsKey(proc.pid)) return@forEachIndexed
-                val mem = memInfos.getOrNull(index) ?: return@forEachIndexed
+            // Results line up with `pids`, not with `processes`. Those differ as soon
+            // as two entries share a pid, so index into the query array by pid.
+            val memByPid = pids.withIndex().mapNotNull { (index, pid) ->
+                memInfos.getOrNull(index)?.let { pid to it }
+            }.toMap()
+            processes.forEach { proc ->
+                if (byPid.containsKey(proc.pid)) return@forEach
+                val mem = memByPid[proc.pid] ?: return@forEach
                 val pssKb = mem.totalPss
-                if (pssKb <= 0) return@forEachIndexed
-                val name = proc.processName ?: return@forEachIndexed
+                if (pssKb <= 0) return@forEach
+                val name = proc.processName ?: return@forEach
                 byPid[proc.pid] = ProcessRamEntry(
                     pid = proc.pid,
                     processName = name,

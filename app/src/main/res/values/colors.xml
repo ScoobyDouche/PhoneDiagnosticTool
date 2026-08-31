@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#1976D2</color>
+    <!-- Painted before Compose draws; keep in step with the Compose scheme. -->
+    <color name="window_background">#F5F5F5</color>
 </resources>

@@ -4,6 +4,8 @@ import android.content.Context
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -59,6 +61,8 @@ import androidx.compose.ui.window.DialogProperties
 import com.phonediagnostic.data.DiagnosticLog
 import com.phonediagnostic.data.LoadTestProgress
 import com.phonediagnostic.data.LoadTestResult
+import com.phonediagnostic.data.LoadTester
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -180,27 +184,36 @@ fun ToolsScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                OutlinedButton(
-                                    onClick = { onRunLoadTest(60) },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = !loadTesting
-                                ) { Text("1 min") }
-                                OutlinedButton(
-                                    onClick = { onRunLoadTest(300) },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = !loadTesting
-                                ) { Text("5 min") }
-                                Button(
-                                    onClick = { onRunLoadTest(600) },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = !loadTesting
-                                ) { Text("10 min") }
+                                val durations = LoadTester.ALLOWED_DURATIONS_SEC
+                                durations.forEachIndexed { index, seconds ->
+                                    val label = "${seconds / 60} min"
+                                    if (index == durations.lastIndex) {
+                                        Button(
+                                            onClick = { onRunLoadTest(seconds) },
+                                            modifier = Modifier.weight(1f),
+                                            enabled = !loadTesting
+                                        ) { Text(label) }
+                                    } else {
+                                        OutlinedButton(
+                                            onClick = { onRunLoadTest(seconds) },
+                                            modifier = Modifier.weight(1f),
+                                            enabled = !loadTesting
+                                        ) { Text(label) }
+                                    }
+                                }
                             }
                             if (lastLoadResult != null) {
                                 Box(modifier = Modifier.height(12.dp))
                                 Text(
                                     text = "Last result",
                                     style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Box(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "${lastLoadResult.score}k ops/s across " +
+                                        "${lastLoadResult.threads} threads",
+                                    style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Box(modifier = Modifier.height(4.dp))
@@ -242,7 +255,7 @@ fun ToolsScreen(
                                 enabled = !loadTesting
                             ) { Text("Vibrate") }
                             OutlinedButton(
-                                onClick = { playTone(context) },
+                                onClick = { playTone() },
                                 modifier = Modifier.weight(1f),
                                 enabled = !loadTesting
                             ) { Text("Tone") }
@@ -356,15 +369,24 @@ private fun vibrateShort(context: Context) {
     }
 }
 
-private fun playTone(context: Context) {
+private fun playTone() {
     try {
-        val tg = ToneGenerator(AudioManager.STREAM_MUSIC, 80)
-        tg.startTone(ToneGenerator.TONE_PROP_BEEP, 200)
-        // ToneGenerator releases itself after delay on most devices; safe to let GC handle
+        val generator = ToneGenerator(AudioManager.STREAM_MUSIC, TONE_VOLUME)
+        generator.startTone(ToneGenerator.TONE_PROP_BEEP, TONE_DURATION_MS)
+        // ToneGenerator holds a native AudioTrack that the GC will not reclaim
+        // promptly. Without this, every tap leaked one until the process died.
+        Handler(Looper.getMainLooper()).postDelayed(
+            { runCatching { generator.release() } },
+            TONE_DURATION_MS + TONE_RELEASE_GRACE_MS
+        )
     } catch (_: Exception) {
         // no audio
     }
 }
+
+private const val TONE_VOLUME = 80
+private const val TONE_DURATION_MS = 200
+private const val TONE_RELEASE_GRACE_MS = 150L
 
 @Composable
 private fun LiveLoadPanel(progress: LoadTestProgress) {
@@ -395,9 +417,10 @@ private fun LiveLoadPanel(progress: LoadTestProgress) {
         Box(modifier = Modifier.height(6.dp))
         MetricRow("RAM used", "${progress.ramUsedMb} MB")
         MetricRow("Battery", "${progress.batteryPct}%")
-        MetricRow("Temperature", String.format("%.1f °C", progress.tempC))
+        MetricRow("Temperature", String.format(Locale.US, "%.1f °C", progress.tempC))
         MetricRow("CPU ops", formatOps(progress.operations))
-        MetricRow("Threads", "4 active")
+        MetricRow("Ops / sec", formatOps(progress.opsPerSec))
+        MetricRow("Threads", "${progress.threads} active")
         Box(modifier = Modifier.height(8.dp))
         Text(
             text = "Keep this screen open. UI may feel slower under full CPU load.",
@@ -432,14 +455,14 @@ private fun MetricRow(label: String, value: String) {
 private fun formatClock(totalSec: Int): String {
     val m = totalSec / 60
     val s = totalSec % 60
-    return String.format("%d:%02d", m, s)
+    return String.format(Locale.US, "%d:%02d", m, s)
 }
 
 private fun formatOps(ops: Long): String {
     return when {
-        ops >= 1_000_000_000L -> String.format("%.2fB", ops / 1_000_000_000.0)
-        ops >= 1_000_000L -> String.format("%.1fM", ops / 1_000_000.0)
-        ops >= 1_000L -> String.format("%.1fK", ops / 1_000.0)
+        ops >= 1_000_000_000L -> String.format(Locale.US, "%.2fB", ops / 1_000_000_000.0)
+        ops >= 1_000_000L -> String.format(Locale.US, "%.1fM", ops / 1_000_000.0)
+        ops >= 1_000L -> String.format(Locale.US, "%.1fK", ops / 1_000.0)
         else -> ops.toString()
     }
 }

@@ -12,6 +12,8 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.wifi.WifiManager
+import android.telephony.TelephonyManager
 import android.opengl.GLES20
 import android.os.BatteryManager
 import android.os.Build
@@ -21,11 +23,16 @@ import android.os.SystemClock
 import android.os.storage.StorageManager
 import android.util.DisplayMetrics
 import android.view.WindowManager
+import java.util.Locale
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
+import java.net.Inet4Address
+import java.net.Inet6Address
 import java.net.InetSocketAddress
+import java.net.NetworkInterface
 import java.net.Socket
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import javax.microedition.khronos.egl.EGL10
@@ -41,9 +48,26 @@ class DeviceInfoCollector(private val context: Context) {
         private const val LATENCY_PORT = 53
         private const val LATENCY_TIMEOUT_MS = 3000
         private const val SENSOR_SAMPLE_MS = 250L
+        private const val PROPERTY_TIMEOUT_MS = 500L
+        private const val LATENCY_GAP_MS = 120L
+
+        /**
+         * `ro.*` build properties cannot change while the process lives, and
+         * reading one may cost a `getprop` fork. Read each key at most once.
+         */
+        private val propertyCache = ConcurrentHashMap<String, String>()
+
+        /** GPU strings are fixed for the life of the process; the probe is not cheap. */
+        @Volatile
+        private var cachedGpu: GpuInfo? = null
     }
 
-    fun collect(networkProbe: Boolean = true): FullDeviceReport {
+    /**
+     * @param sampleSensors when true, briefly registers sensor listeners to capture
+     *   live readings. That wakes every sampled sensor, so callers pass false unless
+     *   the readings are actually on screen.
+     */
+    fun collect(networkProbe: Boolean = true, sampleSensors: Boolean = false): FullDeviceReport {
         return FullDeviceReport(
             overview = collectOverview(),
             cpu = collectCpu(),
@@ -53,21 +77,43 @@ class DeviceInfoCollector(private val context: Context) {
             storage = collectStorage(),
             display = collectDisplay(),
             network = collectNetwork(networkProbe),
-            sensors = collectSensors(live = true),
+            sensors = collectSensors(live = sampleSensors),
             cameras = collectCameras(),
             thermals = collectThermals()
         )
     }
 
-    fun collectLive(previous: FullDeviceReport, networkProbe: Boolean = true): FullDeviceReport {
+    fun collectLive(
+        previous: FullDeviceReport,
+        networkProbe: Boolean = true,
+        sampleSensors: Boolean = false
+    ): FullDeviceReport {
         return previous.copy(
             overview = collectOverview(),
             battery = collectBattery(),
             memory = collectMemory(),
             network = collectNetworkLight(previous.network, networkProbe),
             cpu = previous.cpu.copy(currentFreqMhz = readCpuFrequenciesMhz()),
-            sensors = collectSensors(live = true),
+            // Keep the previously captured readings when we are not re-sampling.
+            sensors = if (sampleSensors) collectSensors(live = true) else previous.sensors,
             thermals = collectThermals()
+        )
+    }
+
+    /**
+     * Battery + memory only. Used by the background monitor and the load test,
+     * which sample often and must not pay for cameras, sensors, GPU or storage.
+     */
+    fun collectSample(): MetricSample {
+        val battery = collectBattery()
+        val memory = collectMemory()
+        return MetricSample(
+            timestampMs = System.currentTimeMillis(),
+            batteryPct = battery.level,
+            batteryTempC = battery.temperature,
+            ramUsedMb = memory.usedRamMb,
+            ramTotalMb = memory.totalRamMb,
+            charging = battery.isCharging
         )
     }
 
@@ -152,11 +198,38 @@ class DeviceInfoCollector(private val context: Context) {
         return fromCpuinfo ?: fromProps ?: hardware.ifBlank { boardPlatform }.ifBlank { "Unknown" }
     }
 
-    private fun readSystemProperty(key: String): String {
+    private fun readSystemProperty(key: String): String =
+        propertyCache.getOrPut(key) { readSystemPropertyUncached(key) }
+
+    private fun readSystemPropertyUncached(key: String): String {
+        // Fast path: the framework accessor costs no fork. Blocked on some builds,
+        // in which case we fall through to getprop.
+        runCatching {
+            val getter = Class.forName("android.os.SystemProperties")
+                .getMethod("get", String::class.java)
+            val value = getter.invoke(null, key) as? String
+            if (!value.isNullOrBlank()) return value.trim()
+        }
+
+        var process: Process? = null
         return try {
-            val process = Runtime.getRuntime().exec(arrayOf("getprop", key))
-            BufferedReader(InputStreamReader(process.inputStream)).use { it.readLine()?.trim().orEmpty() }
-        } catch (_: Exception) { "" }
+            process = Runtime.getRuntime().exec(arrayOf("getprop", key))
+            val value = BufferedReader(InputStreamReader(process.inputStream)).use {
+                it.readLine()?.trim().orEmpty()
+            }
+            process.waitFor(PROPERTY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            value
+        } catch (_: Exception) {
+            ""
+        } finally {
+            // Without this the pipes stay open and repeated collection exhausts
+            // the process file-descriptor limit.
+            process?.let { p ->
+                runCatching { p.outputStream.close() }
+                runCatching { p.errorStream.close() }
+                p.destroy()
+            }
+        }
     }
 
     private fun readCpuFrequenciesMhz(): List<Int> {
@@ -199,6 +272,7 @@ class DeviceInfoCollector(private val context: Context) {
     }
 
     private fun collectGpu(): GpuInfo {
+        cachedGpu?.let { return it }
         var renderer = "Unknown"; var vendor = "Unknown"; var version = "Unknown"
         try {
             val egl = EGLContext.getEGL() as EGL10
@@ -213,14 +287,24 @@ class DeviceInfoCollector(private val context: Context) {
                 renderer = GLES20.glGetString(GLES20.GL_RENDERER) ?: "Unknown"
                 vendor = GLES20.glGetString(GLES20.GL_VENDOR) ?: "Unknown"
                 version = GLES20.glGetString(GLES20.GL_VERSION) ?: "Unknown"
+                // Unbind before destroying, or the context stays alive on some drivers.
+                egl.eglMakeCurrent(
+                    display,
+                    EGL10.EGL_NO_SURFACE,
+                    EGL10.EGL_NO_SURFACE,
+                    EGL10.EGL_NO_CONTEXT
+                )
                 egl.eglDestroyContext(display, ctx)
             }
             egl.eglTerminate(display)
         } catch (_: Exception) {}
-        return GpuInfo(renderer, vendor, version)
+        val info = GpuInfo(renderer, vendor, version)
+        if (renderer != "Unknown") cachedGpu = info
+        return info
     }
 
-    private fun collectBattery(): BatteryInfo {
+    /** Public so the background monitor can sample it without a full collect. */
+    fun collectBattery(): BatteryInfo {
         val batteryStatus = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
@@ -255,11 +339,8 @@ class DeviceInfoCollector(private val context: Context) {
         val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
         val currentNowMa = bm?.let { normalizeBatteryCurrentMa(it.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)) }
         val currentAvgMa = bm?.let { normalizeBatteryCurrentMa(it.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE)) }
-        val capacityMah = bm?.let {
-            val c = it.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-            // CAPACITY is often 0-100 percent, not mAh — skip if looks like percent
-            null
-        }
+        // BATTERY_PROPERTY_CAPACITY reports a percentage, not mAh, so it is not
+        // usable as a capacity figure; design capacity comes from build props below.
         val chargeCounter = bm?.let {
             val v = it.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
             if (v == Long.MIN_VALUE || v == 0L) null else v
@@ -284,7 +365,8 @@ class DeviceInfoCollector(private val context: Context) {
         return if (ma == 0 && abs(rawUa) < 1000) null else ma
     }
 
-    private fun collectMemory(): MemoryInfo {
+    /** Public so the background monitor can sample it without a full collect. */
+    fun collectMemory(): MemoryInfo {
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val memInfo = ActivityManager.MemoryInfo()
         am.getMemoryInfo(memInfo)
@@ -425,7 +507,8 @@ class DeviceInfoCollector(private val context: Context) {
             val listener = object : SensorEventListener {
                 override fun onSensorChanged(event: SensorEvent?) {
                     if (event == null) return
-                    val values = event.values?.take(3)?.joinToString(", ") { String.format("%.3f", it) } ?: return
+                    val values = event.values?.take(3)
+                        ?.joinToString(", ") { String.format(Locale.US, "%.3f", it) } ?: return
                     synchronized(results) {
                         if (!results.containsKey(sensor)) { results[sensor] = values; latch.countDown() }
                     }
@@ -486,9 +569,9 @@ class DeviceInfoCollector(private val context: Context) {
                 val size = chars.get(CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE)
                 val pixelArray = if (size != null) "${size.width}×${size.height}" else "—"
                 val focals = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
-                    ?.joinToString(", ") { String.format("%.2f mm", it) } ?: "—"
+                    ?.joinToString(", ") { String.format(Locale.US, "%.2f mm", it) } ?: "—"
                 val apertures = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES)
-                    ?.joinToString(", ") { String.format("f/%.1f", it) } ?: "—"
+                    ?.joinToString(", ") { String.format(Locale.US, "f/%.1f", it) } ?: "—"
                 result.add(CameraEntry(id, facing, orientation, level, pixelArray, focals, apertures))
             } catch (_: Exception) {}
         }
@@ -573,17 +656,228 @@ class DeviceInfoCollector(private val context: Context) {
         metered: Boolean
     ): NetworkInfo {
         val target = "$LATENCY_HOST:$LATENCY_PORT"
-        return try {
-            val socket = Socket()
-            val startNs = System.nanoTime()
-            socket.connect(InetSocketAddress(LATENCY_HOST, LATENCY_PORT), LATENCY_TIMEOUT_MS)
-            val elapsedMs = (System.nanoTime() - startNs) / 1_000_000
-            socket.close()
-            NetworkInfo(true, networkType, elapsedMs, target, "OK", down, up, validated, metered)
-        } catch (_: java.net.SocketTimeoutException) {
-            NetworkInfo(true, networkType, null, target, "Timeout", down, up, validated, metered)
-        } catch (e: Exception) {
-            NetworkInfo(true, networkType, null, target, "Error: ${e.message ?: e.javaClass.simpleName}", down, up, validated, metered)
+        return when (val probe = singleLatency()) {
+            is LatencyProbe.Ok ->
+                NetworkInfo(true, networkType, probe.millis, target, "OK", down, up, validated, metered)
+            is LatencyProbe.Failed ->
+                NetworkInfo(true, networkType, null, target, probe.reason, down, up, validated, metered)
         }
+    }
+
+    private sealed interface LatencyProbe {
+        data class Ok(val millis: Long) : LatencyProbe
+        data class Failed(val reason: String) : LatencyProbe
+    }
+
+    /** One TCP connect to the latency target. The socket is always closed. */
+    private fun singleLatency(): LatencyProbe {
+        return try {
+            // `use` matters here: on a failed connect the socket was previously
+            // left open, leaking a descriptor on every probe.
+            Socket().use { socket ->
+                val startNs = System.nanoTime()
+                socket.connect(InetSocketAddress(LATENCY_HOST, LATENCY_PORT), LATENCY_TIMEOUT_MS)
+                LatencyProbe.Ok((System.nanoTime() - startNs) / 1_000_000)
+            }
+        } catch (_: java.net.SocketTimeoutException) {
+            LatencyProbe.Failed("Timeout")
+        } catch (e: Exception) {
+            LatencyProbe.Failed("Error: ${e.message ?: e.javaClass.simpleName}")
+        }
+    }
+
+    /**
+     * Repeats the latency probe to expose spread and packet loss, which a single
+     * sample cannot show. Blocking — call from a background dispatcher.
+     */
+    fun measureLatencyStats(count: Int = 5): LatencyStats {
+        val attempts = count.coerceIn(1, 20)
+        val samples = ArrayList<Long>(attempts)
+        var lastError: String? = null
+        repeat(attempts) { index ->
+            when (val probe = singleLatency()) {
+                is LatencyProbe.Ok -> samples.add(probe.millis)
+                is LatencyProbe.Failed -> lastError = probe.reason
+            }
+            if (index < attempts - 1) {
+                try {
+                    Thread.sleep(LATENCY_GAP_MS)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return@repeat
+                }
+            }
+        }
+        val lost = attempts - samples.size
+        val avg = if (samples.isEmpty()) null else samples.sum() / samples.size
+        // Mean absolute deviation from the average — a readable stand-in for jitter.
+        val jitter = if (samples.size < 2 || avg == null) {
+            null
+        } else {
+            samples.sumOf { kotlin.math.abs(it - avg) } / samples.size
+        }
+        return LatencyStats(
+            target = "$LATENCY_HOST:$LATENCY_PORT",
+            samplesMs = samples,
+            attempts = attempts,
+            minMs = samples.minOrNull(),
+            avgMs = avg,
+            maxMs = samples.maxOrNull(),
+            jitterMs = jitter,
+            lossPercent = if (attempts == 0) 0 else (lost * 100) / attempts,
+            lastError = if (samples.isEmpty()) lastError else null
+        )
+    }
+
+    /**
+     * Everything the Network screen shows beyond the summary card. Collected on
+     * demand only — none of this belongs in the live tick.
+     */
+    fun collectNetworkDetail(): NetworkDetail {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val active = cm?.activeNetwork
+        val capabilities = active?.let { cm.getNetworkCapabilities(it) }
+        val linkProperties = active?.let { cm.getLinkProperties(it) }
+
+        val dns = linkProperties?.dnsServers?.mapNotNull { it.hostAddress }.orEmpty()
+        val privateDns = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            linkProperties?.privateDnsServerName
+        } else {
+            null
+        }
+        val privateDnsActive = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            linkProperties?.isPrivateDnsActive ?: false
+        } else {
+            false
+        }
+
+        return NetworkDetail(
+            interfaces = collectInterfaces(),
+            dnsServers = dns,
+            privateDnsServer = privateDns,
+            privateDnsActive = privateDnsActive,
+            interfaceName = linkProperties?.interfaceName.orEmpty(),
+            domains = linkProperties?.domains.orEmpty(),
+            wifi = collectWifiDetail(capabilities),
+            cellular = collectCellularDetail(capabilities),
+            capabilities = describeCapabilities(capabilities)
+        )
+    }
+
+    private fun collectInterfaces(): List<NetworkInterfaceInfo> {
+        val result = ArrayList<NetworkInterfaceInfo>()
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces() ?: return result
+            for (nif in interfaces) {
+                val addresses = ArrayList<String>()
+                for (address in nif.inetAddresses) {
+                    if (address.isLoopbackAddress) continue
+                    val text = address.hostAddress ?: continue
+                    // Strip the scope id IPv6 link-local addresses carry.
+                    val clean = text.substringBefore('%')
+                    val label = when (address) {
+                        is Inet4Address -> "IPv4"
+                        is Inet6Address -> if (address.isLinkLocalAddress) "IPv6 link-local" else "IPv6"
+                        else -> "IP"
+                    }
+                    addresses.add("$label  $clean")
+                }
+                if (addresses.isEmpty()) continue
+                result.add(
+                    NetworkInterfaceInfo(
+                        name = nif.name.orEmpty(),
+                        displayName = nif.displayName.orEmpty(),
+                        addresses = addresses,
+                        isUp = try { nif.isUp } catch (_: Exception) { false },
+                        mtu = try { nif.mtu } catch (_: Exception) { 0 }
+                    )
+                )
+            }
+        } catch (_: Exception) {
+            // No interface visibility — return whatever we gathered.
+        }
+        return result.sortedBy { it.name }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun collectWifiDetail(capabilities: NetworkCapabilities?): WifiDetail? {
+        if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) return null
+        val wm = context.applicationContext
+            .getSystemService(Context.WIFI_SERVICE) as? WifiManager ?: return null
+        val info = try { wm.connectionInfo } catch (_: Exception) { null } ?: return null
+
+        // Without a location permission the platform redacts the SSID. We do not
+        // ask for location, so say so rather than showing the placeholder.
+        val rawSsid = info.ssid.orEmpty().trim('"')
+        val ssid = when {
+            rawSsid.isBlank() -> "Unavailable"
+            rawSsid.equals("<unknown ssid>", ignoreCase = true) ->
+                "Hidden (needs location permission)"
+            else -> rawSsid
+        }
+
+        val frequency = info.frequency.takeIf { it > 0 }
+        val band = when {
+            frequency == null -> "Unknown"
+            frequency < 3000 -> "2.4 GHz"
+            frequency < 5900 -> "5 GHz"
+            else -> "6 GHz"
+        }
+        val rssi = info.rssi.takeIf { it != Int.MIN_VALUE && it < 0 }
+        return WifiDetail(
+            ssid = ssid,
+            linkSpeedMbps = info.linkSpeed.takeIf { it > 0 },
+            rxLinkSpeedMbps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                info.rxLinkSpeedMbps.takeIf { it > 0 }
+            } else {
+                null
+            },
+            txLinkSpeedMbps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                info.txLinkSpeedMbps.takeIf { it > 0 }
+            } else {
+                null
+            },
+            rssiDbm = rssi,
+            signalLevel = rssi?.let { WifiManager.calculateSignalLevel(it, 5) } ?: 0,
+            frequencyMhz = frequency,
+            band = band
+        )
+    }
+
+    private fun collectCellularDetail(capabilities: NetworkCapabilities?): CellularDetail? {
+        if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) != true) return null
+        val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+            ?: return null
+        return try {
+            CellularDetail(
+                carrier = tm.networkOperatorName.orEmpty().ifBlank { "Unknown" },
+                simOperator = tm.simOperatorName.orEmpty(),
+                countryIso = tm.networkCountryIso.orEmpty().uppercase(Locale.US),
+                phoneType = when (tm.phoneType) {
+                    TelephonyManager.PHONE_TYPE_GSM -> "GSM"
+                    TelephonyManager.PHONE_TYPE_CDMA -> "CDMA"
+                    TelephonyManager.PHONE_TYPE_SIP -> "SIP"
+                    else -> "None"
+                },
+                roaming = try { tm.isNetworkRoaming } catch (_: Exception) { false }
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun describeCapabilities(capabilities: NetworkCapabilities?): List<String> {
+        if (capabilities == null) return emptyList()
+        val flags = listOf(
+            "Internet" to NetworkCapabilities.NET_CAPABILITY_INTERNET,
+            "Validated" to NetworkCapabilities.NET_CAPABILITY_VALIDATED,
+            "Not metered" to NetworkCapabilities.NET_CAPABILITY_NOT_METERED,
+            "Not restricted" to NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED,
+            "Not VPN" to NetworkCapabilities.NET_CAPABILITY_NOT_VPN,
+            "Captive portal" to NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL
+        )
+        return flags.filter { (_, flag) ->
+            try { capabilities.hasCapability(flag) } catch (_: Exception) { false }
+        }.map { it.first }
     }
 }
