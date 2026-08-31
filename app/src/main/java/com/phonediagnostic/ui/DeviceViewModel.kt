@@ -203,6 +203,10 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         }
         _screen.value = tab
         _canNavigateBack.value = backStack.isNotEmpty()
+        if (tab == AppScreen.MORE) {
+            // The More screen shows a sample count next to History.
+            refreshHistory()
+        }
     }
 
     /**
@@ -449,7 +453,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                 charging = report.battery.isCharging
             )
         )
-        if (stored && _screen.value == AppScreen.HISTORY) {
+        if (stored && (_screen.value == AppScreen.HISTORY || _screen.value == AppScreen.MORE)) {
             _metricHistory.value = history.snapshot()
         }
     }

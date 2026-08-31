@@ -19,7 +19,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.outlined.Memory
@@ -191,7 +191,7 @@ fun MoreScreen(
             }
             item {
                 MoreLink(
-                    icon = Icons.Filled.ShowChart,
+                    icon = Icons.AutoMirrored.Filled.ShowChart,
                     title = "History",
                     subtitle = if (historySamples > 0) {
                         "$historySamples samples · battery, temp, RAM"

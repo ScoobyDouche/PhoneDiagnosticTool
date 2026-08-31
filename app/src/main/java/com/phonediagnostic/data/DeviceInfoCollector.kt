@@ -437,10 +437,18 @@ class DeviceInfoCollector(private val context: Context) {
         return result
     }
 
+    /**
+     * Uses the deprecated [WindowManager.getDefaultDisplay]. The replacements
+     * (`Context.getDisplay`, `WindowMetrics`) need a visual context, and this
+     * collector deliberately holds the application context so the background
+     * monitor can share it. The deprecated call still reports correctly through
+     * API 35.
+     */
+    @Suppress("DEPRECATION")
     private fun collectDisplay(): DisplayInfo {
         val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val metrics = DisplayMetrics()
-        @Suppress("DEPRECATION") wm.defaultDisplay.getRealMetrics(metrics)
+        wm.defaultDisplay.getRealMetrics(metrics)
         val refresh = try { wm.defaultDisplay.refreshRate } catch (_: Exception) { 60f }
         val wIn = metrics.widthPixels / metrics.xdpi.toDouble()
         val hIn = metrics.heightPixels / metrics.ydpi.toDouble()
@@ -525,6 +533,8 @@ class DeviceInfoCollector(private val context: Context) {
         return results
     }
 
+    /** TYPE_ORIENTATION is deprecated but still reported by some devices, so it is named here. */
+    @Suppress("DEPRECATION")
     private fun sensorTypeName(type: Int): String = when (type) {
         Sensor.TYPE_ACCELEROMETER -> "Accelerometer"
         Sensor.TYPE_GYROSCOPE -> "Gyroscope"

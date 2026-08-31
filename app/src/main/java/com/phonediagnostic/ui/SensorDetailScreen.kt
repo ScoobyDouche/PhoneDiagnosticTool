@@ -93,10 +93,13 @@ fun SensorDetailScreen(
         // Callbacks arrive on the main thread when no handler is supplied, so
         // writing Compose state straight from here is safe.
         var lastPublishMs = 0L
+        // Counted outside Compose state so the tally stays exact without making
+        // every raw event a recomposition; it is published with the throttled batch.
+        var received = 0L
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent?) {
                 val values = event?.values ?: return
-                eventCount++
+                received++
                 val now = SystemClock.uptimeMillis()
                 // Sensors can fire far faster than the screen refreshes; throttle
                 // so the chart does not drive a recomposition per event.
@@ -104,6 +107,7 @@ fun SensorDetailScreen(
                 lastPublishMs = now
                 val snapshot = values.take(3)
                 latest = snapshot
+                eventCount = received
                 window = (window + listOf(snapshot)).takeLast(WINDOW_SIZE)
             }
 
