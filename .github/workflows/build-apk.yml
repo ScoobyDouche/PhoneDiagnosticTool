@@ -42,13 +42,35 @@ jobs:
         run: |
           if [ -f gradlew ]; then chmod +x gradlew; fi
 
-      - name: Build debug APK
+      - name: Pick Gradle command
+        id: gradle
         run: |
           if [ -f gradlew ]; then
-            ./gradlew assembleDebug --no-daemon --stacktrace
+            echo "cmd=./gradlew" >> "$GITHUB_OUTPUT"
           else
-            gradle assembleDebug --no-daemon --stacktrace
+            echo "cmd=gradle" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Unit tests
+        run: ${{ steps.gradle.outputs.cmd }} test --no-daemon --stacktrace
+
+      - name: Build debug APK
+        run: ${{ steps.gradle.outputs.cmd }} assembleDebug --no-daemon --stacktrace
+
+      # The release variant runs R8 and resource shrinking, which the debug
+      # variant does not. Without this it was never compiled, so a broken keep
+      # rule would only surface when someone tried to cut a release.
+      - name: Build release APK (verifies R8 / shrinker config)
+        run: ${{ steps.gradle.outputs.cmd }} assembleRelease --no-daemon --stacktrace
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: app/build/reports/tests/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

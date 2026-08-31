@@ -30,14 +30,19 @@ See **[PRIVACY.md](PRIVACY.md)**.
 
 Short version: diagnostics run locally. The only network use is an optional latency probe you can turn off.
 
-## Download APK (GitHub Actions)
+## Download
 
-1. Open **Actions** → **Build APK**
-2. Open the latest **green** run
-3. Download artifact **PhoneDiagnostic-debug**
-4. Unzip and install the `.apk` (allow install from unknown sources)
+**Releases** (recommended) — grab the `.apk` attached to the latest entry on the
+[Releases](https://github.com/ScoobyDouche/PhoneDiagnosticTool/releases) page.
+These do not expire.
 
-Debug builds use a fixed CI keystore so updates can install over previous CI builds.
+**Latest build from `main`** — Actions → **Build APK** → latest green run →
+artifact **PhoneDiagnostic-debug**. Artifacts are a `.zip`, so unzip before
+installing, and they are deleted after 14 days.
+
+Either way you will need to allow install from unknown sources. Debug builds use
+a fixed CI keystore, so a new build installs over a previous one without an
+uninstall.
 
 ## Build from source
 
@@ -48,8 +53,12 @@ git clone https://github.com/ScoobyDouche/PhoneDiagnosticTool.git
 cd PhoneDiagnosticTool
 # Optional: decode CI debug keystore for local parity
 # base64 -d keystore/debug.keystore.b64 > keystore/debug.keystore
-gradle assembleDebug   # or open in Android Studio
+gradle test             # unit tests
+gradle assembleDebug    # or open in Android Studio
+gradle assembleRelease  # exercises R8 + resource shrinking
 ```
+
+CI runs all three on every push and pull request.
 
 APK output: `app/build/outputs/apk/debug/`
 
@@ -73,7 +82,7 @@ Camera and sensors use system APIs without requesting CAMERA permission (charact
 - Kotlin, Jetpack Compose, Material 3
 - ViewModel + StateFlow
 - Min SDK 26 · Target / compile SDK 35
-- Version **1.12.0**
+- Version **1.0.0**
 
 Diagnostics are stored only on the device: a rotating log and a 24 h metric
 history live in internal storage, and the app opts out of Android cloud backup
