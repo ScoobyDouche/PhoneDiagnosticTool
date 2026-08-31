@@ -128,6 +128,62 @@ data class NetworkInfo(
     val metered: Boolean = false
 )
 
+/** Result of repeating the latency probe, so spread and loss are visible. */
+data class LatencyStats(
+    val target: String,
+    val samplesMs: List<Long>,
+    val attempts: Int,
+    val minMs: Long?,
+    val avgMs: Long?,
+    val maxMs: Long?,
+    /** Mean absolute deviation from the average. */
+    val jitterMs: Long?,
+    val lossPercent: Int,
+    /** Set only when every attempt failed. */
+    val lastError: String? = null
+)
+
+data class NetworkInterfaceInfo(
+    val name: String,
+    val displayName: String,
+    val addresses: List<String>,
+    val isUp: Boolean,
+    val mtu: Int
+)
+
+data class WifiDetail(
+    val ssid: String,
+    val linkSpeedMbps: Int?,
+    val rxLinkSpeedMbps: Int?,
+    val txLinkSpeedMbps: Int?,
+    val rssiDbm: Int?,
+    /** 0..4, derived from RSSI. */
+    val signalLevel: Int,
+    val frequencyMhz: Int?,
+    val band: String
+)
+
+data class CellularDetail(
+    val carrier: String,
+    val simOperator: String,
+    val countryIso: String,
+    val phoneType: String,
+    val roaming: Boolean
+)
+
+/** On-demand companion to [NetworkInfo] for the Network detail screen. */
+data class NetworkDetail(
+    val interfaces: List<NetworkInterfaceInfo> = emptyList(),
+    val dnsServers: List<String> = emptyList(),
+    val privateDnsServer: String? = null,
+    val privateDnsActive: Boolean = false,
+    val interfaceName: String = "",
+    val domains: String = "",
+    val wifi: WifiDetail? = null,
+    val cellular: CellularDetail? = null,
+    val capabilities: List<String> = emptyList()
+)
+
 data class SensorEntry(
     val name: String,
     val type: String,

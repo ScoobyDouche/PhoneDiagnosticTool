@@ -2,9 +2,24 @@ package com.phonediagnostic.data
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 object ReportExporter {
+
+    /**
+     * A filename that sorts by capture time and identifies the device, e.g.
+     * `phone-diagnostic-Pixel_7-20260831-142530.txt`.
+     */
+    fun suggestedFileName(report: FullDeviceReport, extension: String): String {
+        val model = report.overview.model
+            .replace(Regex("[^A-Za-z0-9]+"), "_")
+            .trim('_')
+            .ifBlank { "device" }
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+        return "phone-diagnostic-$model-$stamp.$extension"
+    }
 
     fun toShareText(report: FullDeviceReport): String {
         val o = report.overview

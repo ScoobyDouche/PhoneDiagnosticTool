@@ -36,7 +36,8 @@ fun BatteryScreen(
     isLive: Boolean,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
-    onOpenThermals: () -> Unit
+    onOpenThermals: () -> Unit,
+    onOpenHistory: () -> Unit
 ) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -128,7 +129,22 @@ fun BatteryScreen(
 
             item {
                 InfoCard(
+                    title = "Trends",
+                    subtitle = "History ›",
+                    onClick = onOpenHistory
+                ) {
+                    Text(
+                        text = "Charge level and temperature over time.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            item {
+                InfoCard(
                     title = "Thermals",
+                    subtitle = "All zones ›",
                     onClick = onOpenThermals
                 ) {
                     Column {

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Diagnostics stay on the device. Nothing is eligible for cloud backup, so the
+  rotating log, the metric history and the preferences never leave the phone.
+-->
+<full-backup-content>
+    <exclude domain="file" />
+    <exclude domain="sharedpref" />
+    <exclude domain="database" />
+    <exclude domain="external" />
+</full-backup-content>

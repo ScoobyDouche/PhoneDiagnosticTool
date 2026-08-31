@@ -1,5 +1,6 @@
 package com.phonediagnostic.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
@@ -32,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.phonediagnostic.data.CameraEntry
 import com.phonediagnostic.data.SensorEntry
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +43,8 @@ fun SensorsScreen(
     cameras: List<CameraEntry>,
     isRefreshing: Boolean,
     onBack: (() -> Unit)? = null,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onOpenSensor: (String) -> Unit = {}
 ) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -79,7 +83,7 @@ fun SensorsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "Live values sampled briefly for common sensors. No extra permissions required.",
+                    text = "Tap a sensor to stream it live. No extra permissions required.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -117,8 +121,14 @@ fun SensorsScreen(
                     )
                 }
             } else {
-                items(sensors, key = { "${it.type}-${it.name}" }) { sensor ->
-                    SensorCard(sensor)
+                itemsIndexed(
+                    items = sensors,
+                    // Vendors sometimes expose two sensors with the same type and
+                    // name (wakeup / non-wakeup); the index keeps keys unique so
+                    // LazyColumn does not reject the list.
+                    key = { index, sensor -> "sensor-$index-${sensor.type}-${sensor.name}" }
+                ) { _, sensor ->
+                    SensorCard(sensor = sensor, onClick = { onOpenSensor(sensor.name) })
                 }
             }
         }
@@ -126,9 +136,11 @@ fun SensorsScreen(
 }
 
 @Composable
-private fun SensorCard(sensor: SensorEntry) {
+private fun SensorCard(sensor: SensorEntry, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
@@ -148,9 +160,9 @@ private fun SensorCard(sensor: SensorEntry) {
             if (sensor.vendor.isNotBlank()) {
                 MetaRow("Vendor", sensor.vendor)
             }
-            MetaRow("Power", String.format("%.2f mA", sensor.powerMa))
-            MetaRow("Resolution", String.format("%.4f", sensor.resolution))
-            MetaRow("Max range", String.format("%.2f", sensor.maxRange))
+            MetaRow("Power", String.format(Locale.US, "%.2f mA", sensor.powerMa))
+            MetaRow("Resolution", String.format(Locale.US, "%.4f", sensor.resolution))
+            MetaRow("Max range", String.format(Locale.US, "%.2f", sensor.maxRange))
             if (sensor.minDelayUs > 0) {
                 MetaRow("Min delay", "${sensor.minDelayUs} µs")
             }

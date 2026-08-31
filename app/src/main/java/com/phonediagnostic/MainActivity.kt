@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -43,10 +44,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.phonediagnostic.data.FullDeviceReport
 import com.phonediagnostic.data.ReportExporter
 import com.phonediagnostic.data.ThemeMode
 import com.phonediagnostic.ui.AboutScreen
@@ -55,8 +58,11 @@ import com.phonediagnostic.ui.BatteryScreen
 import com.phonediagnostic.ui.CpuScreen
 import com.phonediagnostic.ui.DashboardScreen
 import com.phonediagnostic.ui.DeviceViewModel
+import com.phonediagnostic.ui.HistoryScreen
 import com.phonediagnostic.ui.MoreScreen
+import com.phonediagnostic.ui.NetworkScreen
 import com.phonediagnostic.ui.RamDetailScreen
+import com.phonediagnostic.ui.SensorDetailScreen
 import com.phonediagnostic.ui.SensorsScreen
 import com.phonediagnostic.ui.SettingsScreen
 import com.phonediagnostic.ui.StorageDetailScreen
@@ -64,10 +70,12 @@ import com.phonediagnostic.ui.ThermalsScreen
 import com.phonediagnostic.ui.ToolsScreen
 import com.phonediagnostic.ui.isMainTab
 import com.phonediagnostic.ui.theme.PhoneDiagnosticTheme
+import java.io.File
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: DeviceViewModel by viewModels()
+    /** Content queued for the document picker, consumed when it returns a target. */
+    private var pendingExport: String? = null
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -81,6 +89,18 @@ class MainActivity : ComponentActivity() {
                 ).show()
             }
         }
+
+    private val saveTextLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument(MIME_TEXT)) { uri ->
+            writePendingExport(uri)
+        }
+
+    private val saveJsonLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument(MIME_JSON)) { uri ->
+            writePendingExport(uri)
+        }
+
+    private val viewModel: DeviceViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -100,6 +120,7 @@ class MainActivity : ComponentActivity() {
                     val isLive by viewModel.isLive.collectAsStateWithLifecycle()
                     val lastUpdated by viewModel.lastUpdated.collectAsStateWithLifecycle()
                     val screen by viewModel.screen.collectAsStateWithLifecycle()
+                    val canGoBack by viewModel.canNavigateBack.collectAsStateWithLifecycle()
                     val networkProbe by viewModel.networkProbeEnabled.collectAsStateWithLifecycle()
                     val bgMonitor by viewModel.backgroundMonitorEnabled.collectAsStateWithLifecycle()
                     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
@@ -113,6 +134,22 @@ class MainActivity : ComponentActivity() {
                     val loadTesting by viewModel.loadTesting.collectAsStateWithLifecycle()
                     val loadProgress by viewModel.loadProgress.collectAsStateWithLifecycle()
                     val lastLoadResult by viewModel.lastLoadResult.collectAsStateWithLifecycle()
+                    val metricHistory by viewModel.metricHistory.collectAsStateWithLifecycle()
+                    val networkDetail by viewModel.networkDetail.collectAsStateWithLifecycle()
+                    val networkDetailLoading by
+                        viewModel.networkDetailLoading.collectAsStateWithLifecycle()
+                    val latencyStats by viewModel.latencyStats.collectAsStateWithLifecycle()
+                    val latencyRunning by viewModel.latencyRunning.collectAsStateWithLifecycle()
+                    val selectedSensor by viewModel.selectedSensor.collectAsStateWithLifecycle()
+
+                    // Back used to leave the app from every detail screen. Intercept
+                    // while there is somewhere to return to, and hold it entirely
+                    // during a load test so a stray gesture cannot abandon the run.
+                    BackHandler(enabled = canGoBack || loadTesting) {
+                        if (!loadTesting) {
+                            viewModel.navigateBack()
+                        }
+                    }
 
                     val lifecycleOwner = LocalLifecycleOwner.current
                     DisposableEffect(lifecycleOwner) {
@@ -124,6 +161,9 @@ class MainActivity : ComponentActivity() {
                                     viewModel.hasUsageStats.value
                                 ) {
                                     viewModel.loadAppStorage()
+                                }
+                                if (viewModel.screen.value == AppScreen.HISTORY) {
+                                    viewModel.refreshHistory()
                                 }
                             }
                         }
@@ -159,7 +199,9 @@ class MainActivity : ComponentActivity() {
                                         onToggleLive = { viewModel.toggleLive() },
                                         onRefresh = { viewModel.refreshNow() },
                                         onOpenRamDetail = { viewModel.openRamDetail() },
-                                        onOpenStorageDetail = { viewModel.openStorageDetail() }
+                                        onOpenStorageDetail = { viewModel.openStorageDetail() },
+                                        onOpenNetwork = { viewModel.openNetwork() },
+                                        onOpenHistory = { viewModel.openHistory() }
                                     )
                                 }
                                 AppScreen.CPU -> {
@@ -177,7 +219,8 @@ class MainActivity : ComponentActivity() {
                                         isLive = isLive,
                                         isRefreshing = isRefreshing,
                                         onRefresh = { viewModel.refreshNow() },
-                                        onOpenThermals = { viewModel.openThermals() }
+                                        onOpenThermals = { viewModel.openThermals() },
+                                        onOpenHistory = { viewModel.openHistory() }
                                     )
                                 }
                                 AppScreen.SENSORS -> {
@@ -186,20 +229,27 @@ class MainActivity : ComponentActivity() {
                                         cameras = report?.cameras.orEmpty(),
                                         isRefreshing = isRefreshing,
                                         onBack = null,
-                                        onRefresh = { viewModel.refreshNow() }
+                                        onRefresh = { viewModel.refreshNow() },
+                                        onOpenSensor = { viewModel.openSensorDetail(it) }
                                     )
                                 }
                                 AppScreen.MORE -> {
                                     MoreScreen(
                                         report = report,
                                         versionName = BuildConfig.VERSION_NAME,
+                                        historySamples = metricHistory.size,
                                         onOpenRam = { viewModel.openRamDetail() },
                                         onOpenStorage = { viewModel.openStorageDetail() },
+                                        onOpenNetwork = { viewModel.openNetwork() },
+                                        onOpenHistory = { viewModel.openHistory() },
                                         onOpenTools = { viewModel.openTools() },
                                         onOpenSettings = { viewModel.openSettings() },
                                         onOpenAbout = { viewModel.openAbout() },
                                         onShareText = { shareText() },
                                         onShareJson = { shareJson() },
+                                        onShareFile = { shareAsFile() },
+                                        onSaveText = { saveText() },
+                                        onSaveJson = { saveJson() },
                                         onCopyText = { copyText() }
                                     )
                                 }
@@ -217,7 +267,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                         },
                                         onThemeModeChange = { viewModel.setThemeMode(it) },
-                                        onBack = { viewModel.openMore() },
+                                        onBack = { viewModel.navigateBack() },
                                         onOpenAbout = { viewModel.openAbout() },
                                         onOpenTools = { viewModel.openTools() }
                                     )
@@ -225,7 +275,7 @@ class MainActivity : ComponentActivity() {
                                 AppScreen.ABOUT -> {
                                     AboutScreen(
                                         versionName = BuildConfig.VERSION_NAME,
-                                        onBack = { viewModel.openMore() }
+                                        onBack = { viewModel.navigateBack() }
                                     )
                                 }
                                 AppScreen.RAM_DETAIL -> {
@@ -233,7 +283,7 @@ class MainActivity : ComponentActivity() {
                                         memory = report?.memory,
                                         entries = processRam,
                                         isLoading = processRamLoading,
-                                        onBack = { viewModel.openMore() },
+                                        onBack = { viewModel.navigateBack() },
                                         onRefresh = { viewModel.loadProcessRam() }
                                     )
                                 }
@@ -243,7 +293,7 @@ class MainActivity : ComponentActivity() {
                                         entries = appStorage,
                                         isLoading = appStorageLoading,
                                         hasPermission = hasUsageStats,
-                                        onBack = { viewModel.openMore() },
+                                        onBack = { viewModel.navigateBack() },
                                         onRefresh = {
                                             viewModel.refreshNow()
                                             viewModel.loadAppStorage()
@@ -259,7 +309,7 @@ class MainActivity : ComponentActivity() {
                                         loadTesting = loadTesting,
                                         loadProgress = loadProgress,
                                         lastLoadResult = lastLoadResult,
-                                        onBack = { viewModel.openMore() },
+                                        onBack = { viewModel.navigateBack() },
                                         onRefreshLog = { viewModel.refreshLog() },
                                         onClearLog = { viewModel.clearLog() },
                                         onShareLog = { shareLog() },
@@ -273,8 +323,36 @@ class MainActivity : ComponentActivity() {
                                         thermals = report?.thermals.orEmpty(),
                                         isLive = isLive,
                                         isRefreshing = isRefreshing,
-                                        onBack = { viewModel.openBattery() },
+                                        onBack = { viewModel.navigateBack() },
                                         onRefresh = { viewModel.refreshNow() }
+                                    )
+                                }
+                                AppScreen.HISTORY -> {
+                                    HistoryScreen(
+                                        samples = metricHistory,
+                                        monitorEnabled = bgMonitor,
+                                        onBack = { viewModel.navigateBack() },
+                                        onRefresh = { viewModel.refreshHistory() },
+                                        onClear = { viewModel.clearHistory() }
+                                    )
+                                }
+                                AppScreen.NETWORK -> {
+                                    NetworkScreen(
+                                        network = report?.network,
+                                        detail = networkDetail,
+                                        isLoading = networkDetailLoading,
+                                        probeEnabled = networkProbe,
+                                        latency = latencyStats,
+                                        latencyRunning = latencyRunning,
+                                        onBack = { viewModel.navigateBack() },
+                                        onRefresh = { viewModel.loadNetworkDetail() },
+                                        onRunLatency = { viewModel.runLatencyTest() }
+                                    )
+                                }
+                                AppScreen.SENSOR_DETAIL -> {
+                                    SensorDetailScreen(
+                                        sensorName = selectedSensor,
+                                        onBack = { viewModel.navigateBack() }
                                     )
                                 }
                             }
@@ -300,7 +378,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openUsageAccessSettings() {
-        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+        try {
+            startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+        } catch (_: Exception) {
+            Toast.makeText(this, "Could not open Usage Access settings", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun openAppInfo(packageName: String) {
@@ -327,35 +409,33 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun currentReport() = viewModel.report.value
+    private fun currentReport(): FullDeviceReport? {
+        val report = viewModel.report.value
+        if (report == null) {
+            Toast.makeText(this, "No report collected yet", Toast.LENGTH_SHORT).show()
+        }
+        return report
+    }
+
+    // ------------------------------------------------------------------- sharing
 
     private fun shareText() {
         val report = currentReport() ?: return
-        val text = ReportExporter.toShareText(report)
-        startActivity(
-            Intent.createChooser(
-                Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_SUBJECT, "Phone Diagnostic Report")
-                    putExtra(Intent.EXTRA_TEXT, text)
-                },
-                "Share diagnostic report"
-            )
+        startChooser(
+            text = ReportExporter.toShareText(report),
+            mimeType = MIME_TEXT,
+            subject = "Phone Diagnostic Report",
+            title = "Share diagnostic report"
         )
     }
 
     private fun shareJson() {
         val report = currentReport() ?: return
-        val json = ReportExporter.toJson(report)
-        startActivity(
-            Intent.createChooser(
-                Intent(Intent.ACTION_SEND).apply {
-                    type = "application/json"
-                    putExtra(Intent.EXTRA_SUBJECT, "Phone Diagnostic Report (JSON)")
-                    putExtra(Intent.EXTRA_TEXT, json)
-                },
-                "Share JSON report"
-            )
+        startChooser(
+            text = ReportExporter.toJson(report),
+            mimeType = MIME_JSON,
+            subject = "Phone Diagnostic Report (JSON)",
+            title = "Share JSON report"
         )
     }
 
@@ -365,25 +445,135 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Log is empty", Toast.LENGTH_SHORT).show()
             return
         }
-        val text = lines.joinToString("\n")
-        startActivity(
-            Intent.createChooser(
-                Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_SUBJECT, "Phone Diagnostic Log")
-                    putExtra(Intent.EXTRA_TEXT, text)
-                },
-                "Share diagnostic log"
-            )
+        startChooser(
+            text = lines.joinToString("\n"),
+            mimeType = MIME_TEXT,
+            subject = "Phone Diagnostic Log",
+            title = "Share diagnostic log"
         )
+    }
+
+    private fun startChooser(text: String, mimeType: String, subject: String, title: String) {
+        try {
+            startActivity(
+                Intent.createChooser(
+                    Intent(Intent.ACTION_SEND).apply {
+                        type = mimeType
+                        putExtra(Intent.EXTRA_SUBJECT, subject)
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    },
+                    title
+                )
+            )
+        } catch (_: Exception) {
+            Toast.makeText(this, "No app available to share with", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Shares the report as a real attachment. A full report is large enough that
+     * some targets silently truncate or drop `EXTRA_TEXT`, so this route writes a
+     * file and hands over a content URI instead.
+     */
+    private fun shareAsFile() {
+        val report = currentReport() ?: return
+        val name = ReportExporter.suggestedFileName(report, "txt")
+        val uri = try {
+            val dir = File(cacheDir, SHARE_DIR).apply { mkdirs() }
+            // One file per share keeps this from growing without bound.
+            dir.listFiles()?.forEach { it.delete() }
+            val file = File(dir, name)
+            file.writeText(ReportExporter.toShareText(report))
+            FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        } catch (e: Exception) {
+            Toast.makeText(
+                this,
+                "Could not prepare file: ${e.message ?: e.javaClass.simpleName}",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        try {
+            startActivity(
+                Intent.createChooser(
+                    Intent(Intent.ACTION_SEND).apply {
+                        type = MIME_TEXT
+                        putExtra(Intent.EXTRA_SUBJECT, "Phone Diagnostic Report")
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    },
+                    "Share report file"
+                )
+            )
+        } catch (_: Exception) {
+            Toast.makeText(this, "No app available to share with", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ------------------------------------------------------------------- saving
+
+    private fun saveText() {
+        val report = currentReport() ?: return
+        pendingExport = ReportExporter.toShareText(report)
+        launchSave(saveTextLauncher, ReportExporter.suggestedFileName(report, "txt"))
+    }
+
+    private fun saveJson() {
+        val report = currentReport() ?: return
+        pendingExport = ReportExporter.toJson(report)
+        launchSave(saveJsonLauncher, ReportExporter.suggestedFileName(report, "json"))
+    }
+
+    private fun launchSave(
+        launcher: androidx.activity.result.ActivityResultLauncher<String>,
+        fileName: String
+    ) {
+        try {
+            launcher.launch(fileName)
+        } catch (_: Exception) {
+            pendingExport = null
+            Toast.makeText(this, "No file picker available", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun writePendingExport(uri: Uri?) {
+        val content = pendingExport
+        pendingExport = null
+        if (uri == null || content == null) return
+        try {
+            contentResolver.openOutputStream(uri)?.use { stream ->
+                stream.write(content.toByteArray())
+            } ?: throw IllegalStateException("Could not open the selected file")
+            Toast.makeText(this, "Report saved", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(
+                this,
+                "Save failed: ${e.message ?: e.javaClass.simpleName}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     private fun copyText() {
         val report = currentReport() ?: return
         val text = ReportExporter.toShareText(report)
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        if (clipboard == null) {
+            Toast.makeText(this, "Clipboard unavailable", Toast.LENGTH_SHORT).show()
+            return
+        }
         clipboard.setPrimaryClip(ClipData.newPlainText("Phone Diagnostic Report", text))
-        Toast.makeText(this, "Report copied", Toast.LENGTH_SHORT).show()
+        // Android 13+ shows its own copy confirmation; a toast would duplicate it.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            Toast.makeText(this, "Report copied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private companion object {
+        const val MIME_TEXT = "text/plain"
+        const val MIME_JSON = "application/json"
+        const val SHARE_DIR = "reports"
     }
 }
 

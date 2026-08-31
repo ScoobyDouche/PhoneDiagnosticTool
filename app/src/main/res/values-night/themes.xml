@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Without a night variant the launch window painted white before Compose
+      drew, flashing on every cold start in dark mode.
+    -->
+    <style name="Theme.PhoneDiagnosticTool" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
+</resources>
