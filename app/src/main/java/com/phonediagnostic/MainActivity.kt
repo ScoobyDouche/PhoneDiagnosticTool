@@ -17,6 +17,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.annotation.StringRes
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -84,7 +86,7 @@ class MainActivity : ComponentActivity() {
             } else {
                 Toast.makeText(
                     this,
-                    "Notification permission needed for background monitor",
+                    getString(R.string.toast_notification_permission_needed),
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -381,7 +383,7 @@ class MainActivity : ComponentActivity() {
         try {
             startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
         } catch (_: Exception) {
-            Toast.makeText(this, "Could not open Usage Access settings", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_no_usage_access_settings, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -393,7 +395,7 @@ class MainActivity : ComponentActivity() {
                 }
             )
         } catch (_: Exception) {
-            Toast.makeText(this, "Could not open app info", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_no_app_info, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -405,14 +407,14 @@ class MainActivity : ComponentActivity() {
                 }
             )
         } catch (_: Exception) {
-            Toast.makeText(this, "Could not start uninstall", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_no_uninstall, Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun currentReport(): FullDeviceReport? {
         val report = viewModel.report.value
         if (report == null) {
-            Toast.makeText(this, "No report collected yet", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_no_report_yet, Toast.LENGTH_SHORT).show()
         }
         return report
     }
@@ -424,8 +426,8 @@ class MainActivity : ComponentActivity() {
         startChooser(
             text = ReportExporter.toShareText(report),
             mimeType = MIME_TEXT,
-            subject = "Phone Diagnostic Report",
-            title = "Share diagnostic report"
+            subject = getString(R.string.report_subject),
+            title = getString(R.string.chooser_share_report)
         )
     }
 
@@ -434,22 +436,22 @@ class MainActivity : ComponentActivity() {
         startChooser(
             text = ReportExporter.toJson(report),
             mimeType = MIME_JSON,
-            subject = "Phone Diagnostic Report (JSON)",
-            title = "Share JSON report"
+            subject = getString(R.string.report_subject_json),
+            title = getString(R.string.chooser_share_json)
         )
     }
 
     private fun shareLog() {
         val lines = viewModel.logLines.value
         if (lines.isEmpty()) {
-            Toast.makeText(this, "Log is empty", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_log_empty, Toast.LENGTH_SHORT).show()
             return
         }
         startChooser(
             text = lines.joinToString("\n"),
             mimeType = MIME_TEXT,
-            subject = "Phone Diagnostic Log",
-            title = "Share diagnostic log"
+            subject = getString(R.string.log_subject),
+            title = getString(R.string.chooser_share_log)
         )
     }
 
@@ -466,7 +468,7 @@ class MainActivity : ComponentActivity() {
                 )
             )
         } catch (_: Exception) {
-            Toast.makeText(this, "No app available to share with", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_no_share_app, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -488,7 +490,10 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             Toast.makeText(
                 this,
-                "Could not prepare file: ${e.message ?: e.javaClass.simpleName}",
+                getString(
+                    R.string.toast_prepare_file_failed,
+                    e.message ?: e.javaClass.simpleName
+                ),
                 Toast.LENGTH_SHORT
             ).show()
             return
@@ -499,15 +504,15 @@ class MainActivity : ComponentActivity() {
                 Intent.createChooser(
                     Intent(Intent.ACTION_SEND).apply {
                         type = MIME_TEXT
-                        putExtra(Intent.EXTRA_SUBJECT, "Phone Diagnostic Report")
+                        putExtra(Intent.EXTRA_SUBJECT, getString(R.string.report_subject))
                         putExtra(Intent.EXTRA_STREAM, uri)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     },
-                    "Share report file"
+                    getString(R.string.chooser_share_file)
                 )
             )
         } catch (_: Exception) {
-            Toast.makeText(this, "No app available to share with", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_no_share_app, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -533,7 +538,7 @@ class MainActivity : ComponentActivity() {
             launcher.launch(fileName)
         } catch (_: Exception) {
             pendingExport = null
-            Toast.makeText(this, "No file picker available", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_no_file_picker, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -544,12 +549,12 @@ class MainActivity : ComponentActivity() {
         try {
             contentResolver.openOutputStream(uri)?.use { stream ->
                 stream.write(content.toByteArray())
-            } ?: throw IllegalStateException("Could not open the selected file")
-            Toast.makeText(this, "Report saved", Toast.LENGTH_SHORT).show()
+            } ?: throw IllegalStateException(getString(R.string.error_open_selected_file))
+            Toast.makeText(this, R.string.toast_report_saved, Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(
                 this,
-                "Save failed: ${e.message ?: e.javaClass.simpleName}",
+                getString(R.string.toast_save_failed, e.message ?: e.javaClass.simpleName),
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -560,13 +565,15 @@ class MainActivity : ComponentActivity() {
         val text = ReportExporter.toShareText(report)
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         if (clipboard == null) {
-            Toast.makeText(this, "Clipboard unavailable", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_clipboard_unavailable, Toast.LENGTH_SHORT).show()
             return
         }
-        clipboard.setPrimaryClip(ClipData.newPlainText("Phone Diagnostic Report", text))
+        clipboard.setPrimaryClip(
+            ClipData.newPlainText(getString(R.string.report_subject), text)
+        )
         // Android 13+ shows its own copy confirmation; a toast would duplicate it.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            Toast.makeText(this, "Report copied", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_report_copied, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -579,7 +586,7 @@ class MainActivity : ComponentActivity() {
 
 private data class TabItem(
     val screen: AppScreen,
-    val label: String,
+    @StringRes val label: Int,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector
 )
@@ -590,26 +597,33 @@ private fun MainBottomBar(
     onSelect: (AppScreen) -> Unit
 ) {
     val tabs = listOf(
-        TabItem(AppScreen.DASHBOARD, "Overview", Icons.Filled.Dashboard, Icons.Outlined.Dashboard),
-        TabItem(AppScreen.CPU, "CPU", Icons.Filled.Memory, Icons.Outlined.Memory),
-        TabItem(AppScreen.BATTERY, "Battery", Icons.Filled.BatteryFull, Icons.Outlined.BatteryFull),
-        TabItem(AppScreen.SENSORS, "Sensors", Icons.Filled.Sensors, Icons.Outlined.Sensors),
-        TabItem(AppScreen.MORE, "More", Icons.Filled.MoreHoriz, Icons.Outlined.MoreHoriz)
+        TabItem(
+            AppScreen.DASHBOARD, R.string.tab_overview,
+            Icons.Filled.Dashboard, Icons.Outlined.Dashboard
+        ),
+        TabItem(AppScreen.CPU, R.string.tab_cpu, Icons.Filled.Memory, Icons.Outlined.Memory),
+        TabItem(
+            AppScreen.BATTERY, R.string.tab_battery,
+            Icons.Filled.BatteryFull, Icons.Outlined.BatteryFull
+        ),
+        TabItem(AppScreen.SENSORS, R.string.tab_sensors, Icons.Filled.Sensors, Icons.Outlined.Sensors),
+        TabItem(AppScreen.MORE, R.string.tab_more, Icons.Filled.MoreHoriz, Icons.Outlined.MoreHoriz)
     )
 
     NavigationBar {
         tabs.forEach { tab ->
             val selected = current == tab.screen
+            val label = stringResource(tab.label)
             NavigationBarItem(
                 selected = selected,
                 onClick = { onSelect(tab.screen) },
                 icon = {
                     Icon(
                         imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,
-                        contentDescription = tab.label
+                        contentDescription = label
                     )
                 },
-                label = { Text(tab.label) }
+                label = { Text(label) }
             )
         }
     }

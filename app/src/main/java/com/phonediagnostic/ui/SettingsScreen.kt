@@ -27,8 +27,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.R
 import com.phonediagnostic.data.DiagnosticLog
 import com.phonediagnostic.data.ThemeMode
 
@@ -49,10 +51,13 @@ fun SettingsScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back)
+                        )
                     }
                 }
             )
@@ -65,16 +70,22 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            Text("Privacy & network", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = stringResource(R.string.settings_privacy_heading),
+                style = MaterialTheme.typography.titleMedium
+            )
             Box(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Network latency check", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "When on, measures TCP connect time to 8.8.8.8:53. No report is uploaded.",
+                        text = stringResource(R.string.settings_latency_title),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_latency_description),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -89,17 +100,25 @@ fun SettingsScreen(
             HorizontalDivider()
             Box(modifier = Modifier.height(16.dp))
 
-            Text("Background", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = stringResource(R.string.settings_background_heading),
+                style = MaterialTheme.typography.titleMedium
+            )
             Box(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Keep monitoring", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "Samples battery & RAM every 30s with a persistent notification. " +
-                            "Log is capped at ${DiagnosticLog.MAX_ENTRIES} lines (oldest drop; ~0.5–1 MB full).",
+                        text = stringResource(R.string.settings_monitor_title),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.settings_monitor_description,
+                            DiagnosticLog.MAX_ENTRIES
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -112,7 +131,7 @@ fun SettingsScreen(
 
             Box(modifier = Modifier.height(12.dp))
             Text(
-                text = "Tools · log & load test",
+                text = stringResource(R.string.settings_tools_link),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
@@ -125,7 +144,10 @@ fun SettingsScreen(
             HorizontalDivider()
             Box(modifier = Modifier.height(16.dp))
 
-            Text("Appearance", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = stringResource(R.string.settings_appearance_heading),
+                style = MaterialTheme.typography.titleMedium
+            )
             Box(modifier = Modifier.height(8.dp))
             ThemeMode.entries.forEach { mode ->
                 Row(
@@ -144,11 +166,13 @@ fun SettingsScreen(
                         onClick = { onThemeModeChange(mode) }
                     )
                     Text(
-                        text = when (mode) {
-                            ThemeMode.SYSTEM -> "System default"
-                            ThemeMode.LIGHT -> "Light"
-                            ThemeMode.DARK -> "Dark"
-                        },
+                        text = stringResource(
+                            when (mode) {
+                                ThemeMode.SYSTEM -> R.string.theme_system
+                                ThemeMode.LIGHT -> R.string.theme_light
+                                ThemeMode.DARK -> R.string.theme_dark
+                            }
+                        ),
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }
@@ -159,7 +183,7 @@ fun SettingsScreen(
             Box(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "About & privacy",
+                text = stringResource(R.string.settings_about_link),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier

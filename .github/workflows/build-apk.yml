@@ -7,6 +7,13 @@ on:
   pull_request:
     branches: [main]
 
+# Every push to a PR branch now builds, so without this a burst of pushes leaves
+# superseded runs queued behind the only one whose result anybody wants. Runs on
+# main are never cancelled — those are the ones that produce the shipped APK.
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   build:
     runs-on: ubuntu-latest

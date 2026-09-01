@@ -1,4 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Phone Diagnostic</string>
+    <string name="app_full_name">Phone Diagnostic Tool</string>
+
+    <!-- Shared -->
+    <string name="action_back">Back</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="state_paused">Paused</string>
+
+    <!-- Bottom navigation -->
+    <string name="tab_overview">Overview</string>
+    <string name="tab_cpu">CPU</string>
+    <string name="tab_battery">Battery</string>
+    <string name="tab_sensors">Sensors</string>
+    <string name="tab_more">More</string>
+
+    <!-- Sharing, saving and clipboard -->
+    <string name="report_subject">Phone Diagnostic Report</string>
+    <string name="report_subject_json">Phone Diagnostic Report (JSON)</string>
+    <string name="log_subject">Phone Diagnostic Log</string>
+    <string name="chooser_share_report">Share diagnostic report</string>
+    <string name="chooser_share_json">Share JSON report</string>
+    <string name="chooser_share_log">Share diagnostic log</string>
+    <string name="chooser_share_file">Share report file</string>
+    <string name="toast_no_report_yet">No report collected yet</string>
+    <string name="toast_log_empty">Log is empty</string>
+    <string name="toast_no_share_app">No app available to share with</string>
+    <string name="toast_no_file_picker">No file picker available</string>
+    <string name="toast_report_saved">Report saved</string>
+    <string name="toast_report_copied">Report copied</string>
+    <string name="toast_clipboard_unavailable">Clipboard unavailable</string>
+    <string name="toast_prepare_file_failed">Could not prepare file: %1$s</string>
+    <string name="toast_save_failed">Save failed: %1$s</string>
+    <string name="error_open_selected_file">Could not open the selected file</string>
+
+    <!-- System screens we hand the user off to -->
+    <string name="toast_notification_permission_needed">Notification permission needed for background monitor</string>
+    <string name="toast_no_usage_access_settings">Could not open Usage Access settings</string>
+    <string name="toast_no_app_info">Could not open app info</string>
+    <string name="toast_no_uninstall">Could not start uninstall</string>
+
+    <!-- Background monitor notification -->
+    <string name="monitor_notification_title">Diagnostics monitoring</string>
+    <string name="monitor_notification_text">Sampling battery &amp; RAM · fixed log</string>
+    <string name="monitor_action_stop">Stop</string>
+    <string name="monitor_channel_name">Background monitor</string>
+    <string name="monitor_channel_description">Shows while diagnostic sampling is active</string>
+
+    <!-- About -->
+    <string name="about_title">About</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_summary">On-device hardware and system diagnostics for Android. No accounts. No analytics SDKs.</string>
+    <string name="about_privacy_heading">Privacy</string>
+    <string name="about_privacy_body">Diagnostics run on your device. The optional network latency check opens a short TCP connection to 8.8.8.8:53 and does not upload reports. You can turn it off in Settings. Full policy: PRIVACY.md in the repository.</string>
+    <string name="about_license_heading">License</string>
+    <string name="about_license_body">MIT License. See LICENSE in the project repository.</string>
+    <string name="about_source_heading">Source</string>
+    <string name="about_source_url">github.com/ScoobyDouche/PhoneDiagnosticTool</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_privacy_heading">Privacy &amp; network</string>
+    <string name="settings_latency_title">Network latency check</string>
+    <string name="settings_latency_description">When on, measures TCP connect time to 8.8.8.8:53. No report is uploaded.</string>
+    <string name="settings_background_heading">Background</string>
+    <string name="settings_monitor_title">Keep monitoring</string>
+    <string name="settings_monitor_description">Samples battery &amp; RAM every 30s with a persistent notification. Log is capped at %1$d lines (oldest drop; ~0.5–1 MB full).</string>
+    <string name="settings_tools_link">Tools · log &amp; load test</string>
+    <string name="settings_appearance_heading">Appearance</string>
+    <string name="settings_about_link">About &amp; privacy</string>
+    <string name="theme_system">System default</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
 </resources>

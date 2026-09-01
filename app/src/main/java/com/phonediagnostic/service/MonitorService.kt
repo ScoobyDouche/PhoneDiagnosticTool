@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.phonediagnostic.MainActivity
+import com.phonediagnostic.R
 import com.phonediagnostic.data.AppPreferences
 import com.phonediagnostic.data.DeviceInfoCollector
 import com.phonediagnostic.data.DiagnosticLog
@@ -70,11 +71,11 @@ class MonitorService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Diagnostics monitoring")
-            .setContentText("Sampling battery & RAM · fixed log")
+            .setContentTitle(getString(R.string.monitor_notification_title))
+            .setContentText(getString(R.string.monitor_notification_text))
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .setContentIntent(open)
-            .addAction(0, "Stop", stop)
+            .addAction(0, getString(R.string.monitor_action_stop), stop)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .build()
@@ -144,10 +145,10 @@ class MonitorService : Service() {
         val mgr = getSystemService(NotificationManager::class.java) ?: return
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Background monitor",
+            getString(R.string.monitor_channel_name),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Shows while diagnostic sampling is active"
+            description = getString(R.string.monitor_channel_description)
             setShowBadge(false)
         }
         mgr.createNotificationChannel(channel)

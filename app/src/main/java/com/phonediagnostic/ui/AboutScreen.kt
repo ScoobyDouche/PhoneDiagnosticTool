@@ -19,7 +19,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,10 +33,13 @@ fun AboutScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text("About") },
+                title = { Text(stringResource(R.string.about_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back)
+                        )
                     }
                 }
             )
@@ -47,37 +52,49 @@ fun AboutScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            Text("Phone Diagnostic Tool", style = MaterialTheme.typography.headlineSmall)
-            Text("Version $versionName", style = MaterialTheme.typography.bodyMedium)
-            Spacer(modifier = Modifier.height(16.dp))
             Text(
-                "On-device hardware and system diagnostics for Android. " +
-                    "No accounts. No analytics SDKs.",
+                text = stringResource(R.string.app_full_name),
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Text(
+                text = stringResource(R.string.about_version, versionName),
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Privacy", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = stringResource(R.string.about_summary),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.about_privacy_heading),
+                style = MaterialTheme.typography.titleMedium
+            )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "Diagnostics run on your device. The optional network latency check " +
-                    "opens a short TCP connection to 8.8.8.8:53 and does not upload reports. " +
-                    "You can turn it off in Settings. Full policy: PRIVACY.md in the repository.",
+                text = stringResource(R.string.about_privacy_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Text("License", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = stringResource(R.string.about_license_heading),
+                style = MaterialTheme.typography.titleMedium
+            )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "MIT License. See LICENSE in the project repository.",
+                text = stringResource(R.string.about_license_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Source", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = stringResource(R.string.about_source_heading),
+                style = MaterialTheme.typography.titleMedium
+            )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "github.com/ScoobyDouche/PhoneDiagnosticTool",
+                text = stringResource(R.string.about_source_url),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary
             )

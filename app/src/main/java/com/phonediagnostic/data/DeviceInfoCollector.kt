@@ -21,8 +21,8 @@ import android.os.Environment
 import android.os.StatFs
 import android.os.SystemClock
 import android.os.storage.StorageManager
-import android.util.DisplayMetrics
-import android.view.WindowManager
+import android.hardware.display.DisplayManager
+import android.view.Display
 import java.util.Locale
 import java.io.BufferedReader
 import java.io.File
@@ -40,6 +40,7 @@ import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.egl.EGLContext
 import javax.microedition.khronos.egl.EGLDisplay
 import kotlin.math.abs
+import kotlin.math.sqrt
 
 class DeviceInfoCollector(private val context: Context) {
 
@@ -438,23 +439,45 @@ class DeviceInfoCollector(private val context: Context) {
     }
 
     /**
-     * Uses the deprecated [WindowManager.getDefaultDisplay]. The replacements
-     * (`Context.getDisplay`, `WindowMetrics`) need a visual context, and this
-     * collector deliberately holds the application context so the background
-     * monitor can share it. The deprecated call still reports correctly through
-     * API 35.
+     * Reads the panel through [DisplayManager] rather than the deprecated
+     * `WindowManager.getDefaultDisplay`. The usual replacement, `WindowMetrics`,
+     * needs a visual context, and this collector deliberately holds the
+     * application context so the background monitor can share one instance.
+     *
+     * [Display.Mode.physicalWidth] is also a better answer than the old
+     * `getRealMetrics`: it reports the panel's own resolution rather than
+     * whatever the current window happens to occupy, which is what a
+     * diagnostics readout should show.
      */
-    @Suppress("DEPRECATION")
     private fun collectDisplay(): DisplayInfo {
-        val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val metrics = DisplayMetrics()
-        wm.defaultDisplay.getRealMetrics(metrics)
-        val refresh = try { wm.defaultDisplay.refreshRate } catch (_: Exception) { 60f }
-        val wIn = metrics.widthPixels / metrics.xdpi.toDouble()
-        val hIn = metrics.heightPixels / metrics.ydpi.toDouble()
+        val metrics = context.resources.displayMetrics
+        val display = try {
+            (context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager)
+                ?.getDisplay(Display.DEFAULT_DISPLAY)
+        } catch (_: Exception) {
+            null
+        }
+
+        val mode = try { display?.mode } catch (_: Exception) { null }
+        // Fall back to the window's metrics when the panel will not describe itself.
+        val widthPx = mode?.physicalWidth?.takeIf { it > 0 } ?: metrics.widthPixels
+        val heightPx = mode?.physicalHeight?.takeIf { it > 0 } ?: metrics.heightPixels
+        val refresh = try { display?.refreshRate ?: 60f } catch (_: Exception) { 60f }
+
+        // xdpi/ydpi are the physical dot pitch, so pairing them with the panel's
+        // own pixel count gives the diagonal in inches.
+        val xdpi = metrics.xdpi.takeIf { it > 0f } ?: metrics.densityDpi.toFloat()
+        val ydpi = metrics.ydpi.takeIf { it > 0f } ?: metrics.densityDpi.toFloat()
+        val wIn = widthPx / xdpi.toDouble()
+        val hIn = heightPx / ydpi.toDouble()
+
         return DisplayInfo(
-            metrics.widthPixels, metrics.heightPixels, metrics.densityDpi, metrics.density,
-            refresh, Math.sqrt(wIn * wIn + hIn * hIn)
+            widthPx = widthPx,
+            heightPx = heightPx,
+            densityDpi = metrics.densityDpi,
+            density = metrics.density,
+            refreshRate = refresh,
+            screenSizeInches = sqrt(wIn * wIn + hIn * hIn)
         )
     }
 
