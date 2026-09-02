@@ -1,5 +1,6 @@
 package com.phonediagnostic.ui
 
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,8 +30,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.R
 import com.phonediagnostic.data.MetricSample
 import com.phonediagnostic.ui.components.InfoCard
 import com.phonediagnostic.ui.components.InfoRow
@@ -50,20 +54,23 @@ fun HistoryScreen(
     onClear: () -> Unit
 ) {
     var confirmClear by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
-            title = { Text("Clear history?") },
-            text = { Text("Removes all ${samples.size} stored samples. This cannot be undone.") },
+            title = { Text(stringResource(R.string.history_clear_title)) },
+            text = { Text(stringResource(R.string.history_clear_body, samples.size)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmClear = false
                     onClear()
-                }) { Text("Clear") }
+                }) { Text(stringResource(R.string.history_clear_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmClear = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmClear = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
             }
         )
     }
@@ -72,24 +79,24 @@ fun HistoryScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text("History") },
+                title = { Text(stringResource(R.string.history_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.action_back)
                         )
                     }
                 },
                 actions = {
                     IconButton(onClick = onRefresh) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh history")
+                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.history_refresh_cd))
                     }
                     IconButton(
                         onClick = { confirmClear = true },
                         enabled = samples.isNotEmpty()
                     ) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Clear history")
+                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.history_clear_cd))
                     }
                 }
             )
@@ -109,7 +116,7 @@ fun HistoryScreen(
         val temperature = samples.map { it.batteryTempC }
         val ram = samples.map { it.ramPercent.toFloat() }
         val latest = samples.last()
-        val span = describeSpan(samples)
+        val span = describeSpan(samples, context)
 
         LazyColumn(
             modifier = Modifier
@@ -120,9 +127,14 @@ fun HistoryScreen(
         ) {
             item(key = "battery_chart") {
                 MetricChartCard(
-                    title = "Battery",
+                    title = stringResource(R.string.history_chart_battery),
                     currentLabel = "${latest.batteryPct}%",
-                    rangeLabel = "${span} - low ${battery.min().toInt()}% / high ${battery.max().toInt()}%",
+                    rangeLabel = stringResource(
+                        R.string.history_range_pct,
+                        span,
+                        battery.min().toInt(),
+                        battery.max().toInt()
+                    ),
                     values = battery,
                     lineColor = Color(0xFF43A047),
                     minValue = 0f,
@@ -132,11 +144,10 @@ fun HistoryScreen(
 
             item(key = "temp_chart") {
                 MetricChartCard(
-                    title = "Battery temperature",
+                    title = stringResource(R.string.history_chart_temp),
                     currentLabel = String.format(Locale.US, "%.1f C", latest.batteryTempC),
-                    rangeLabel = String.format(
-                        Locale.US,
-                        "%s - low %.1f C / high %.1f C",
+                    rangeLabel = stringResource(
+                        R.string.history_range_temp,
                         span,
                         temperature.min(),
                         temperature.max()
@@ -148,9 +159,14 @@ fun HistoryScreen(
 
             item(key = "ram_chart") {
                 MetricChartCard(
-                    title = "RAM in use",
+                    title = stringResource(R.string.history_chart_ram),
                     currentLabel = "${latest.ramPercent}%",
-                    rangeLabel = "$span - low ${ram.min().toInt()}% / high ${ram.max().toInt()}%",
+                    rangeLabel = stringResource(
+                        R.string.history_range_pct,
+                        span,
+                        ram.min().toInt(),
+                        ram.max().toInt()
+                    ),
                     values = ram,
                     lineColor = MaterialTheme.colorScheme.primary,
                     minValue = 0f,
@@ -159,19 +175,20 @@ fun HistoryScreen(
             }
 
             item(key = "summary") {
-                InfoCard(title = "Samples") {
+                InfoCard(title = stringResource(R.string.history_section_samples)) {
                     Column {
-                        InfoRow("Stored", samples.size.toString())
-                        InfoRow("Oldest", formatClock(samples.first().timestampMs))
-                        InfoRow("Newest", formatClock(latest.timestampMs))
-                        InfoRow("Covers", span)
+                        InfoRow(stringResource(R.string.label_stored), samples.size.toString())
+                        InfoRow(stringResource(R.string.label_oldest), formatClock(samples.first().timestampMs))
+                        InfoRow(stringResource(R.string.label_newest), formatClock(latest.timestampMs))
+                        InfoRow(stringResource(R.string.label_covers), span)
                         InfoRow(
-                            "Charging now",
-                            if (latest.charging) "Yes" else "No"
+                            stringResource(R.string.label_charging_now),
+                            if (latest.charging) stringResource(R.string.yes) else stringResource(R.string.no)
                         )
                         InfoRow(
-                            "Background monitor",
-                            if (monitorEnabled) "On - samples every 30s" else "Off"
+                            stringResource(R.string.label_background_monitor),
+                            if (monitorEnabled) stringResource(R.string.history_monitor_on)
+                            else stringResource(R.string.history_monitor_off)
                         )
                     }
                 }
@@ -179,8 +196,7 @@ fun HistoryScreen(
 
             item(key = "note") {
                 Text(
-                    text = "Samples are recorded while the app is open, and every 30s when " +
-                        "the background monitor is on. Kept on this device only.",
+                    text = stringResource(R.string.history_note),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
@@ -198,15 +214,14 @@ private fun EmptyHistory(monitorEnabled: Boolean, modifier: Modifier = Modifier)
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "No samples yet",
+            text = stringResource(R.string.history_empty_title),
             style = MaterialTheme.typography.titleMedium
         )
         Text(
             text = if (monitorEnabled) {
-                "The background monitor is on. Trends appear after a few samples."
+                stringResource(R.string.history_empty_monitor_on)
             } else {
-                "Keep the app open for a minute, or turn on the background monitor " +
-                    "in Settings to collect samples while it is closed."
+                stringResource(R.string.history_empty_monitor_off)
             },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -221,17 +236,18 @@ private fun EmptyHistory(monitorEnabled: Boolean, modifier: Modifier = Modifier)
 private fun formatClock(timestampMs: Long): String =
     SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(timestampMs))
 
-private fun describeSpan(samples: List<MetricSample>): String {
-    if (samples.size < 2) return "single sample"
+private fun describeSpan(samples: List<MetricSample>, context: Context): String {
+    if (samples.size < 2) return context.getString(R.string.history_span_single)
     val millis = samples.last().timestampMs - samples.first().timestampMs
     val minutes = TimeUnit.MILLISECONDS.toMinutes(millis)
     return when {
-        minutes < 1L -> "under a minute"
-        minutes < 60L -> "$minutes min"
+        minutes < 1L -> context.getString(R.string.history_span_under_minute)
+        minutes < 60L -> context.getString(R.string.history_span_minutes, minutes.toInt())
         else -> {
             val hours = minutes / 60
             val rest = minutes % 60
-            if (rest == 0L) "${hours}h" else "${hours}h ${rest}m"
+            if (rest == 0L) context.getString(R.string.history_span_hours, hours.toInt())
+            else context.getString(R.string.history_span_hours_minutes, hours.toInt(), rest.toInt())
         }
     }
 }
