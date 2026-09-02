@@ -38,8 +38,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.R
 import com.phonediagnostic.ui.components.InfoCard
 import com.phonediagnostic.ui.components.InfoRow
 import com.phonediagnostic.ui.components.Sparkline
@@ -90,19 +92,13 @@ fun SensorDetailScreen(
         if (manager == null || sensor == null || !streaming) {
             return@DisposableEffect onDispose { }
         }
-        // Callbacks arrive on the main thread when no handler is supplied, so
-        // writing Compose state straight from here is safe.
         var lastPublishMs = 0L
-        // Counted outside Compose state so the tally stays exact without making
-        // every raw event a recomposition; it is published with the throttled batch.
         var received = 0L
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent?) {
                 val values = event?.values ?: return
                 received++
                 val now = SystemClock.uptimeMillis()
-                // Sensors can fire far faster than the screen refreshes; throttle
-                // so the chart does not drive a recomposition per event.
                 if (now - lastPublishMs < PUBLISH_INTERVAL_MS) return
                 lastPublishMs = now
                 val snapshot = values.take(3)
@@ -126,11 +122,12 @@ fun SensorDetailScreen(
                 title = {
                     Column {
                         Text(
-                            text = sensor?.name ?: sensorName ?: "Sensor",
+                            text = sensor?.name ?: sensorName ?: stringResource(R.string.sensor_detail_fallback),
                             maxLines = 1
                         )
                         Text(
-                            text = if (streaming) "Streaming live" else "Paused",
+                            text = if (streaming) stringResource(R.string.sensor_streaming)
+                            else stringResource(R.string.state_paused),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (streaming) {
                                 Color(0xFF4CAF50)
@@ -144,7 +141,7 @@ fun SensorDetailScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.action_back)
                         )
                     }
                 },
@@ -152,7 +149,8 @@ fun SensorDetailScreen(
                     IconButton(onClick = { streaming = !streaming }, enabled = sensor != null) {
                         Icon(
                             imageVector = if (streaming) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                            contentDescription = if (streaming) "Pause stream" else "Resume stream"
+                            contentDescription = if (streaming) stringResource(R.string.sensor_pause_cd)
+                            else stringResource(R.string.sensor_resume_cd)
                         )
                     }
                 }
@@ -168,7 +166,7 @@ fun SensorDetailScreen(
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "That sensor is no longer available on this device.",
+                    text = stringResource(R.string.sensor_unavailable),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -186,16 +184,12 @@ fun SensorDetailScreen(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             item(key = "reading") {
-                InfoCard(title = "Current reading") {
+                InfoCard(title = stringResource(R.string.sensor_current_reading)) {
                     Column {
                         if (latest.isEmpty()) {
                             Text(
-                                text = if (streaming) {
-                                    "Waiting for the first event. Some sensors only report " +
-                                        "when the value actually changes."
-                                } else {
-                                    "Paused."
-                                },
+                                text = if (streaming) stringResource(R.string.sensor_waiting)
+                                else stringResource(R.string.sensor_paused),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -207,15 +201,15 @@ fun SensorDetailScreen(
                                 )
                             }
                         }
-                        InfoRow("Events", eventCount.toString())
-                        InfoRow("Accuracy", accuracyLabel(accuracy))
+                        InfoRow(stringResource(R.string.label_events), eventCount.toString())
+                        InfoRow(stringResource(R.string.label_accuracy), accuracyLabel(accuracy))
                     }
                 }
             }
 
             if (axisCount > 0 && window.size >= 2) {
                 item(key = "chart") {
-                    InfoCard(title = "Last ${window.size} samples") {
+                    InfoCard(title = stringResource(R.string.sensor_last_samples, window.size)) {
                         Column {
                             repeat(axisCount) { axis ->
                                 val series = window.map { it.getOrElse(axis) { 0f } }
@@ -238,9 +232,8 @@ fun SensorDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = String.format(
-                                        Locale.US,
-                                        "min %.3f   max %.3f",
+                                    text = stringResource(
+                                        R.string.sensor_min_max,
                                         series.min(),
                                         series.max()
                                     ),
@@ -256,25 +249,29 @@ fun SensorDetailScreen(
             }
 
             item(key = "meta") {
-                InfoCard(title = "Sensor") {
+                InfoCard(title = stringResource(R.string.sensor_section_meta)) {
                     Column {
-                        InfoRow("Vendor", sensor.vendor.orEmpty().ifBlank { "—" })
-                        InfoRow("Version", sensor.version.toString())
                         InfoRow(
-                            "Max range",
+                            stringResource(R.string.label_vendor),
+                            sensor.vendor.orEmpty().ifBlank { "—" }
+                        )
+                        InfoRow(stringResource(R.string.label_version), sensor.version.toString())
+                        InfoRow(
+                            stringResource(R.string.label_max_range),
                             String.format(Locale.US, "%.3f", sensor.maximumRange)
                         )
                         InfoRow(
-                            "Resolution",
+                            stringResource(R.string.label_resolution),
                             String.format(Locale.US, "%.6f", sensor.resolution)
                         )
                         InfoRow(
-                            "Power",
-                            String.format(Locale.US, "%.2f mA", sensor.power)
+                            stringResource(R.string.label_power),
+                            stringResource(R.string.sensor_power_ma, sensor.power)
                         )
                         InfoRow(
-                            "Min delay",
-                            if (sensor.minDelay > 0) "${sensor.minDelay} us" else "On change"
+                            stringResource(R.string.label_min_delay),
+                            if (sensor.minDelay > 0) stringResource(R.string.sensor_min_delay_us, sensor.minDelay)
+                            else stringResource(R.string.sensor_on_change)
                         )
                     }
                 }
@@ -282,7 +279,7 @@ fun SensorDetailScreen(
 
             item(key = "note") {
                 Text(
-                    text = "Sampling stops as soon as you leave this screen.",
+                    text = stringResource(R.string.sensor_stop_note),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
@@ -292,11 +289,12 @@ fun SensorDetailScreen(
     }
 }
 
+@Composable
 private fun accuracyLabel(accuracy: Int): String = when (accuracy) {
-    SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> "High"
-    SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> "Medium"
-    SensorManager.SENSOR_STATUS_ACCURACY_LOW -> "Low"
-    SensorManager.SENSOR_STATUS_UNRELIABLE -> "Unreliable"
-    SensorManager.SENSOR_STATUS_NO_CONTACT -> "No contact"
-    else -> "Not reported"
+    SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> stringResource(R.string.accuracy_high)
+    SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> stringResource(R.string.accuracy_medium)
+    SensorManager.SENSOR_STATUS_ACCURACY_LOW -> stringResource(R.string.accuracy_low)
+    SensorManager.SENSOR_STATUS_UNRELIABLE -> stringResource(R.string.accuracy_unreliable)
+    SensorManager.SENSOR_STATUS_NO_CONTACT -> stringResource(R.string.accuracy_no_contact)
+    else -> stringResource(R.string.accuracy_not_reported)
 }
