@@ -25,8 +25,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.R
 import com.phonediagnostic.data.LatencyStats
 import com.phonediagnostic.data.NetworkDetail
 import com.phonediagnostic.data.NetworkInfo
@@ -50,18 +52,21 @@ fun NetworkScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text("Network") },
+                title = { Text(stringResource(R.string.network_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.action_back)
                         )
                     }
                 },
                 actions = {
                     IconButton(onClick = onRefresh, enabled = !isLoading) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.action_refresh)
+                        )
                     }
                 }
             )
@@ -75,24 +80,45 @@ fun NetworkScreen(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             item(key = "connection") {
-                InfoCard(title = "Connection") {
+                InfoCard(title = stringResource(R.string.network_section_connection)) {
                     Column {
                         InfoRow(
-                            "State",
-                            if (network?.isConnected == true) "Connected" else "Disconnected"
+                            stringResource(R.string.label_state),
+                            if (network?.isConnected == true) {
+                                stringResource(R.string.connection_connected)
+                            } else {
+                                stringResource(R.string.connection_disconnected)
+                            }
                         )
-                        InfoRow("Transport", network?.networkType ?: "Unknown")
-                        InfoRow("Validated", if (network?.validated == true) "Yes" else "No")
-                        InfoRow("Metered", if (network?.metered == true) "Yes" else "No")
+                        InfoRow(
+                            stringResource(R.string.label_transport),
+                            network?.networkType ?: stringResource(R.string.unknown)
+                        )
+                        InfoRow(
+                            stringResource(R.string.label_validated),
+                            if (network?.validated == true) {
+                                stringResource(R.string.yes)
+                            } else {
+                                stringResource(R.string.no)
+                            }
+                        )
+                        InfoRow(
+                            stringResource(R.string.label_metered),
+                            if (network?.metered == true) {
+                                stringResource(R.string.yes)
+                            } else {
+                                stringResource(R.string.no)
+                            }
+                        )
                         if (network?.downstreamMbps != null || network?.upstreamMbps != null) {
                             InfoRow(
-                                "Link bandwidth",
+                                stringResource(R.string.label_link_bandwidth),
                                 "${network.downstreamMbps ?: "?"} down / " +
                                     "${network.upstreamMbps ?: "?"} up Mbps"
                             )
                         }
                         detail?.interfaceName?.takeIf { it.isNotBlank() }?.let {
-                            InfoRow("Interface", it)
+                            InfoRow(stringResource(R.string.label_interface), it)
                         }
                     }
                 }
@@ -113,16 +139,27 @@ fun NetworkScreen(
 
             detail?.wifi?.let { wifi ->
                 item(key = "wifi") {
-                    InfoCard(title = "Wi-Fi") {
+                    InfoCard(title = stringResource(R.string.network_section_wifi)) {
                         Column {
-                            InfoRow("Network", wifi.ssid)
-                            InfoRow("Band", wifi.band)
-                            wifi.frequencyMhz?.let { InfoRow("Frequency", "$it MHz") }
-                            wifi.linkSpeedMbps?.let { InfoRow("Link speed", "$it Mbps") }
-                            wifi.txLinkSpeedMbps?.let { InfoRow("Tx rate", "$it Mbps") }
-                            wifi.rxLinkSpeedMbps?.let { InfoRow("Rx rate", "$it Mbps") }
+                            InfoRow(stringResource(R.string.label_network_name), wifi.ssid)
+                            InfoRow(stringResource(R.string.label_band), wifi.band)
+                            wifi.frequencyMhz?.let {
+                                InfoRow(stringResource(R.string.label_frequency), "$it MHz")
+                            }
+                            wifi.linkSpeedMbps?.let {
+                                InfoRow(stringResource(R.string.label_link_speed), "$it Mbps")
+                            }
+                            wifi.txLinkSpeedMbps?.let {
+                                InfoRow(stringResource(R.string.label_tx_rate), "$it Mbps")
+                            }
+                            wifi.rxLinkSpeedMbps?.let {
+                                InfoRow(stringResource(R.string.label_rx_rate), "$it Mbps")
+                            }
                             wifi.rssiDbm?.let {
-                                InfoRow("Signal", "$it dBm (${wifi.signalLevel}/4)")
+                                InfoRow(
+                                    stringResource(R.string.label_signal),
+                                    "$it dBm (${wifi.signalLevel}/4)"
+                                )
                             }
                         }
                     }
@@ -131,42 +168,77 @@ fun NetworkScreen(
 
             detail?.cellular?.let { cell ->
                 item(key = "cellular") {
-                    InfoCard(title = "Cellular") {
+                    InfoCard(title = stringResource(R.string.network_section_cellular)) {
                         Column {
-                            InfoRow("Carrier", cell.carrier)
+                            InfoRow(stringResource(R.string.label_carrier), cell.carrier)
                             if (cell.simOperator.isNotBlank()) {
-                                InfoRow("SIM operator", cell.simOperator)
+                                InfoRow(
+                                    stringResource(R.string.label_sim_operator),
+                                    cell.simOperator
+                                )
                             }
                             if (cell.countryIso.isNotBlank()) {
-                                InfoRow("Country", cell.countryIso)
+                                InfoRow(
+                                    stringResource(R.string.label_country),
+                                    cell.countryIso
+                                )
                             }
-                            InfoRow("Radio", cell.phoneType)
-                            InfoRow("Roaming", if (cell.roaming) "Yes" else "No")
+                            InfoRow(stringResource(R.string.label_radio), cell.phoneType)
+                            InfoRow(
+                                stringResource(R.string.label_roaming),
+                                if (cell.roaming) {
+                                    stringResource(R.string.yes)
+                                } else {
+                                    stringResource(R.string.no)
+                                }
+                            )
                         }
                     }
                 }
             }
 
             item(key = "latency") {
-                InfoCard(title = "Latency") {
+                InfoCard(title = stringResource(R.string.network_section_latency)) {
                     Column {
                         if (!probeEnabled) {
                             Text(
-                                text = "The latency check is switched off in Settings. " +
-                                    "Nothing on this screen contacts the network while it is off.",
+                                text = stringResource(R.string.network_latency_off),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
-                            InfoRow("Target", latency?.target ?: network?.latencyTarget ?: "—")
+                            InfoRow(
+                                stringResource(R.string.label_target),
+                                latency?.target ?: network?.latencyTarget ?: "—"
+                            )
                             if (latency != null) {
-                                InfoRow("Samples", "${latency.samplesMs.size} of ${latency.attempts}")
-                                InfoRow("Min", latency.minMs?.let { "$it ms" } ?: "—")
-                                InfoRow("Average", latency.avgMs?.let { "$it ms" } ?: "—")
-                                InfoRow("Max", latency.maxMs?.let { "$it ms" } ?: "—")
-                                InfoRow("Jitter", latency.jitterMs?.let { "$it ms" } ?: "—")
-                                InfoRow("Loss", "${latency.lossPercent}%")
-                                latency.lastError?.let { InfoRow("Error", it) }
+                                InfoRow(
+                                    stringResource(R.string.label_samples),
+                                    "${latency.samplesMs.size} of ${latency.attempts}"
+                                )
+                                InfoRow(
+                                    stringResource(R.string.label_min),
+                                    latency.minMs?.let { "$it ms" } ?: "—"
+                                )
+                                InfoRow(
+                                    stringResource(R.string.label_average),
+                                    latency.avgMs?.let { "$it ms" } ?: "—"
+                                )
+                                InfoRow(
+                                    stringResource(R.string.label_max),
+                                    latency.maxMs?.let { "$it ms" } ?: "—"
+                                )
+                                InfoRow(
+                                    stringResource(R.string.label_jitter),
+                                    latency.jitterMs?.let { "$it ms" } ?: "—"
+                                )
+                                InfoRow(
+                                    stringResource(R.string.label_loss),
+                                    "${latency.lossPercent}%"
+                                )
+                                latency.lastError?.let {
+                                    InfoRow(stringResource(R.string.label_error), it)
+                                }
                                 if (latency.samplesMs.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(
@@ -178,11 +250,11 @@ fun NetworkScreen(
                                 }
                             } else {
                                 InfoRow(
-                                    "Last single probe",
+                                    stringResource(R.string.label_last_single_probe),
                                     network?.latencyMs?.let { "$it ms" } ?: "—"
                                 )
                                 Text(
-                                    text = "Run a burst of probes to see spread and packet loss.",
+                                    text = stringResource(R.string.network_latency_burst_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -193,7 +265,13 @@ fun NetworkScreen(
                                 enabled = !latencyRunning,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(if (latencyRunning) "Measuring…" else "Run 5 probes")
+                                Text(
+                                    if (latencyRunning) {
+                                        stringResource(R.string.network_measuring)
+                                    } else {
+                                        stringResource(R.string.network_run_probes)
+                                    }
+                                )
                             }
                         }
                     }
@@ -202,41 +280,51 @@ fun NetworkScreen(
 
             if (detail != null) {
                 item(key = "dns") {
-                    InfoCard(title = "DNS") {
+                    InfoCard(title = stringResource(R.string.network_section_dns)) {
                         Column {
                             if (detail.dnsServers.isEmpty()) {
                                 Text(
-                                    text = "No DNS servers reported for the active network.",
+                                    text = stringResource(R.string.network_no_dns),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             } else {
                                 detail.dnsServers.forEachIndexed { index, server ->
-                                    InfoRow("Server ${index + 1}", server)
+                                    InfoRow(
+                                        stringResource(R.string.label_server_n, index + 1),
+                                        server
+                                    )
                                 }
                             }
                             InfoRow(
-                                "Private DNS",
+                                stringResource(R.string.label_private_dns),
                                 when {
                                     detail.privateDnsServer != null ->
-                                        "On - ${detail.privateDnsServer}"
-                                    detail.privateDnsActive -> "On - automatic"
-                                    else -> "Off"
+                                        stringResource(
+                                            R.string.private_dns_on_named,
+                                            detail.privateDnsServer
+                                        )
+                                    detail.privateDnsActive ->
+                                        stringResource(R.string.private_dns_on_auto)
+                                    else -> stringResource(R.string.private_dns_off)
                                 }
                             )
                             if (detail.domains.isNotBlank()) {
-                                InfoRow("Search domains", detail.domains)
+                                InfoRow(
+                                    stringResource(R.string.label_search_domains),
+                                    detail.domains
+                                )
                             }
                         }
                     }
                 }
 
                 item(key = "capabilities") {
-                    InfoCard(title = "Capabilities") {
+                    InfoCard(title = stringResource(R.string.network_section_capabilities)) {
                         Column {
                             if (detail.capabilities.isEmpty()) {
                                 Text(
-                                    text = "None reported.",
+                                    text = stringResource(R.string.none_reported),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -252,7 +340,10 @@ fun NetworkScreen(
 
                 item(key = "interfaces_header") {
                     Text(
-                        text = "Interfaces (${detail.interfaces.size})",
+                        text = stringResource(
+                            R.string.network_interfaces_header,
+                            detail.interfaces.size
+                        ),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
@@ -264,17 +355,38 @@ fun NetworkScreen(
                     key = { index -> "nif-${detail.interfaces[index].name}-$index" }
                 ) { index ->
                     val nif = detail.interfaces[index]
-                    InfoCard(title = nif.name.ifBlank { "Interface" }) {
+                    InfoCard(
+                        title = nif.name.ifBlank {
+                            stringResource(R.string.interface_fallback)
+                        }
+                    ) {
                         Column {
                             if (nif.displayName.isNotBlank() && nif.displayName != nif.name) {
-                                InfoRow("Description", nif.displayName)
+                                InfoRow(
+                                    stringResource(R.string.label_description),
+                                    nif.displayName
+                                )
                             }
-                            InfoRow("State", if (nif.isUp) "Up" else "Down")
-                            if (nif.mtu > 0) InfoRow("MTU", nif.mtu.toString())
+                            InfoRow(
+                                stringResource(R.string.label_state),
+                                if (nif.isUp) {
+                                    stringResource(R.string.state_up)
+                                } else {
+                                    stringResource(R.string.state_down)
+                                }
+                            )
+                            if (nif.mtu > 0) {
+                                InfoRow(
+                                    stringResource(R.string.label_mtu),
+                                    nif.mtu.toString()
+                                )
+                            }
                             nif.addresses.forEach { address ->
                                 val parts = address.split("  ", limit = 2)
                                 InfoRow(
-                                    parts.getOrElse(0) { "Address" },
+                                    parts.getOrElse(0) {
+                                        stringResource(R.string.label_address)
+                                    },
                                     parts.getOrElse(1) { address }
                                 )
                             }
@@ -284,9 +396,7 @@ fun NetworkScreen(
 
                 item(key = "privacy_note") {
                     Text(
-                        text = "Addresses are read from this device's own interfaces. " +
-                            "Nothing here is uploaded. MAC addresses are not shown — " +
-                            "Android randomises them per network anyway.",
+                        text = stringResource(R.string.network_privacy_note),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
