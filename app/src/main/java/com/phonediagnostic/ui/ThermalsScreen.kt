@@ -28,9 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.R
 import com.phonediagnostic.data.ThermalZone
 import java.util.Locale
 
@@ -52,9 +54,10 @@ fun ThermalsScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Thermals")
+                        Text(stringResource(R.string.thermals_title))
                         Text(
-                            text = if (isLive) "Live · updating every 3s" else "Paused",
+                            text = if (isLive) stringResource(R.string.thermals_live_status)
+                            else stringResource(R.string.state_paused),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (isLive) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -64,13 +67,13 @@ fun ThermalsScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.action_back)
                         )
                     }
                 },
                 actions = {
                     IconButton(onClick = onRefresh, enabled = !isRefreshing) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.action_refresh))
                     }
                 }
             )
@@ -85,20 +88,19 @@ fun ThermalsScreen(
         ) {
             item {
                 Text(
-                    text = "${thermals.size} thermal zones from /sys/class/thermal",
+                    text = stringResource(R.string.thermals_zones_count, thermals.size),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "Sorted hottest first. Values depend on vendor sysfs (no root).",
+                    text = stringResource(R.string.thermals_sorted_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (hottest != null && coolest != null && thermals.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Range: ${String.format(Locale.US, "%.1f", coolest.tempC)} – " +
-                            "${String.format(Locale.US, "%.1f", hottest.tempC)} °C",
+                        text = stringResource(R.string.thermals_range, coolest.tempC, hottest.tempC),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -108,7 +110,7 @@ fun ThermalsScreen(
             if (thermals.isEmpty()) {
                 item {
                     Text(
-                        text = "No readable thermal zones. Some devices restrict /sys/class/thermal without root.",
+                        text = stringResource(R.string.thermals_empty),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
