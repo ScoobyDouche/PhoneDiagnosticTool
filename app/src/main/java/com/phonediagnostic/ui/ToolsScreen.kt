@@ -53,11 +53,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.phonediagnostic.R
 import com.phonediagnostic.data.DiagnosticLog
 import com.phonediagnostic.data.LoadTestProgress
 import com.phonediagnostic.data.LoadTestResult
@@ -84,14 +86,14 @@ fun ToolsScreen(
     var displayColorIndex by remember { mutableIntStateOf(0) }
 
     val displayColors = listOf(
-        Color.Red to "Red",
-        Color.Green to "Green",
-        Color.Blue to "Blue",
-        Color.White to "White",
-        Color.Black to "Black",
-        Color.Cyan to "Cyan",
-        Color.Magenta to "Magenta",
-        Color.Yellow to "Yellow"
+        Color.Red to R.string.color_red,
+        Color.Green to R.string.color_green,
+        Color.Blue to R.string.color_blue,
+        Color.White to R.string.color_white,
+        Color.Black to R.string.color_black,
+        Color.Cyan to R.string.color_cyan,
+        Color.Magenta to R.string.color_magenta,
+        Color.Yellow to R.string.color_yellow
     )
 
     if (showDisplayTest) {
@@ -103,7 +105,8 @@ fun ToolsScreen(
                 dismissOnClickOutside = false
             )
         ) {
-            val (color, name) = displayColors[displayColorIndex % displayColors.size]
+            val (color, nameRes) = displayColors[displayColorIndex % displayColors.size]
+            val name = stringResource(nameRes)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -114,7 +117,7 @@ fun ToolsScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "$name\nTap to cycle · Back to exit",
+                    text = stringResource(R.string.tools_display_hint, name),
                     color = if (color == Color.Black || color == Color.Blue) Color.White else Color.Black,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
@@ -127,24 +130,33 @@ fun ToolsScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text("Tools") },
+                title = { Text(stringResource(R.string.tools_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack, enabled = !loadTesting) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.action_back)
                         )
                     }
                 },
                 actions = {
                     IconButton(onClick = onShareLog, enabled = !loadTesting && logLines.isNotEmpty()) {
-                        Icon(Icons.Filled.Share, contentDescription = "Share log")
+                        Icon(
+                            Icons.Filled.Share,
+                            contentDescription = stringResource(R.string.tools_share_log_cd)
+                        )
                     }
                     IconButton(onClick = onRefreshLog, enabled = !loadTesting) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh log")
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.tools_refresh_log_cd)
+                        )
                     }
                     IconButton(onClick = onClearLog, enabled = !loadTesting) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Clear log")
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = stringResource(R.string.tools_clear_log_cd)
+                        )
                     }
                 }
             )
@@ -167,11 +179,13 @@ fun ToolsScreen(
                     )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Load test", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            stringResource(R.string.tools_load_test_title),
+                            fontWeight = FontWeight.SemiBold
+                        )
                         Box(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "CPU stress test. Phone may warm up and drain battery. " +
-                                "Live stats update while running.",
+                            text = stringResource(R.string.tools_load_test_body),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -186,7 +200,10 @@ fun ToolsScreen(
                             ) {
                                 val durations = LoadTester.ALLOWED_DURATIONS_SEC
                                 durations.forEachIndexed { index, seconds ->
-                                    val label = "${seconds / 60} min"
+                                    val label = stringResource(
+                                        R.string.tools_duration_min,
+                                        seconds / 60
+                                    )
                                     if (index == durations.lastIndex) {
                                         Button(
                                             onClick = { onRunLoadTest(seconds) },
@@ -205,14 +222,17 @@ fun ToolsScreen(
                             if (lastLoadResult != null) {
                                 Box(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "Last result",
+                                    text = stringResource(R.string.tools_last_result),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Box(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "${lastLoadResult.score}k ops/s across " +
-                                        "${lastLoadResult.threads} threads",
+                                    text = stringResource(
+                                        R.string.tools_score_line,
+                                        lastLoadResult.score,
+                                        lastLoadResult.threads
+                                    ),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -237,10 +257,13 @@ fun ToolsScreen(
                     )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Hardware checks", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            stringResource(R.string.tools_hardware_title),
+                            fontWeight = FontWeight.SemiBold
+                        )
                         Box(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Quick on-device tests. No data leaves the phone.",
+                            text = stringResource(R.string.tools_hardware_body),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -253,12 +276,12 @@ fun ToolsScreen(
                                 onClick = { vibrateShort(context) },
                                 modifier = Modifier.weight(1f),
                                 enabled = !loadTesting
-                            ) { Text("Vibrate") }
+                            ) { Text(stringResource(R.string.tools_vibrate)) }
                             OutlinedButton(
                                 onClick = { playTone() },
                                 modifier = Modifier.weight(1f),
                                 enabled = !loadTesting
-                            ) { Text("Tone") }
+                            ) { Text(stringResource(R.string.tools_tone)) }
                             OutlinedButton(
                                 onClick = {
                                     displayColorIndex = 0
@@ -266,11 +289,11 @@ fun ToolsScreen(
                                 },
                                 modifier = Modifier.weight(1f),
                                 enabled = !loadTesting
-                            ) { Text("Display") }
+                            ) { Text(stringResource(R.string.tools_display)) }
                         }
                         Box(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Multi-touch: put fingers on the pad below",
+                            text = stringResource(R.string.tools_multitouch_label),
                             style = MaterialTheme.typography.labelMedium
                         )
                         Box(modifier = Modifier.height(6.dp))
@@ -294,7 +317,11 @@ fun ToolsScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = if (maxPointers == 0) "Touch here" else "Max fingers: $maxPointers",
+                                text = if (maxPointers == 0) {
+                                    stringResource(R.string.tools_touch_here)
+                                } else {
+                                    stringResource(R.string.tools_max_fingers, maxPointers)
+                                },
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -309,15 +336,22 @@ fun ToolsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Rotating log", fontWeight = FontWeight.SemiBold)
                     Text(
-                        text = "${logLines.size} / ${DiagnosticLog.MAX_ENTRIES}",
+                        stringResource(R.string.tools_log_title),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.tools_log_count,
+                            logLines.size,
+                            DiagnosticLog.MAX_ENTRIES
+                        ),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(
-                    text = "Max ~0.5–1 MB when full. Oldest lines drop. Background monitor adds a line every 30s.",
+                    text = stringResource(R.string.tools_log_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -326,7 +360,7 @@ fun ToolsScreen(
             if (logLines.isEmpty()) {
                 item {
                     Text(
-                        text = "Log is empty. Enable background monitor in Settings or run a load test.",
+                        text = stringResource(R.string.tools_log_empty),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -413,17 +447,38 @@ private fun LiveLoadPanel(progress: LoadTestProgress) {
             fontFamily = FontFamily.Monospace
         )
         Box(modifier = Modifier.height(12.dp))
-        Text("Live stats", fontWeight = FontWeight.SemiBold)
+        Text(
+            stringResource(R.string.tools_live_stats),
+            fontWeight = FontWeight.SemiBold
+        )
         Box(modifier = Modifier.height(6.dp))
-        MetricRow("RAM used", "${progress.ramUsedMb} MB")
-        MetricRow("Battery", "${progress.batteryPct}%")
-        MetricRow("Temperature", String.format(Locale.US, "%.1f °C", progress.tempC))
-        MetricRow("CPU ops", formatOps(progress.operations))
-        MetricRow("Ops / sec", formatOps(progress.opsPerSec))
-        MetricRow("Threads", "${progress.threads} active")
+        MetricRow(
+            stringResource(R.string.tools_metric_ram),
+            "${progress.ramUsedMb} MB"
+        )
+        MetricRow(
+            stringResource(R.string.tools_metric_battery),
+            "${progress.batteryPct}%"
+        )
+        MetricRow(
+            stringResource(R.string.tools_metric_temp),
+            String.format(Locale.US, "%.1f °C", progress.tempC)
+        )
+        MetricRow(
+            stringResource(R.string.tools_metric_ops),
+            formatOps(progress.operations)
+        )
+        MetricRow(
+            stringResource(R.string.tools_metric_ops_sec),
+            formatOps(progress.opsPerSec)
+        )
+        MetricRow(
+            stringResource(R.string.tools_metric_threads),
+            stringResource(R.string.tools_threads_active, progress.threads)
+        )
         Box(modifier = Modifier.height(8.dp))
         Text(
-            text = "Keep this screen open. UI may feel slower under full CPU load.",
+            text = stringResource(R.string.tools_load_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
