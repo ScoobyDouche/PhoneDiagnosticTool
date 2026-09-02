@@ -20,7 +20,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.R
 import com.phonediagnostic.data.BatteryInfo
 import com.phonediagnostic.data.ThermalZone
 import com.phonediagnostic.ui.components.InfoCard
@@ -45,9 +47,13 @@ fun BatteryScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Battery")
+                        Text(stringResource(R.string.battery_title))
                         Text(
-                            text = if (isLive) "Live · every 3s" else "Paused",
+                            text = if (isLive) {
+                                stringResource(R.string.battery_live_status)
+                            } else {
+                                stringResource(R.string.state_paused)
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = if (isLive) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -55,7 +61,10 @@ fun BatteryScreen(
                 },
                 actions = {
                     IconButton(onClick = onRefresh, enabled = !isRefreshing) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.action_refresh)
+                        )
                     }
                 }
             )
@@ -69,7 +78,7 @@ fun BatteryScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("Collecting battery info…")
+                Text(stringResource(R.string.battery_collecting))
             }
             return@Scaffold
         }
@@ -82,44 +91,49 @@ fun BatteryScreen(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             item {
-                InfoCard(title = "Charge") {
+                InfoCard(title = stringResource(R.string.battery_section_charge)) {
                     Column {
                         UsageBar(
-                            label = "Level",
+                            label = stringResource(R.string.label_level),
                             percent = battery.level.coerceIn(0, 100),
                             detail = "${battery.level}%"
                         )
-                        InfoRow("Status", battery.status)
-                        InfoRow("Power source", battery.powerSource)
-                        InfoRow("Health", battery.health)
-                        InfoRow("Technology", battery.technology)
+                        InfoRow(stringResource(R.string.label_status), battery.status)
+                        InfoRow(stringResource(R.string.label_power_source), battery.powerSource)
+                        InfoRow(stringResource(R.string.label_health), battery.health)
+                        InfoRow(stringResource(R.string.label_technology), battery.technology)
                     }
                 }
             }
 
             item {
-                InfoCard(title = "Electrical") {
+                InfoCard(title = stringResource(R.string.battery_section_electrical)) {
                     Column {
                         InfoRow(
-                            "Temperature",
+                            stringResource(R.string.label_temperature),
                             String.format(Locale.US, "%.1f °C", battery.temperature)
                         )
-                        InfoRow("Voltage", "${battery.voltage} mV")
+                        InfoRow(stringResource(R.string.label_voltage), "${battery.voltage} mV")
                         InfoRow(
-                            "Current (now)",
-                            battery.currentNowMa?.let { "$it mA" } ?: "Unavailable"
+                            stringResource(R.string.label_current_now),
+                            battery.currentNowMa?.let { "$it mA" }
+                                ?: stringResource(R.string.unavailable)
                         )
                         InfoRow(
-                            "Current (avg)",
-                            battery.currentAvgMa?.let { "$it mA" } ?: "Unavailable"
+                            stringResource(R.string.label_current_avg),
+                            battery.currentAvgMa?.let { "$it mA" }
+                                ?: stringResource(R.string.unavailable)
                         )
                         if (battery.capacityMah != null) {
-                            InfoRow("Design capacity", "${battery.capacityMah} mAh")
+                            InfoRow(
+                                stringResource(R.string.label_design_capacity),
+                                "${battery.capacityMah} mAh"
+                            )
                         }
                         if (battery.chargeCounterUah != null) {
                             val mah = battery.chargeCounterUah / 1000.0
                             InfoRow(
-                                "Charge counter",
+                                stringResource(R.string.label_charge_counter),
                                 String.format(Locale.US, "%.0f mAh", mah)
                             )
                         }
@@ -129,12 +143,12 @@ fun BatteryScreen(
 
             item {
                 InfoCard(
-                    title = "Trends",
-                    subtitle = "History ›",
+                    title = stringResource(R.string.section_trends),
+                    subtitle = stringResource(R.string.history_chevron),
                     onClick = onOpenHistory
                 ) {
                     Text(
-                        text = "Charge level and temperature over time.",
+                        text = stringResource(R.string.battery_trends_body),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -143,15 +157,18 @@ fun BatteryScreen(
 
             item {
                 InfoCard(
-                    title = "Thermals",
-                    subtitle = "All zones ›",
+                    title = stringResource(R.string.battery_section_thermals),
+                    subtitle = stringResource(R.string.thermals_all_zones),
                     onClick = onOpenThermals
                 ) {
                     Column {
-                        InfoRow("Zones", thermals.size.toString())
+                        InfoRow(
+                            stringResource(R.string.label_zones),
+                            thermals.size.toString()
+                        )
                         if (thermals.isEmpty()) {
                             Text(
-                                text = "No readable zones on this device",
+                                text = stringResource(R.string.thermals_none),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -165,7 +182,7 @@ fun BatteryScreen(
                             }
                             if (thermals.size > 6) {
                                 Text(
-                                    text = "Tap for all ${thermals.size} zones",
+                                    text = stringResource(R.string.thermals_tap_all, thermals.size),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.padding(top = 6.dp)
