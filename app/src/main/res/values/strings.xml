@@ -189,4 +189,50 @@
     <string name="more_settings_sub">Theme, monitor, network probe</string>
     <string name="more_about">About</string>
     <string name="more_about_sub">v%1$s · privacy-first</string>
+
+    <!-- Tools screen -->
+    <string name="tools_title">Tools</string>
+    <string name="tools_share_log_cd">Share log</string>
+    <string name="tools_refresh_log_cd">Refresh log</string>
+    <string name="tools_clear_log_cd">Clear log</string>
+
+    <string name="tools_load_test_title">Load test</string>
+    <string name="tools_load_test_body">CPU stress test. Phone may warm up and drain battery. Live stats update while running.</string>
+    <string name="tools_duration_min">%1$d min</string>
+    <string name="tools_last_result">Last result</string>
+    <string name="tools_score_line">%1$sk ops/s across %2$d threads</string>
+
+    <string name="tools_hardware_title">Hardware checks</string>
+    <string name="tools_hardware_body">Quick on-device tests. No data leaves the phone.</string>
+    <string name="tools_vibrate">Vibrate</string>
+    <string name="tools_tone">Tone</string>
+    <string name="tools_display">Display</string>
+    <string name="tools_multitouch_label">Multi-touch: put fingers on the pad below</string>
+    <string name="tools_touch_here">Touch here</string>
+    <string name="tools_max_fingers">Max fingers: %1$d</string>
+
+    <string name="tools_display_hint">%1$s\nTap to cycle · Back to exit</string>
+    <string name="color_red">Red</string>
+    <string name="color_green">Green</string>
+    <string name="color_blue">Blue</string>
+    <string name="color_white">White</string>
+    <string name="color_black">Black</string>
+    <string name="color_cyan">Cyan</string>
+    <string name="color_magenta">Magenta</string>
+    <string name="color_yellow">Yellow</string>
+
+    <string name="tools_log_title">Rotating log</string>
+    <string name="tools_log_count">%1$d / %2$d</string>
+    <string name="tools_log_body">Max ~0.5–1 MB when full. Oldest lines drop. Background monitor adds a line every 30s.</string>
+    <string name="tools_log_empty">Log is empty. Enable background monitor in Settings or run a load test.</string>
+
+    <string name="tools_live_stats">Live stats</string>
+    <string name="tools_metric_ram">RAM used</string>
+    <string name="tools_metric_battery">Battery</string>
+    <string name="tools_metric_temp">Temperature</string>
+    <string name="tools_metric_ops">CPU ops</string>
+    <string name="tools_metric_ops_sec">Ops / sec</string>
+    <string name="tools_metric_threads">Threads</string>
+    <string name="tools_threads_active">%1$d active</string>
+    <string name="tools_load_hint">Keep this screen open. UI may feel slower under full CPU load.</string>
 </resources>
