@@ -19,9 +19,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.R
 
 @Composable
 fun InfoCard(
@@ -57,7 +59,7 @@ fun InfoCard(
                 )
                 if (onClick != null) {
                     Text(
-                        text = subtitle ?: "Details ›",
+                        text = subtitle ?: stringResource(R.string.details_chevron),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
