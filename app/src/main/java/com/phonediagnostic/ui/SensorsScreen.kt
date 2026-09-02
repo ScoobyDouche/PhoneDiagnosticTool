@@ -29,9 +29,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.R
 import com.phonediagnostic.data.CameraEntry
 import com.phonediagnostic.data.SensorEntry
 import java.util.Locale
@@ -50,20 +52,23 @@ fun SensorsScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text("Sensors & cameras") },
+                title = { Text(stringResource(R.string.sensors_title)) },
                 navigationIcon = {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back"
+                                contentDescription = stringResource(R.string.action_back)
                             )
                         }
                     }
                 },
                 actions = {
                     IconButton(onClick = onRefresh, enabled = !isRefreshing) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.action_refresh)
+                        )
                     }
                 }
             )
@@ -78,12 +83,16 @@ fun SensorsScreen(
         ) {
             item {
                 Text(
-                    text = "${sensors.size} sensors · ${cameras.size} cameras",
+                    text = stringResource(
+                        R.string.sensors_summary,
+                        sensors.size,
+                        cameras.size
+                    ),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "Tap a sensor to stream it live. No extra permissions required.",
+                    text = stringResource(R.string.sensors_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -92,7 +101,7 @@ fun SensorsScreen(
             if (cameras.isNotEmpty()) {
                 item {
                     Text(
-                        text = "Cameras",
+                        text = stringResource(R.string.sensors_section_cameras),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(top = 8.dp)
@@ -105,7 +114,7 @@ fun SensorsScreen(
 
             item {
                 Text(
-                    text = "Sensors",
+                    text = stringResource(R.string.sensors_section_sensors),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 8.dp)
@@ -115,7 +124,7 @@ fun SensorsScreen(
             if (sensors.isEmpty()) {
                 item {
                     Text(
-                        text = "No sensors reported by SensorManager.",
+                        text = stringResource(R.string.sensors_empty),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -158,18 +167,30 @@ private fun SensorCard(sensor: SensorEntry, onClick: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(6.dp))
             if (sensor.vendor.isNotBlank()) {
-                MetaRow("Vendor", sensor.vendor)
+                MetaRow(stringResource(R.string.label_vendor), sensor.vendor)
             }
-            MetaRow("Power", String.format(Locale.US, "%.2f mA", sensor.powerMa))
-            MetaRow("Resolution", String.format(Locale.US, "%.4f", sensor.resolution))
-            MetaRow("Max range", String.format(Locale.US, "%.2f", sensor.maxRange))
+            MetaRow(
+                stringResource(R.string.label_power),
+                String.format(Locale.US, "%.2f mA", sensor.powerMa)
+            )
+            MetaRow(
+                stringResource(R.string.label_resolution),
+                String.format(Locale.US, "%.4f", sensor.resolution)
+            )
+            MetaRow(
+                stringResource(R.string.label_max_range),
+                String.format(Locale.US, "%.2f", sensor.maxRange)
+            )
             if (sensor.minDelayUs > 0) {
-                MetaRow("Min delay", "${sensor.minDelayUs} µs")
+                MetaRow(
+                    stringResource(R.string.label_min_delay),
+                    "${sensor.minDelayUs} µs"
+                )
             }
             if (sensor.liveValues.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Live: ${sensor.liveValues}",
+                    text = stringResource(R.string.sensors_live_prefix, sensor.liveValues),
                     style = MaterialTheme.typography.bodySmall,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.primary
@@ -189,16 +210,16 @@ private fun CameraCard(cam: CameraEntry) {
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
-                text = "Camera ${cam.id} · ${cam.facing}",
+                text = stringResource(R.string.camera_title, cam.id, cam.facing),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(6.dp))
-            MetaRow("Hardware level", cam.hardwareLevel)
-            MetaRow("Pixel array", cam.pixelArraySize)
-            MetaRow("Orientation", "${cam.sensorOrientation}°")
-            MetaRow("Focal lengths", cam.focalLengths)
-            MetaRow("Aperture", cam.aperture)
+            MetaRow(stringResource(R.string.label_hardware_level), cam.hardwareLevel)
+            MetaRow(stringResource(R.string.label_pixel_array), cam.pixelArraySize)
+            MetaRow(stringResource(R.string.label_orientation), "${cam.sensorOrientation}°")
+            MetaRow(stringResource(R.string.label_focal_lengths), cam.focalLengths)
+            MetaRow(stringResource(R.string.label_aperture), cam.aperture)
         }
     }
 }
