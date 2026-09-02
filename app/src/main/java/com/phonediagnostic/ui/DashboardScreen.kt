@@ -33,9 +33,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.R
 import com.phonediagnostic.data.FullDeviceReport
 import com.phonediagnostic.ui.components.InfoCard
 import com.phonediagnostic.ui.components.InfoRow
@@ -64,10 +66,14 @@ fun DashboardScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Overview", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.dashboard_title), fontWeight = FontWeight.SemiBold)
                         if (lastUpdated.isNotEmpty()) {
                             Text(
-                                text = if (isLive) "Live · $lastUpdated" else "Paused · $lastUpdated",
+                                text = if (isLive) {
+                                    stringResource(R.string.dashboard_live_status, lastUpdated)
+                                } else {
+                                    stringResource(R.string.dashboard_paused_status, lastUpdated)
+                                },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (isLive) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -78,7 +84,11 @@ fun DashboardScreen(
                     IconButton(onClick = onToggleLive) {
                         Icon(
                             imageVector = if (isLive) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (isLive) "Pause live updates" else "Resume live updates"
+                            contentDescription = if (isLive) {
+                                stringResource(R.string.dashboard_pause_cd)
+                            } else {
+                                stringResource(R.string.dashboard_resume_cd)
+                            }
                         )
                     }
                 },
@@ -108,9 +118,9 @@ fun DashboardScreen(
                     ) {
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.size(16.dp))
-                        Text("Collecting device info…")
+                        Text(stringResource(R.string.dashboard_collecting))
                         Text(
-                            "Pull down to refresh",
+                            stringResource(R.string.dashboard_pull_to_refresh),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 8.dp)
@@ -151,46 +161,49 @@ private fun ReportList(
         item(key = "live_badge") { LiveBadge(isLive = isLive) }
 
         item(key = "device") {
-            InfoCard(title = "Device") {
+            InfoCard(title = stringResource(R.string.section_device)) {
                 Column {
-                    InfoRow("Manufacturer", data.overview.manufacturer)
-                    InfoRow("Model", data.overview.model)
-                    InfoRow("Brand", data.overview.brand)
-                    InfoRow("Android", "${data.overview.androidVersion} (API ${data.overview.apiLevel})")
-                    InfoRow("Security Patch", data.overview.securityPatch)
-                    InfoRow("Build ID", data.overview.buildId)
+                    InfoRow(stringResource(R.string.label_manufacturer), data.overview.manufacturer)
+                    InfoRow(stringResource(R.string.label_model), data.overview.model)
+                    InfoRow(stringResource(R.string.label_brand), data.overview.brand)
+                    InfoRow(
+                        stringResource(R.string.label_android),
+                        "${data.overview.androidVersion} (API ${data.overview.apiLevel})"
+                    )
+                    InfoRow(stringResource(R.string.label_security_patch), data.overview.securityPatch)
+                    InfoRow(stringResource(R.string.label_build_id), data.overview.buildId)
                     if (data.overview.board.isNotBlank()) {
-                        InfoRow("Board", data.overview.board)
+                        InfoRow(stringResource(R.string.label_board), data.overview.board)
                     }
                     if (data.overview.bootloader.isNotBlank()) {
-                        InfoRow("Bootloader", data.overview.bootloader)
+                        InfoRow(stringResource(R.string.label_bootloader), data.overview.bootloader)
                     }
                     if (data.overview.hardware.isNotBlank()) {
-                        InfoRow("Hardware", data.overview.hardware)
+                        InfoRow(stringResource(R.string.label_hardware), data.overview.hardware)
                     }
                     if (data.overview.type.isNotBlank()) {
-                        InfoRow("Build type", data.overview.type)
+                        InfoRow(stringResource(R.string.label_build_type), data.overview.type)
                     }
-                    InfoRow("Uptime", data.overview.uptime)
+                    InfoRow(stringResource(R.string.label_uptime), data.overview.uptime)
                     if (data.overview.kernelVersion.isNotBlank()) {
-                        InfoRow("Kernel", data.overview.kernelVersion)
+                        InfoRow(stringResource(R.string.label_kernel), data.overview.kernelVersion)
                     }
                     if (data.overview.radioVersion.isNotBlank()) {
-                        InfoRow("Radio", data.overview.radioVersion)
+                        InfoRow(stringResource(R.string.label_radio), data.overview.radioVersion)
                     }
                     if (data.overview.fingerprint.isNotBlank()) {
-                        InfoRow("Fingerprint", data.overview.fingerprint)
+                        InfoRow(stringResource(R.string.label_fingerprint), data.overview.fingerprint)
                     }
                 }
             }
         }
 
         item(key = "gpu") {
-            InfoCard(title = "GPU") {
+            InfoCard(title = stringResource(R.string.section_gpu)) {
                 Column {
-                    InfoRow("Renderer", data.gpu.renderer)
-                    InfoRow("Vendor", data.gpu.vendor)
-                    InfoRow("Version", data.gpu.version)
+                    InfoRow(stringResource(R.string.label_renderer), data.gpu.renderer)
+                    InfoRow(stringResource(R.string.label_vendor), data.gpu.vendor)
+                    InfoRow(stringResource(R.string.label_version), data.gpu.version)
                 }
             }
         }
@@ -198,22 +211,26 @@ private fun ReportList(
         item(key = "memory") {
             val m = data.memory
             InfoCard(
-                title = "Memory (RAM) · Live",
+                title = stringResource(R.string.section_memory),
                 onClick = onOpenRamDetail
             ) {
                 Column {
                     UsageBar(
-                        label = "In use (incl. cache)",
+                        label = stringResource(R.string.label_in_use),
                         percent = m.usagePercent,
                         detail = "${m.usedRamMb} / ${m.totalRamMb} MB"
                     )
-                    InfoRow("Available", "${m.availableRamMb} MB")
+                    InfoRow(stringResource(R.string.label_available), "${m.availableRamMb} MB")
                     if (m.thresholdMb > 0) {
-                        InfoRow("Low-mem threshold", "${m.thresholdMb} MB")
+                        InfoRow(stringResource(R.string.label_low_mem_threshold), "${m.thresholdMb} MB")
                     }
                     InfoRow(
-                        "Pressure",
-                        if (m.isLowMemory) "Yes — freeing caches" else "No"
+                        stringResource(R.string.label_pressure),
+                        if (m.isLowMemory) {
+                            stringResource(R.string.pressure_yes)
+                        } else {
+                            stringResource(R.string.pressure_no)
+                        }
                     )
                     if (m.statusHint.isNotBlank()) {
                         Text(
@@ -232,10 +249,13 @@ private fun ReportList(
         }
 
         item(key = "trends") {
-            InfoCard(title = "Trends", subtitle = "History ›", onClick = onOpenHistory) {
+            InfoCard(
+                title = stringResource(R.string.section_trends),
+                subtitle = stringResource(R.string.history_chevron),
+                onClick = onOpenHistory
+            ) {
                 Text(
-                    text = "Battery, temperature and RAM over time, from samples this " +
-                        "app records while it runs.",
+                    text = stringResource(R.string.trends_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -243,23 +263,43 @@ private fun ReportList(
         }
 
         item(key = "network") {
-            InfoCard(title = "Network", subtitle = "Details ›", onClick = onOpenNetwork) {
+            InfoCard(
+                title = stringResource(R.string.section_network),
+                subtitle = stringResource(R.string.details_chevron),
+                onClick = onOpenNetwork
+            ) {
                 Column {
-                    InfoRow("Connection", if (data.network.isConnected) "Connected" else "Disconnected")
-                    InfoRow("Type", data.network.networkType)
                     InfoRow(
-                        "Latency",
+                        stringResource(R.string.label_connection),
+                        if (data.network.isConnected) {
+                            stringResource(R.string.connection_connected)
+                        } else {
+                            stringResource(R.string.connection_disconnected)
+                        }
+                    )
+                    InfoRow(stringResource(R.string.label_type), data.network.networkType)
+                    InfoRow(
+                        stringResource(R.string.label_latency),
                         data.network.latencyMs?.let { "$it ms" } ?: "—"
                     )
-                    InfoRow("Target", data.network.latencyTarget)
-                    InfoRow("Status", data.network.latencyStatus)
+                    InfoRow(stringResource(R.string.label_target), data.network.latencyTarget)
+                    InfoRow(stringResource(R.string.label_status), data.network.latencyStatus)
                     if (data.network.downstreamMbps != null || data.network.upstreamMbps != null) {
                         val down = data.network.downstreamMbps?.toString() ?: "?"
                         val up = data.network.upstreamMbps?.toString() ?: "?"
-                        InfoRow("Link bandwidth", "$down ↓ / $up ↑ Mbps")
+                        InfoRow(
+                            stringResource(R.string.label_link_bandwidth),
+                            "$down ↓ / $up ↑ Mbps"
+                        )
                     }
-                    InfoRow("Validated", if (data.network.validated) "Yes" else "No")
-                    InfoRow("Metered", if (data.network.metered) "Yes" else "No")
+                    InfoRow(
+                        stringResource(R.string.label_validated),
+                        if (data.network.validated) stringResource(R.string.yes) else stringResource(R.string.no)
+                    )
+                    InfoRow(
+                        stringResource(R.string.label_metered),
+                        if (data.network.metered) stringResource(R.string.yes) else stringResource(R.string.no)
+                    )
                 }
             }
         }
@@ -267,12 +307,12 @@ private fun ReportList(
         item(key = "storage") {
             val s = data.storage
             InfoCard(
-                title = "Storage",
+                title = stringResource(R.string.section_storage),
                 onClick = onOpenStorageDetail
             ) {
                 Column {
                     UsageBar(
-                        label = "Internal data",
+                        label = stringResource(R.string.label_internal_data),
                         percent = s.usagePercent,
                         detail = String.format(
                             Locale.US,
@@ -282,33 +322,39 @@ private fun ReportList(
                         )
                     )
                     InfoRow(
-                        "Free",
+                        stringResource(R.string.label_free),
                         String.format(Locale.US, "%.2f GB", s.freeInternalGb)
                     )
-                    InfoRow("Volumes", s.volumes.size.toString())
+                    InfoRow(stringResource(R.string.label_volumes), s.volumes.size.toString())
                     InfoRow(
-                        "External",
-                        if (s.emulatedExternal) "Emulated (${s.externalStorageState})"
-                        else s.externalStorageState.ifBlank { "—" }
+                        stringResource(R.string.label_external),
+                        if (s.emulatedExternal) {
+                            stringResource(R.string.external_emulated, s.externalStorageState)
+                        } else {
+                            s.externalStorageState.ifBlank { "—" }
+                        }
                     )
                 }
             }
         }
 
         item(key = "display") {
-            InfoCard(title = "Display") {
+            InfoCard(title = stringResource(R.string.section_display)) {
                 Column {
-                    InfoRow("Resolution", "${data.display.widthPx} × ${data.display.heightPx}")
                     InfoRow(
-                        "Density",
+                        stringResource(R.string.label_resolution),
+                        "${data.display.widthPx} × ${data.display.heightPx}"
+                    )
+                    InfoRow(
+                        stringResource(R.string.label_density),
                         "${data.display.densityDpi} dpi (×${String.format(Locale.US, "%.2f", data.display.density)})"
                     )
                     InfoRow(
-                        "Refresh Rate",
+                        stringResource(R.string.label_refresh_rate),
                         String.format(Locale.US, "%.1f Hz", data.display.refreshRate)
                     )
                     InfoRow(
-                        "Approx. Size",
+                        stringResource(R.string.label_approx_size),
                         String.format(Locale.US, "%.2f\"", data.display.screenSizeInches)
                     )
                 }
@@ -317,8 +363,7 @@ private fun ReportList(
 
         item(key = "footer") {
             Text(
-                text = "Use bottom tabs for CPU · Battery · Sensors\n" +
-                    "Network, history, sharing & settings are under More · v$versionName",
+                text = stringResource(R.string.dashboard_footer, versionName),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -350,7 +395,7 @@ private fun ErrorState(
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Couldn’t load diagnostics",
+            text = stringResource(R.string.dashboard_error_title),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
         )
@@ -363,7 +408,7 @@ private fun ErrorState(
         )
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = onRetry) {
-            Text("Try again")
+            Text(stringResource(R.string.dashboard_try_again))
         }
     }
 }
@@ -385,15 +430,22 @@ private fun LiveBadge(isLive: Boolean) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (isLive) "● LIVE" else "○ PAUSED",
+                text = if (isLive) {
+                    stringResource(R.string.dashboard_live_badge)
+                } else {
+                    stringResource(R.string.dashboard_paused_badge)
+                },
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = if (isLive) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isLive) "Updates every 3s · Pull to full refresh"
-                else "Tap play to resume",
+                text = if (isLive) {
+                    stringResource(R.string.dashboard_live_hint)
+                } else {
+                    stringResource(R.string.dashboard_paused_hint)
+                },
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
