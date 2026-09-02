@@ -12,6 +12,9 @@
     <string name="no">No</string>
     <string name="details_chevron">Details ›</string>
     <string name="history_chevron">History ›</string>
+    <string name="unknown">Unknown</string>
+    <string name="unavailable">Unavailable</string>
+    <string name="none_reported">None reported.</string>
 
     <!-- Bottom navigation -->
     <string name="tab_overview">Overview</string>
@@ -116,20 +119,16 @@
     <string name="label_kernel">Kernel</string>
     <string name="label_radio">Radio</string>
     <string name="label_fingerprint">Fingerprint</string>
-
     <string name="label_renderer">Renderer</string>
     <string name="label_vendor">Vendor</string>
     <string name="label_version">Version</string>
-
     <string name="label_in_use">In use (incl. cache)</string>
     <string name="label_available">Available</string>
     <string name="label_low_mem_threshold">Low-mem threshold</string>
     <string name="label_pressure">Pressure</string>
     <string name="pressure_yes">Yes — freeing caches</string>
     <string name="pressure_no">No</string>
-
     <string name="trends_body">Battery, temperature and RAM over time, from samples this app records while it runs.</string>
-
     <string name="label_connection">Connection</string>
     <string name="connection_connected">Connected</string>
     <string name="connection_disconnected">Disconnected</string>
@@ -140,13 +139,11 @@
     <string name="label_link_bandwidth">Link bandwidth</string>
     <string name="label_validated">Validated</string>
     <string name="label_metered">Metered</string>
-
     <string name="label_internal_data">Internal data</string>
     <string name="label_free">Free</string>
     <string name="label_volumes">Volumes</string>
     <string name="label_external">External</string>
     <string name="external_emulated">Emulated (%1$s)</string>
-
     <string name="label_resolution">Resolution</string>
     <string name="label_density">Density</string>
     <string name="label_refresh_rate">Refresh Rate</string>
@@ -157,7 +154,6 @@
     <string name="more_intro">CPU, Battery, and Sensors are in the bottom tabs.</string>
     <string name="more_section_report">Report</string>
     <string name="more_section_details">Details & tools</string>
-
     <string name="more_share_text">Share as text</string>
     <string name="more_share_text_sub">Plain-text diagnostic report</string>
     <string name="more_share_json">Share as JSON</string>
@@ -171,7 +167,6 @@
     <string name="more_copy_text">Copy text</string>
     <string name="more_copy_text_sub">Copy report to clipboard</string>
     <string name="more_collect_first">Collect a report first</string>
-
     <string name="more_ram">RAM detail</string>
     <string name="more_ram_sub_fallback">Process memory</string>
     <string name="more_storage">Storage</string>
@@ -195,13 +190,11 @@
     <string name="tools_share_log_cd">Share log</string>
     <string name="tools_refresh_log_cd">Refresh log</string>
     <string name="tools_clear_log_cd">Clear log</string>
-
     <string name="tools_load_test_title">Load test</string>
     <string name="tools_load_test_body">CPU stress test. Phone may warm up and drain battery. Live stats update while running.</string>
     <string name="tools_duration_min">%1$d min</string>
     <string name="tools_last_result">Last result</string>
     <string name="tools_score_line">%1$sk ops/s across %2$d threads</string>
-
     <string name="tools_hardware_title">Hardware checks</string>
     <string name="tools_hardware_body">Quick on-device tests. No data leaves the phone.</string>
     <string name="tools_vibrate">Vibrate</string>
@@ -210,7 +203,6 @@
     <string name="tools_multitouch_label">Multi-touch: put fingers on the pad below</string>
     <string name="tools_touch_here">Touch here</string>
     <string name="tools_max_fingers">Max fingers: %1$d</string>
-
     <string name="tools_display_hint">%1$s\nTap to cycle · Back to exit</string>
     <string name="color_red">Red</string>
     <string name="color_green">Green</string>
@@ -220,12 +212,10 @@
     <string name="color_cyan">Cyan</string>
     <string name="color_magenta">Magenta</string>
     <string name="color_yellow">Yellow</string>
-
     <string name="tools_log_title">Rotating log</string>
     <string name="tools_log_count">%1$d / %2$d</string>
     <string name="tools_log_body">Max ~0.5–1 MB when full. Oldest lines drop. Background monitor adds a line every 30s.</string>
     <string name="tools_log_empty">Log is empty. Enable background monitor in Settings or run a load test.</string>
-
     <string name="tools_live_stats">Live stats</string>
     <string name="tools_metric_ram">RAM used</string>
     <string name="tools_metric_battery">Battery</string>
@@ -235,4 +225,112 @@
     <string name="tools_metric_threads">Threads</string>
     <string name="tools_threads_active">%1$d active</string>
     <string name="tools_load_hint">Keep this screen open. UI may feel slower under full CPU load.</string>
+
+    <!-- Network screen -->
+    <string name="network_title">Network</string>
+    <string name="network_section_connection">Connection</string>
+    <string name="label_state">State</string>
+    <string name="label_transport">Transport</string>
+    <string name="label_interface">Interface</string>
+    <string name="network_section_wifi">Wi-Fi</string>
+    <string name="label_network_name">Network</string>
+    <string name="label_band">Band</string>
+    <string name="label_frequency">Frequency</string>
+    <string name="label_link_speed">Link speed</string>
+    <string name="label_tx_rate">Tx rate</string>
+    <string name="label_rx_rate">Rx rate</string>
+    <string name="label_signal">Signal</string>
+    <string name="network_section_cellular">Cellular</string>
+    <string name="label_carrier">Carrier</string>
+    <string name="label_sim_operator">SIM operator</string>
+    <string name="label_country">Country</string>
+    <string name="label_roaming">Roaming</string>
+    <string name="network_section_latency">Latency</string>
+    <string name="network_latency_off">The latency check is switched off in Settings. Nothing on this screen contacts the network while it is off.</string>
+    <string name="label_samples">Samples</string>
+    <string name="label_min">Min</string>
+    <string name="label_average">Average</string>
+    <string name="label_max">Max</string>
+    <string name="label_jitter">Jitter</string>
+    <string name="label_loss">Loss</string>
+    <string name="label_error">Error</string>
+    <string name="label_last_single_probe">Last single probe</string>
+    <string name="network_latency_burst_hint">Run a burst of probes to see spread and packet loss.</string>
+    <string name="network_run_probes">Run 5 probes</string>
+    <string name="network_measuring">Measuring…</string>
+    <string name="network_section_dns">DNS</string>
+    <string name="network_no_dns">No DNS servers reported for the active network.</string>
+    <string name="label_server_n">Server %1$d</string>
+    <string name="label_private_dns">Private DNS</string>
+    <string name="private_dns_on_named">On - %1$s</string>
+    <string name="private_dns_on_auto">On - automatic</string>
+    <string name="private_dns_off">Off</string>
+    <string name="label_search_domains">Search domains</string>
+    <string name="network_section_capabilities">Capabilities</string>
+    <string name="network_interfaces_header">Interfaces (%1$d)</string>
+    <string name="interface_fallback">Interface</string>
+    <string name="label_description">Description</string>
+    <string name="state_up">Up</string>
+    <string name="state_down">Down</string>
+    <string name="label_mtu">MTU</string>
+    <string name="label_address">Address</string>
+    <string name="network_privacy_note">Addresses are read from this device\'s own interfaces. Nothing here is uploaded. MAC addresses are not shown — Android randomises them per network anyway.</string>
+
+    <!-- Battery screen -->
+    <string name="battery_title">Battery</string>
+    <string name="battery_live_status">Live · every 3s</string>
+    <string name="battery_collecting">Collecting battery info…</string>
+    <string name="battery_section_charge">Charge</string>
+    <string name="label_level">Level</string>
+    <string name="label_power_source">Power source</string>
+    <string name="label_health">Health</string>
+    <string name="label_technology">Technology</string>
+    <string name="battery_section_electrical">Electrical</string>
+    <string name="label_temperature">Temperature</string>
+    <string name="label_voltage">Voltage</string>
+    <string name="label_current_now">Current (now)</string>
+    <string name="label_current_avg">Current (avg)</string>
+    <string name="label_design_capacity">Design capacity</string>
+    <string name="label_charge_counter">Charge counter</string>
+    <string name="battery_trends_body">Charge level and temperature over time.</string>
+    <string name="battery_section_thermals">Thermals</string>
+    <string name="thermals_all_zones">All zones ›</string>
+    <string name="label_zones">Zones</string>
+    <string name="thermals_none">No readable zones on this device</string>
+    <string name="thermals_tap_all">Tap for all %1$d zones</string>
+
+    <!-- CPU screen -->
+    <string name="cpu_title">CPU / SoC</string>
+    <string name="cpu_live_status">Live · freqs every 3s</string>
+    <string name="cpu_collecting">Collecting CPU info…</string>
+    <string name="cpu_section_processor">Processor</string>
+    <string name="label_processor">Processor</string>
+    <string name="label_board_platform">Board / Platform</string>
+    <string name="label_architecture">Architecture</string>
+    <string name="label_cores">Cores</string>
+    <string name="label_abis">ABIs</string>
+    <string name="cpu_section_freq_range">Frequency range</string>
+    <string name="label_min_max">Min – Max</string>
+    <string name="label_average_online">Average (online)</string>
+    <string name="cpu_section_live_clocks">Live core clocks</string>
+    <string name="cpu_freqs_unavailable">Current frequencies not exposed via /sys on this device.</string>
+    <string name="cpu_core_n">Core %1$d</string>
+
+    <!-- Sensors screen -->
+    <string name="sensors_title">Sensors & cameras</string>
+    <string name="sensors_summary">%1$d sensors · %2$d cameras</string>
+    <string name="sensors_hint">Tap a sensor to stream it live. No extra permissions required.</string>
+    <string name="sensors_section_cameras">Cameras</string>
+    <string name="sensors_section_sensors">Sensors</string>
+    <string name="sensors_empty">No sensors reported by SensorManager.</string>
+    <string name="label_power">Power</string>
+    <string name="label_max_range">Max range</string>
+    <string name="label_min_delay">Min delay</string>
+    <string name="sensors_live_prefix">Live: %1$s</string>
+    <string name="camera_title">Camera %1$s · %2$s</string>
+    <string name="label_hardware_level">Hardware level</string>
+    <string name="label_pixel_array">Pixel array</string>
+    <string name="label_orientation">Orientation</string>
+    <string name="label_focal_lengths">Focal lengths</string>
+    <string name="label_aperture">Aperture</string>
 </resources>
