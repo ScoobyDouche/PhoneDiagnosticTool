@@ -15,6 +15,7 @@
     <string name="unknown">Unknown</string>
     <string name="unavailable">Unavailable</string>
     <string name="none_reported">None reported.</string>
+    <string name="action_cancel">Cancel</string>
 
     <!-- Bottom navigation -->
     <string name="tab_overview">Overview</string>
@@ -274,7 +275,7 @@
     <string name="state_down">Down</string>
     <string name="label_mtu">MTU</string>
     <string name="label_address">Address</string>
-    <string name="network_privacy_note">Addresses are read from this device own interfaces. Nothing here is uploaded. MAC addresses are not shown — Android randomises them per network anyway.</string>
+    <string name="network_privacy_note">Addresses are read from this device interfaces. Nothing here is uploaded. MAC addresses are not shown — Android randomises them per network anyway.</string>
 
     <!-- Battery screen -->
     <string name="battery_title">Battery</string>
@@ -333,4 +334,121 @@
     <string name="label_orientation">Orientation</string>
     <string name="label_focal_lengths">Focal lengths</string>
     <string name="label_aperture">Aperture</string>
+
+    <!-- RAM detail -->
+    <string name="ram_title">RAM usage</string>
+    <string name="ram_system_memory">System memory</string>
+    <string name="ram_available_threshold">Available %1$d MB · Threshold %2$d MB</string>
+    <string name="ram_processes_heading">Processes (limited by Android privacy)</string>
+    <string name="ram_privacy_blocked">Android blocks other apps process memory on modern versions. Dashboard totals are still accurate.</string>
+    <string name="ram_only_this_app">Usually only this app appears — not a full task manager.</string>
+    <string name="ram_sorted_pss">Sorted by memory (PSS).</string>
+    <string name="ram_idle_high">~%1$d%% RAM while idle is usually fine</string>
+    <string name="ram_how_android">How Android uses RAM</string>
+    <string name="ram_explainer">Android keeps recently used apps in RAM so they reopen fast. That counts as used even when you are not actively using them. Watch Available and whether Pressure says Yes — not just the %% bar.</string>
+
+    <!-- History -->
+    <string name="history_title">History</string>
+    <string name="history_clear_title">Clear history?</string>
+    <string name="history_clear_body">Removes all %1$d stored samples. This cannot be undone.</string>
+    <string name="history_clear_confirm">Clear</string>
+    <string name="history_refresh_cd">Refresh history</string>
+    <string name="history_clear_cd">Clear history</string>
+    <string name="history_chart_battery">Battery</string>
+    <string name="history_chart_temp">Battery temperature</string>
+    <string name="history_chart_ram">RAM in use</string>
+    <string name="history_range_pct">%1$s - low %2$d%% / high %3$d%%</string>
+    <string name="history_range_temp">%1$s - low %2$.1f C / high %3$.1f C</string>
+    <string name="history_section_samples">Samples</string>
+    <string name="label_stored">Stored</string>
+    <string name="label_oldest">Oldest</string>
+    <string name="label_newest">Newest</string>
+    <string name="label_covers">Covers</string>
+    <string name="label_charging_now">Charging now</string>
+    <string name="label_background_monitor">Background monitor</string>
+    <string name="history_monitor_on">On - samples every 30s</string>
+    <string name="history_monitor_off">Off</string>
+    <string name="history_note">Samples are recorded while the app is open, and every 30s when the background monitor is on. Kept on this device only.</string>
+    <string name="history_empty_title">No samples yet</string>
+    <string name="history_empty_monitor_on">The background monitor is on. Trends appear after a few samples.</string>
+    <string name="history_empty_monitor_off">Keep the app open for a minute, or turn on the background monitor in Settings to collect samples while it is closed.</string>
+    <string name="history_span_single">single sample</string>
+    <string name="history_span_under_minute">under a minute</string>
+    <string name="history_span_minutes">%1$d min</string>
+    <string name="history_span_hours">%1$dh</string>
+    <string name="history_span_hours_minutes">%1$dh %2$dm</string>
+
+    <!-- Thermals detail -->
+    <string name="thermals_title">Thermals</string>
+    <string name="thermals_live_status">Live · updating every 3s</string>
+    <string name="thermals_zones_count">%1$d thermal zones from /sys/class/thermal</string>
+    <string name="thermals_sorted_hint">Sorted hottest first. Values depend on vendor sysfs (no root).</string>
+    <string name="thermals_range">Range: %1$.1f – %2$.1f °C</string>
+    <string name="thermals_empty">No readable thermal zones. Some devices restrict /sys/class/thermal without root.</string>
+
+    <!-- Sensor detail -->
+    <string name="sensor_detail_fallback">Sensor</string>
+    <string name="sensor_streaming">Streaming live</string>
+    <string name="sensor_pause_cd">Pause stream</string>
+    <string name="sensor_resume_cd">Resume stream</string>
+    <string name="sensor_unavailable">That sensor is no longer available on this device.</string>
+    <string name="sensor_current_reading">Current reading</string>
+    <string name="sensor_waiting">Waiting for the first event. Some sensors only report when the value actually changes.</string>
+    <string name="sensor_paused">Paused.</string>
+    <string name="label_events">Events</string>
+    <string name="label_accuracy">Accuracy</string>
+    <string name="sensor_last_samples">Last %1$d samples</string>
+    <string name="sensor_min_max">min %1$.3f   max %2$.3f</string>
+    <string name="sensor_section_meta">Sensor</string>
+    <string name="sensor_on_change">On change</string>
+    <string name="sensor_min_delay_us">%1$d us</string>
+    <string name="sensor_power_ma">%1$.2f mA</string>
+    <string name="sensor_stop_note">Sampling stops as soon as you leave this screen.</string>
+    <string name="accuracy_high">High</string>
+    <string name="accuracy_medium">Medium</string>
+    <string name="accuracy_low">Low</string>
+    <string name="accuracy_unreliable">Unreliable</string>
+    <string name="accuracy_no_contact">No contact</string>
+    <string name="accuracy_not_reported">Not reported</string>
+    <string name="label_value_n">Value %1$d</string>
+
+    <!-- Storage detail -->
+    <string name="storage_title">Storage</string>
+    <string name="storage_other_volumes">Other volumes</string>
+    <string name="storage_loading">Loading storage…</string>
+    <string name="storage_apps">Apps</string>
+    <string name="storage_uninstall">Uninstall…</string>
+    <string name="storage_uninstall_title">Uninstall %1$s?</string>
+    <string name="storage_uninstall_body">Removes the app and its data (%1$s data + %2$s cache).</string>
+    <string name="storage_uninstall_hint">If unsure, cancel and clear cache instead.</string>
+    <string name="storage_uninstall_confirm">Uninstall</string>
+    <string name="storage_usage_access_title">Usage access for per-app sizes</string>
+    <string name="storage_usage_access_body">Overall storage works without this. Grant access to see which apps use space.</string>
+    <string name="storage_open_usage_access">Open Usage Access</string>
+    <string name="storage_no_app_data">No per-app storage data.</string>
+    <string name="storage_try_again">Try again</string>
+    <string name="storage_measured">Measured across apps</string>
+    <string name="storage_totals">%1$s total · %2$s cache</string>
+    <string name="storage_safe_caches">~%1$s in large caches (safe to clear)</string>
+    <string name="storage_search">Search apps</string>
+    <string name="storage_search_hint">Name or package</string>
+    <string name="storage_nothing_matches">Nothing matches.</string>
+    <string name="storage_internal">Internal storage</string>
+    <string name="storage_state">State: %1$s</string>
+    <string name="storage_filter_safe">Safe cache</string>
+    <string name="storage_filter_mine">My apps</string>
+    <string name="storage_filter_large">Large</string>
+    <string name="storage_filter_all">All</string>
+    <string name="storage_filter_hint_safe">Large cache (≥50 MB). Clear cache is usually safe.</string>
+    <string name="storage_filter_hint_mine">Apps you installed.</string>
+    <string name="storage_filter_hint_large">≥500 MB total.</string>
+    <string name="storage_filter_hint_all">All apps. Prefer clear cache over uninstall.</string>
+    <string name="storage_clear_cache">Clear cache in App info (recommended)</string>
+    <string name="storage_open_app_info">Open App info</string>
+    <string name="storage_risk_safe">Safe: large cache</string>
+    <string name="storage_risk_review">Review before uninstall</string>
+    <string name="storage_risk_system">System app</string>
+    <string name="storage_app_breakdown">App %1$s · Data %2$s · Cache %3$s</string>
+    <string name="storage_gb_used">%1$.1f / %2$.1f GB</string>
+    <string name="storage_gb_free">%1$.1f GB free</string>
 </resources>
