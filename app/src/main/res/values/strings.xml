@@ -50,7 +50,7 @@
 
     <!-- Background monitor notification -->
     <string name="monitor_notification_title">Diagnostics monitoring</string>
-    <string name="monitor_notification_text">Sampling battery & RAM · fixed log</string>
+    <string name="monitor_notification_text">Sampling battery &amp; RAM · fixed log</string>
     <string name="monitor_action_stop">Stop</string>
     <string name="monitor_channel_name">Background monitor</string>
     <string name="monitor_channel_description">Shows while diagnostic sampling is active</string>
@@ -68,15 +68,15 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
-    <string name="settings_privacy_heading">Privacy & network</string>
+    <string name="settings_privacy_heading">Privacy &amp; network</string>
     <string name="settings_latency_title">Network latency check</string>
     <string name="settings_latency_description">When on, measures TCP connect time to 8.8.8.8:53. No report is uploaded.</string>
     <string name="settings_background_heading">Background</string>
     <string name="settings_monitor_title">Keep monitoring</string>
-    <string name="settings_monitor_description">Samples battery & RAM every 30s with a persistent notification. Log is capped at %1$d lines (oldest drop; ~0.5–1 MB full).</string>
-    <string name="settings_tools_link">Tools · log & load test</string>
+    <string name="settings_monitor_description">Samples battery &amp; RAM every 30s with a persistent notification. Log is capped at %1$d lines (oldest drop; ~0.5–1 MB full).</string>
+    <string name="settings_tools_link">Tools · log &amp; load test</string>
     <string name="settings_appearance_heading">Appearance</string>
-    <string name="settings_about_link">About & privacy</string>
+    <string name="settings_about_link">About &amp; privacy</string>
     <string name="theme_system">System default</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
@@ -95,7 +95,7 @@
     <string name="dashboard_paused_badge">○ PAUSED</string>
     <string name="dashboard_live_hint">Updates every 3s · Pull to full refresh</string>
     <string name="dashboard_paused_hint">Tap play to resume</string>
-    <string name="dashboard_footer">Use bottom tabs for CPU · Battery · Sensors\nNetwork, history, sharing & settings are under More · v%1$s</string>
+    <string name="dashboard_footer">Use bottom tabs for CPU · Battery · Sensors\nNetwork, history, sharing &amp; settings are under More · v%1$s</string>
 
     <string name="section_device">Device</string>
     <string name="section_gpu">GPU</string>
@@ -153,7 +153,7 @@
     <string name="more_title">More</string>
     <string name="more_intro">CPU, Battery, and Sensors are in the bottom tabs.</string>
     <string name="more_section_report">Report</string>
-    <string name="more_section_details">Details & tools</string>
+    <string name="more_section_details">Details &amp; tools</string>
     <string name="more_share_text">Share as text</string>
     <string name="more_share_text_sub">Plain-text diagnostic report</string>
     <string name="more_share_json">Share as JSON</string>
@@ -170,7 +170,7 @@
     <string name="more_ram">RAM detail</string>
     <string name="more_ram_sub_fallback">Process memory</string>
     <string name="more_storage">Storage</string>
-    <string name="more_storage_sub_fallback">Volumes & apps</string>
+    <string name="more_storage_sub_fallback">Volumes &amp; apps</string>
     <string name="more_storage_free">%1$.1f GB free</string>
     <string name="more_network">Network</string>
     <string name="more_network_sub">%1$s · addresses, DNS, latency</string>
@@ -274,7 +274,7 @@
     <string name="state_down">Down</string>
     <string name="label_mtu">MTU</string>
     <string name="label_address">Address</string>
-    <string name="network_privacy_note">Addresses are read from this device\'s own interfaces. Nothing here is uploaded. MAC addresses are not shown — Android randomises them per network anyway.</string>
+    <string name="network_privacy_note">Addresses are read from this device's own interfaces. Nothing here is uploaded. MAC addresses are not shown — Android randomises them per network anyway.</string>
 
     <!-- Battery screen -->
     <string name="battery_title">Battery</string>
@@ -317,7 +317,7 @@
     <string name="cpu_core_n">Core %1$d</string>
 
     <!-- Sensors screen -->
-    <string name="sensors_title">Sensors & cameras</string>
+    <string name="sensors_title">Sensors &amp; cameras</string>
     <string name="sensors_summary">%1$d sensors · %2$d cameras</string>
     <string name="sensors_hint">Tap a sensor to stream it live. No extra permissions required.</string>
     <string name="sensors_section_cameras">Cameras</string>
