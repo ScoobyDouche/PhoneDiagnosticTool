@@ -26,9 +26,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.R
 import com.phonediagnostic.data.CpuInfo
 import com.phonediagnostic.ui.components.InfoCard
 import com.phonediagnostic.ui.components.InfoRow
@@ -47,9 +49,13 @@ fun CpuScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("CPU / SoC")
+                        Text(stringResource(R.string.cpu_title))
                         Text(
-                            text = if (isLive) "Live · freqs every 3s" else "Paused",
+                            text = if (isLive) {
+                                stringResource(R.string.cpu_live_status)
+                            } else {
+                                stringResource(R.string.state_paused)
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = if (isLive) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -57,7 +63,10 @@ fun CpuScreen(
                 },
                 actions = {
                     IconButton(onClick = onRefresh, enabled = !isRefreshing) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.action_refresh)
+                        )
                     }
                 }
             )
@@ -71,7 +80,7 @@ fun CpuScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("Collecting CPU info…")
+                Text(stringResource(R.string.cpu_collecting))
             }
             return@Scaffold
         }
@@ -84,27 +93,36 @@ fun CpuScreen(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             item {
-                InfoCard(title = "Processor") {
+                InfoCard(title = stringResource(R.string.cpu_section_processor)) {
                     Column {
-                        InfoRow("Processor", cpu.processor)
-                        InfoRow("Hardware", cpu.hardware)
-                        InfoRow("Board / Platform", cpu.boardPlatform)
-                        InfoRow("Architecture", cpu.architecture)
-                        InfoRow("Cores", cpu.cores.toString())
-                        InfoRow("ABIs", cpu.supportedAbis.joinToString(", "))
+                        InfoRow(stringResource(R.string.label_processor), cpu.processor)
+                        InfoRow(stringResource(R.string.label_hardware), cpu.hardware)
+                        InfoRow(stringResource(R.string.label_board_platform), cpu.boardPlatform)
+                        InfoRow(stringResource(R.string.label_architecture), cpu.architecture)
+                        InfoRow(stringResource(R.string.label_cores), cpu.cores.toString())
+                        InfoRow(
+                            stringResource(R.string.label_abis),
+                            cpu.supportedAbis.joinToString(", ")
+                        )
                     }
                 }
             }
 
             item {
-                InfoCard(title = "Frequency range") {
+                InfoCard(title = stringResource(R.string.cpu_section_freq_range)) {
                     Column {
                         val min = cpu.minFreqMhz?.toString() ?: "?"
                         val max = cpu.maxFreqMhz?.toString() ?: "?"
-                        InfoRow("Min – Max", "$min – $max MHz")
+                        InfoRow(
+                            stringResource(R.string.label_min_max),
+                            "$min – $max MHz"
+                        )
                         if (cpu.currentFreqMhz.isNotEmpty()) {
                             val avg = cpu.currentFreqMhz.average()
-                            InfoRow("Average (online)", String.format("%.0f MHz", avg))
+                            InfoRow(
+                                stringResource(R.string.label_average_online),
+                                String.format("%.0f MHz", avg)
+                            )
                         }
                     }
                 }
@@ -112,7 +130,7 @@ fun CpuScreen(
 
             if (cpu.currentFreqMhz.isNotEmpty()) {
                 item {
-                    InfoCard(title = "Live core clocks") {
+                    InfoCard(title = stringResource(R.string.cpu_section_live_clocks)) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             cpu.currentFreqMhz.forEachIndexed { index, mhz ->
                                 CoreFreqRow(
@@ -126,9 +144,9 @@ fun CpuScreen(
                 }
             } else {
                 item {
-                    InfoCard(title = "Live core clocks") {
+                    InfoCard(title = stringResource(R.string.cpu_section_live_clocks)) {
                         Text(
-                            text = "Current frequencies not exposed via /sys on this device.",
+                            text = stringResource(R.string.cpu_freqs_unavailable),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -158,7 +176,7 @@ private fun CoreFreqRow(coreIndex: Int, mhz: Int, maxMhz: Int?) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "Core $coreIndex",
+                text = stringResource(R.string.cpu_core_n, coreIndex),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
