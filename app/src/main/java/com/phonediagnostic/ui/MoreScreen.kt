@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ContentCopy
@@ -19,7 +20,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.outlined.Memory
@@ -35,10 +35,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.R
 import com.phonediagnostic.data.FullDeviceReport
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,7 +66,7 @@ fun MoreScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(title = { Text("More") })
+            TopAppBar(title = { Text(stringResource(R.string.more_title)) })
         }
     ) { padding ->
         LazyColumn(
@@ -77,7 +78,7 @@ fun MoreScreen(
         ) {
             item {
                 Text(
-                    text = "CPU, Battery, and Sensors are in the bottom tabs.",
+                    text = stringResource(R.string.more_intro),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
@@ -86,7 +87,7 @@ fun MoreScreen(
 
             item {
                 Text(
-                    text = "Report",
+                    text = stringResource(R.string.more_section_report),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
@@ -95,8 +96,12 @@ fun MoreScreen(
             item {
                 MoreLink(
                     icon = Icons.Filled.Share,
-                    title = "Share as text",
-                    subtitle = if (hasReport) "Plain-text diagnostic report" else "Collect a report first",
+                    title = stringResource(R.string.more_share_text),
+                    subtitle = if (hasReport) {
+                        stringResource(R.string.more_share_text_sub)
+                    } else {
+                        stringResource(R.string.more_collect_first)
+                    },
                     enabled = hasReport,
                     onClick = onShareText
                 )
@@ -104,8 +109,12 @@ fun MoreScreen(
             item {
                 MoreLink(
                     icon = Icons.Filled.Share,
-                    title = "Share as JSON",
-                    subtitle = if (hasReport) "Machine-readable export" else "Collect a report first",
+                    title = stringResource(R.string.more_share_json),
+                    subtitle = if (hasReport) {
+                        stringResource(R.string.more_share_json_sub)
+                    } else {
+                        stringResource(R.string.more_collect_first)
+                    },
                     enabled = hasReport,
                     onClick = onShareJson
                 )
@@ -113,11 +122,11 @@ fun MoreScreen(
             item {
                 MoreLink(
                     icon = Icons.Filled.AttachFile,
-                    title = "Share as file",
+                    title = stringResource(R.string.more_share_file),
                     subtitle = if (hasReport) {
-                        "Send a .txt attachment — survives long reports"
+                        stringResource(R.string.more_share_file_sub)
                     } else {
-                        "Collect a report first"
+                        stringResource(R.string.more_collect_first)
                     },
                     enabled = hasReport,
                     onClick = onShareFile
@@ -126,8 +135,12 @@ fun MoreScreen(
             item {
                 MoreLink(
                     icon = Icons.Filled.Save,
-                    title = "Save as .txt",
-                    subtitle = if (hasReport) "Choose where to save it" else "Collect a report first",
+                    title = stringResource(R.string.more_save_txt),
+                    subtitle = if (hasReport) {
+                        stringResource(R.string.more_save_txt_sub)
+                    } else {
+                        stringResource(R.string.more_collect_first)
+                    },
                     enabled = hasReport,
                     onClick = onSaveText
                 )
@@ -135,8 +148,12 @@ fun MoreScreen(
             item {
                 MoreLink(
                     icon = Icons.Filled.Save,
-                    title = "Save as .json",
-                    subtitle = if (hasReport) "Machine-readable file" else "Collect a report first",
+                    title = stringResource(R.string.more_save_json),
+                    subtitle = if (hasReport) {
+                        stringResource(R.string.more_save_json_sub)
+                    } else {
+                        stringResource(R.string.more_collect_first)
+                    },
                     enabled = hasReport,
                     onClick = onSaveJson
                 )
@@ -144,8 +161,12 @@ fun MoreScreen(
             item {
                 MoreLink(
                     icon = Icons.Filled.ContentCopy,
-                    title = "Copy text",
-                    subtitle = if (hasReport) "Copy report to clipboard" else "Collect a report first",
+                    title = stringResource(R.string.more_copy_text),
+                    subtitle = if (hasReport) {
+                        stringResource(R.string.more_copy_text_sub)
+                    } else {
+                        stringResource(R.string.more_collect_first)
+                    },
                     enabled = hasReport,
                     onClick = onCopyText
                 )
@@ -153,7 +174,7 @@ fun MoreScreen(
 
             item {
                 Text(
-                    text = "Details & tools",
+                    text = stringResource(R.string.more_section_details),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
@@ -162,41 +183,41 @@ fun MoreScreen(
             item {
                 MoreLink(
                     icon = Icons.Outlined.Memory,
-                    title = "RAM detail",
+                    title = stringResource(R.string.more_ram),
                     subtitle = report?.memory?.let {
                         "${it.usedRamMb} / ${it.totalRamMb} MB"
-                    } ?: "Process memory",
+                    } ?: stringResource(R.string.more_ram_sub_fallback),
                     onClick = onOpenRam
                 )
             }
             item {
                 MoreLink(
                     icon = Icons.Filled.Storage,
-                    title = "Storage",
+                    title = stringResource(R.string.more_storage),
                     subtitle = report?.storage?.let {
-                        String.format(Locale.US, "%.1f GB free", it.freeInternalGb)
-                    } ?: "Volumes & apps",
+                        stringResource(R.string.more_storage_free, it.freeInternalGb)
+                    } ?: stringResource(R.string.more_storage_sub_fallback),
                     onClick = onOpenStorage
                 )
             }
             item {
                 MoreLink(
                     icon = Icons.Filled.Wifi,
-                    title = "Network",
+                    title = stringResource(R.string.more_network),
                     subtitle = report?.network?.let {
-                        "${it.networkType} · addresses, DNS, latency"
-                    } ?: "Addresses, DNS, latency",
+                        stringResource(R.string.more_network_sub, it.networkType)
+                    } ?: stringResource(R.string.more_network_sub_fallback),
                     onClick = onOpenNetwork
                 )
             }
             item {
                 MoreLink(
                     icon = Icons.AutoMirrored.Filled.ShowChart,
-                    title = "History",
+                    title = stringResource(R.string.more_history),
                     subtitle = if (historySamples > 0) {
-                        "$historySamples samples · battery, temp, RAM"
+                        stringResource(R.string.more_history_samples, historySamples)
                     } else {
-                        "Battery, temperature and RAM trends"
+                        stringResource(R.string.more_history_fallback)
                     },
                     onClick = onOpenHistory
                 )
@@ -204,24 +225,24 @@ fun MoreScreen(
             item {
                 MoreLink(
                     icon = Icons.Filled.Build,
-                    title = "Tools",
-                    subtitle = "Load test, display, vibrate, log",
+                    title = stringResource(R.string.more_tools),
+                    subtitle = stringResource(R.string.more_tools_sub),
                     onClick = onOpenTools
                 )
             }
             item {
                 MoreLink(
                     icon = Icons.Filled.Settings,
-                    title = "Settings",
-                    subtitle = "Theme, monitor, network probe",
+                    title = stringResource(R.string.more_settings),
+                    subtitle = stringResource(R.string.more_settings_sub),
                     onClick = onOpenSettings
                 )
             }
             item {
                 MoreLink(
                     icon = Icons.Filled.Info,
-                    title = "About",
-                    subtitle = "v$versionName · privacy-first",
+                    title = stringResource(R.string.more_about),
+                    subtitle = stringResource(R.string.more_about_sub, versionName),
                     onClick = onOpenAbout
                 )
             }
