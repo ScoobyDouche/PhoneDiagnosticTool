@@ -1,13 +1,15 @@
 # Screenshots
 
-Device captures used in the root README.
+Device captures used in the root README, in bottom-tab order. Captured on a
+Galaxy Z Flip4 (SM-F721W) running Android 16, 1080x2412.
 
 | File | Screen |
 |------|--------|
-| `Screenshot_20260902_224124_Phone Diagnostic.jpg` | Overview |
-| `Screenshot_20260902_224133_Phone Diagnostic.jpg` | CPU / SoC |
-| `Screenshot_20260902_224138_Phone Diagnostic.jpg` | Battery |
-| `Screenshot_20260902_224143_Phone Diagnostic.jpg` | Sensors and cameras |
-| `Screenshot_20260902_224149_Phone Diagnostic.jpg` | More |
+| `01-overview.jpg` | Overview |
+| `02-cpu.jpg` | CPU / SoC |
+| `03-battery.jpg` | Battery |
+| `04-sensors.jpg` | Sensors and cameras |
+| `05-more.jpg` | More |
 
-Optional renames later (`overview.jpg`, etc.) keep the README simpler; update image `src` paths if you rename.
+The numeric prefix keeps them listed in the order the tabs appear in the app.
+If you replace one, keep the filename so the root README keeps resolving.

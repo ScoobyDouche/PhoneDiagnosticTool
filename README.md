@@ -9,13 +9,11 @@ Privacy-focused Android diagnostics: CPU, GPU, battery, RAM, storage, display, s
 
 ## Screenshots
 
-<p>
-  <img src="docs/screenshots/Screenshot_20260902_224124_Phone%20Diagnostic.jpg" alt="Overview" width="200" />
-  <img src="docs/screenshots/Screenshot_20260902_224133_Phone%20Diagnostic.jpg" alt="CPU / SoC" width="200" />
-  <img src="docs/screenshots/Screenshot_20260902_224138_Phone%20Diagnostic.jpg" alt="Battery" width="200" />
-  <img src="docs/screenshots/Screenshot_20260902_224143_Phone%20Diagnostic.jpg" alt="Sensors and cameras" width="200" />
-  <img src="docs/screenshots/Screenshot_20260902_224149_Phone%20Diagnostic.jpg" alt="More" width="200" />
-</p>
+| Overview | CPU / SoC | Battery | Sensors | More |
+|:--:|:--:|:--:|:--:|:--:|
+| <img src="docs/screenshots/01-overview.jpg" alt="Overview screen showing device model, Android version, board, bootloader, uptime and kernel" width="170" /> | <img src="docs/screenshots/02-cpu.jpg" alt="CPU screen showing processor, architecture, frequency range and live per-core clocks" width="170" /> | <img src="docs/screenshots/03-battery.jpg" alt="Battery screen showing charge level, health, temperature, voltage and thermal zones" width="170" /> | <img src="docs/screenshots/04-sensors.jpg" alt="Sensors screen listing cameras with hardware level, pixel array and aperture" width="170" /> | <img src="docs/screenshots/05-more.jpg" alt="More screen showing report share, save and copy actions" width="170" /> |
+
+Captured on a Galaxy Z Flip4 running Android 16.
 
 ## Features
 
