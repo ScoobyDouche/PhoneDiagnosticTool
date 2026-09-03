@@ -4,6 +4,20 @@ Privacy-focused Android diagnostics: CPU, GPU, battery, RAM, storage, display, s
 
 **No accounts. No analytics SDKs. No cloud upload of reports.**
 
+[![Latest release](https://img.shields.io/github/v/release/ScoobyDouche/PhoneDiagnosticTool)](https://github.com/ScoobyDouche/PhoneDiagnosticTool/releases/latest)
+[![Build APK](https://github.com/ScoobyDouche/PhoneDiagnosticTool/actions/workflows/build-apk.yml/badge.svg)](https://github.com/ScoobyDouche/PhoneDiagnosticTool/actions/workflows/build-apk.yml)
+
+## Screenshots
+
+<p>
+  <img src="docs/screenshots/overview.png" alt="Overview" width="200" />
+  <img src="docs/screenshots/battery.png" alt="Battery" width="200" />
+  <img src="docs/screenshots/network.png" alt="Network" width="200" />
+  <img src="docs/screenshots/sensors.png" alt="Sensors" width="200" />
+</p>
+
+> Add PNGs under `docs/screenshots/` (see that folder’s README). Until then, install the [latest release](https://github.com/ScoobyDouche/PhoneDiagnosticTool/releases/latest) and capture the real UI on a device.
+
 ## Features
 
 - Device overview (model, Android version, security patch, fingerprint, board, bootloader, uptime)
@@ -33,17 +47,15 @@ Short version: diagnostics run locally. The only network use is an optional late
 
 ## Download
 
-**Releases** (recommended) — grab the `.apk` attached to the latest entry on the
-[Releases](https://github.com/ScoobyDouche/PhoneDiagnosticTool/releases) page.
-These do not expire.
+Distribution is **GitHub Releases** — no store account required.
 
-**Latest build from `main`** — Actions → **Build APK** → latest green run →
-artifact **PhoneDiagnostic-debug**. Artifacts are a `.zip`, so unzip before
-installing, and they are deleted after 14 days.
+1. Open the [latest release](https://github.com/ScoobyDouche/PhoneDiagnosticTool/releases/latest)
+2. Download the `.apk`
+3. Allow install from unknown sources when prompted
 
-Either way you will need to allow install from unknown sources. Debug builds use
-a fixed CI keystore, so a new build installs over a previous one without an
-uninstall.
+Debug builds use a fixed CI keystore, so a new release installs over an older one without uninstalling.
+
+**Bleeding-edge builds** — Actions → **Build APK** → latest green run → artifact **PhoneDiagnostic-debug** (zipped; deleted after 14 days).
 
 ## Changelog
 
