@@ -23,6 +23,7 @@ Privacy-focused Android diagnostics: CPU, GPU, battery, RAM, storage, display, s
 - Share as text or JSON, share as a file attachment, save to a file, or copy to clipboard
 - Theme: system / light / dark
 - Settings + About (license & privacy summary)
+- UI chrome fully externalised to string resources (ready for translation packs)
 
 ## Privacy
 
@@ -43,6 +44,10 @@ installing, and they are deleted after 14 days.
 Either way you will need to allow install from unknown sources. Debug builds use
 a fixed CI keystore, so a new build installs over a previous one without an
 uninstall.
+
+## Changelog
+
+See **[CHANGELOG.md](CHANGELOG.md)** for release history.
 
 ## Build from source
 
@@ -82,7 +87,7 @@ Camera and sensors use system APIs without requesting CAMERA permission (charact
 - Kotlin, Jetpack Compose, Material 3
 - ViewModel + StateFlow
 - Min SDK 26 · Target / compile SDK 35
-- Version **1.0.0**
+- Version **1.1.0**
 
 Diagnostics are stored only on the device: a rotating log and a 24 h metric
 history live in internal storage, and the app opts out of Android cloud backup

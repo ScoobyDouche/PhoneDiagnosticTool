@@ -1,6 +1,6 @@
 # Privacy Policy — Phone Diagnostic Tool
 
-**Last updated:** 2026-08-31
+**Last updated:** 2026-09-02
 
 Phone Diagnostic Tool is designed to be privacy-first.
 
