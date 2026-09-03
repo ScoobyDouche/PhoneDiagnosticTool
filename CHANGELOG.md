@@ -48,7 +48,7 @@ Android project (`MAJOR.MINOR.PATCH`).
 ### Internal
 - New `Release` workflow: one `workflow_dispatch` (or a pushed `v*` tag) runs the
   tests, builds the artifacts and publishes the tagged GitHub Release with the
-  binaries and checksums attached. It verifies the requested version against
+  binaries attached. It verifies the requested version against
   `versionName` and refuses to reuse an existing tag.
 - Release bodies now live in `docs/release-notes/`, falling back to the matching
   `CHANGELOG.md` section.

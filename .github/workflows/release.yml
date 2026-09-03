@@ -192,6 +192,11 @@ jobs:
       # Only signed binaries are attached. An unsigned release APK cannot be
       # installed and an unsigned AAB cannot be uploaded anywhere, so publishing
       # either would just hand people a file that fails with no explanation.
+      #
+      # No checksum file: it would sit on the same release page, served over the
+      # same connection, as the APK it vouches for, so it proves nothing an
+      # attacker could not also forge. Android verifies the APK signature at
+      # install time, which is the guarantee that actually holds.
       - name: Stage release assets
         id: assets
         run: |
@@ -209,8 +214,6 @@ jobs:
                "$STAGE/PhoneDiagnostic-v$VERSION.aab"
           fi
 
-          ( cd "$STAGE" && sha256sum PhoneDiagnostic-* > "$RUNNER_TEMP/SHA256SUMS.txt" )
-          mv "$RUNNER_TEMP/SHA256SUMS.txt" "$STAGE/SHA256SUMS.txt"
           ls -la "$STAGE"
           echo "dir=$STAGE" >> "$GITHUB_OUTPUT"
 

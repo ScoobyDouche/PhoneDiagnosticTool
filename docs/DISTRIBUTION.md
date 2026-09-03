@@ -27,7 +27,7 @@ One button, no local build, no manual upload.
    matching `## [<version>]` section of `CHANGELOG.md`, or GitHub's generated
    notes, in that order.
 4. Creates the tag at the built commit and publishes the release with the
-   binaries and a `SHA256SUMS.txt` attached.
+   binaries attached — the APK alone unless release signing is configured.
 
 Only signed binaries are attached: without the release secrets below, the
 release ships the debug-signed APK alone, because an unsigned APK cannot be
