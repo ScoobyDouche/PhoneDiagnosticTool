@@ -10,13 +10,12 @@ Privacy-focused Android diagnostics: CPU, GPU, battery, RAM, storage, display, s
 ## Screenshots
 
 <p>
-  <img src="docs/screenshots/overview.png" alt="Overview" width="200" />
-  <img src="docs/screenshots/battery.png" alt="Battery" width="200" />
-  <img src="docs/screenshots/network.png" alt="Network" width="200" />
-  <img src="docs/screenshots/sensors.png" alt="Sensors" width="200" />
+  <img src="docs/screenshots/Screenshot_20260902_224124_Phone%20Diagnostic.jpg" alt="Overview" width="200" />
+  <img src="docs/screenshots/Screenshot_20260902_224133_Phone%20Diagnostic.jpg" alt="CPU / SoC" width="200" />
+  <img src="docs/screenshots/Screenshot_20260902_224138_Phone%20Diagnostic.jpg" alt="Battery" width="200" />
+  <img src="docs/screenshots/Screenshot_20260902_224143_Phone%20Diagnostic.jpg" alt="Sensors and cameras" width="200" />
+  <img src="docs/screenshots/Screenshot_20260902_224149_Phone%20Diagnostic.jpg" alt="More" width="200" />
 </p>
-
-> Add PNGs under `docs/screenshots/` (see that folder’s README). Until then, install the [latest release](https://github.com/ScoobyDouche/PhoneDiagnosticTool/releases/latest) and capture the real UI on a device.
 
 ## Features
 
