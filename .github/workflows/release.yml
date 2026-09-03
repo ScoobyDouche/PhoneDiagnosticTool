@@ -1,0 +1,241 @@
+name: Release
+
+# Cutting a release used to be a manual click-path: download the CI artifact,
+# unzip it, create the tag, open the release form, paste the notes, attach the
+# APK. This does the whole thing from one button, so the shipped binary is
+# always the one CI just built from the tagged commit rather than whatever was
+# lying around in someone's Downloads folder.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the leading v (e.g. 1.1.1). Must match versionName in app/build.gradle.kts."
+        required: true
+        type: string
+      prerelease:
+        description: "Mark as a pre-release"
+        required: false
+        default: false
+        type: boolean
+      draft:
+        description: "Create as a draft (publish by hand afterwards)"
+        required: false
+        default: false
+        type: boolean
+  # Pushing a v* tag from a workstation releases too, so the button is a
+  # convenience rather than the only route.
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # Everything downstream keys off VERSION, so resolve it once and refuse to
+      # continue if it disagrees with what the app will actually report about
+      # itself. A release tagged 1.1.1 that installs as 1.1.0 is worse than no
+      # release at all.
+      - name: Resolve and verify version
+        id: v
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${{ inputs.version }}"
+            VERSION="${VERSION#v}"
+          fi
+
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::'$VERSION' is not a MAJOR.MINOR.PATCH version"
+            exit 1
+          fi
+
+          GRADLE_VERSION="$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts | head -1)"
+          if [ "$VERSION" != "$GRADLE_VERSION" ]; then
+            echo "::error::Requested $VERSION but app/build.gradle.kts declares versionName $GRADLE_VERSION. Bump the build file first."
+            exit 1
+          fi
+
+          if [ "${{ github.event_name }}" != "push" ] \
+            && git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag v$VERSION already exists. Bump the version or delete the tag."
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$VERSION from ${GITHUB_SHA:0:7}"
+
+      # Prefer hand-written notes; fall back to the matching CHANGELOG section;
+      # fall back again to GitHub's generated notes. A release always ships with
+      # some description of what changed.
+      - name: Assemble release notes
+        id: notes
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.v.outputs.version }}"
+          HANDWRITTEN="docs/release-notes/v$VERSION.md"
+          BODY="$RUNNER_TEMP/release-body.md"
+
+          if [ -f "$HANDWRITTEN" ]; then
+            cp "$HANDWRITTEN" "$BODY"
+            echo "Using $HANDWRITTEN"
+          else
+            awk -v ver="$VERSION" '
+              $0 ~ "^## \\[" ver "\\]" { flag = 1; next }
+              flag && /^## \[/ { exit }
+              flag { print }
+            ' CHANGELOG.md > "$BODY"
+            echo "Extracted the $VERSION section from CHANGELOG.md"
+          fi
+
+          # A leading "# Title" line becomes the release title rather than being
+          # repeated as the first line of its own body.
+          TITLE="$(sed -n '1s/^# \([^#].*\)$/\1/p' "$BODY")"
+          if [ -n "$TITLE" ]; then
+            sed -i '1d' "$BODY"
+          else
+            TITLE="v$VERSION"
+          fi
+
+          if [ ! -s "$BODY" ]; then
+            echo "No notes found for $VERSION — falling back to generated notes"
+            echo "generate=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "generate=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          echo "body_file=$BODY" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Create local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Restore fixed debug keystore
+        run: |
+          mkdir -p keystore
+          base64 -d keystore/debug.keystore.b64 > keystore/debug.keystore
+
+      - name: Restore release keystore (if secrets present)
+        id: release_sign
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ] && [ -n "$RELEASE_STORE_PASSWORD" ] \
+            && [ -n "$RELEASE_KEY_ALIAS" ] && [ -n "$RELEASE_KEY_PASSWORD" ]; then
+            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > keystore/release.keystore
+            echo "store_file=$GITHUB_WORKSPACE/keystore/release.keystore" >> "$GITHUB_OUTPUT"
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Release secrets not set — shipping the debug-signed APK only"
+          fi
+
+      - name: Grant execute (if wrapper present)
+        run: |
+          if [ -f gradlew ]; then chmod +x gradlew; fi
+
+      - name: Pick Gradle command
+        id: gradle
+        run: |
+          if [ -f gradlew ]; then
+            echo "cmd=./gradlew" >> "$GITHUB_OUTPUT"
+          else
+            echo "cmd=gradle" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The tests gate the release, not just the branch build: a red suite must
+      # never reach a tagged artifact.
+      - name: Unit tests
+        run: ${{ steps.gradle.outputs.cmd }} test --no-daemon --stacktrace
+
+      - name: Build debug APK
+        run: ${{ steps.gradle.outputs.cmd }} assembleDebug --no-daemon --stacktrace
+
+      - name: Build release APK and AAB
+        env:
+          RELEASE_STORE_FILE: ${{ steps.release_sign.outputs.store_file }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ${{ steps.gradle.outputs.cmd }} assembleRelease bundleRelease --no-daemon --stacktrace
+
+      # Only signed binaries are attached. An unsigned release APK cannot be
+      # installed and an unsigned AAB cannot be uploaded anywhere, so publishing
+      # either would just hand people a file that fails with no explanation.
+      - name: Stage release assets
+        id: assets
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.v.outputs.version }}"
+          STAGE="$RUNNER_TEMP/assets"
+          mkdir -p "$STAGE"
+
+          cp app/build/outputs/apk/debug/app-debug.apk "$STAGE/PhoneDiagnostic-v$VERSION.apk"
+
+          if [ "${{ steps.release_sign.outputs.enabled }}" = "true" ]; then
+            cp app/build/outputs/apk/release/app-release.apk \
+               "$STAGE/PhoneDiagnostic-v$VERSION-release.apk"
+            cp app/build/outputs/bundle/release/app-release.aab \
+               "$STAGE/PhoneDiagnostic-v$VERSION.aab"
+          fi
+
+          ( cd "$STAGE" && sha256sum PhoneDiagnostic-* > "$RUNNER_TEMP/SHA256SUMS.txt" )
+          mv "$RUNNER_TEMP/SHA256SUMS.txt" "$STAGE/SHA256SUMS.txt"
+          ls -la "$STAGE"
+          echo "dir=$STAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.v.outputs.tag }}"
+
+          ARGS=(
+            "$TAG"
+            --title "${{ steps.notes.outputs.title }}"
+            --target "$GITHUB_SHA"
+          )
+          if [ "${{ steps.notes.outputs.generate }}" = "true" ]; then
+            ARGS+=(--generate-notes)
+          else
+            ARGS+=(--notes-file "${{ steps.notes.outputs.body_file }}")
+          fi
+          if [ "${{ github.event_name }}" != "push" ]; then
+            if [ "${{ inputs.prerelease }}" = "true" ]; then ARGS+=(--prerelease); fi
+            if [ "${{ inputs.draft }}" = "true" ]; then ARGS+=(--draft); fi
+          fi
+
+          gh release create "${ARGS[@]}" "${{ steps.assets.outputs.dir }}"/*
+
+          echo "### Released [$TAG]($(gh release view "$TAG" --json url -q .url))" >> "$GITHUB_STEP_SUMMARY"

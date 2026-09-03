@@ -20,6 +20,14 @@ Android project (`MAJOR.MINOR.PATCH`).
 - Version bumped to **1.1.1** (versionCode **28**).
 - README permission table and the privacy policy document the new permission.
 
+### Internal
+- New `Release` workflow: one `workflow_dispatch` (or a pushed `v*` tag) runs the
+  tests, builds the artifacts and publishes the tagged GitHub Release with the
+  binaries and checksums attached. It verifies the requested version against
+  `versionName` and refuses to reuse an existing tag.
+- Release bodies now live in `docs/release-notes/`, falling back to the matching
+  `CHANGELOG.md` section.
+
 ### Notes
 - `QUERY_ALL_PACKAGES` is a restricted permission on Google Play and would need
   a justification form there. This app is distributed through GitHub Releases,

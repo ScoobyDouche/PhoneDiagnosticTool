@@ -12,6 +12,38 @@ This document covers what the repo already supports for **stores**, and what onl
 | `PhoneDiagnostic-release-apk` | Always (signed only if secrets set) | Alt stores, direct download, F-Droid-style sideload |
 | `PhoneDiagnostic-release-aab` | Always (signed only if secrets set) | **Google Play** upload |
 
+## Cutting a GitHub release
+
+One button, no local build, no manual upload.
+
+**Actions → Release → Run workflow**, enter the version without the leading `v`
+(e.g. `1.1.1`), and run it. The workflow:
+
+1. Refuses to continue unless the version you typed matches `versionName` in
+   `app/build.gradle.kts`, and unless the tag is still free.
+2. Runs the unit tests and builds the debug APK, release APK and AAB from that
+   commit — a red suite never reaches a tagged artifact.
+3. Takes the release body from `docs/release-notes/v<version>.md`, or the
+   matching `## [<version>]` section of `CHANGELOG.md`, or GitHub's generated
+   notes, in that order.
+4. Creates the tag at the built commit and publishes the release with the
+   binaries and a `SHA256SUMS.txt` attached.
+
+Only signed binaries are attached: without the release secrets below, the
+release ships the debug-signed APK alone, because an unsigned APK cannot be
+installed and an unsigned AAB cannot be uploaded anywhere.
+
+Pushing a `v*` tag from a workstation runs the same workflow, so the button is a
+convenience rather than the only route.
+
+**Releasing therefore means:** bump `versionCode` / `versionName`, add the
+`CHANGELOG.md` entry, optionally write `docs/release-notes/v<version>.md`, merge
+to `main`, then run the workflow.
+
+> The workflow needs **Settings → Actions → General → Workflow permissions** set
+> to *Read and write permissions*. Without it, publishing fails with a 403 on the
+> final step and everything before it still passes.
+
 ## 1. Create a release keystore (do this once)
 
 On a trusted machine:
