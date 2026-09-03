@@ -39,6 +39,7 @@
     <string name="toast_report_saved">Report saved</string>
     <string name="toast_report_copied">Report copied</string>
     <string name="toast_clipboard_unavailable">Clipboard unavailable</string>
+    <string name="toast_no_browser">No browser installed — link copied to clipboard</string>
     <string name="toast_prepare_file_failed">Could not prepare file: %1$s</string>
     <string name="toast_save_failed">Save failed: %1$s</string>
     <string name="error_open_selected_file">Could not open the selected file</string>
@@ -66,6 +67,15 @@
     <string name="about_license_body">MIT License. See LICENSE in the project repository.</string>
     <string name="about_source_heading">Source</string>
     <string name="about_source_url">github.com/ScoobyDouche/PhoneDiagnosticTool</string>
+    <!--
+      The display string above is deliberately scheme-less because it reads
+      better on screen, so it cannot be handed to ACTION_VIEW as-is: Uri.parse
+      on a scheme-less string yields a relative URI that resolves to nothing.
+      This is the one that gets opened.
+    -->
+    <string name="about_source_link" translatable="false">https://github.com/ScoobyDouche/PhoneDiagnosticTool</string>
+    <!-- Announced by screen readers as "double tap to <this>". -->
+    <string name="about_source_action">open the source repository in a browser</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows a practical semantic versioning scheme for a single-app
 Android project (`MAJOR.MINOR.PATCH`).
 
+## [1.1.2] — 2026-09-03
+
+### Fixed
+- The source-repository link on the About screen did nothing when tapped. It was
+  styled as a link — primary colour, a URL for its text — but no click handler
+  had ever been attached, so it was decoration. Two defects, in fact: the
+  displayed string is deliberately scheme-less (`github.com/...`) because it
+  reads better, and `Uri.parse` on a scheme-less string yields a relative URI
+  that resolves to nothing, so even a wired-up tap would have failed silently.
+  The link now opens in a browser, with a separate `about_source_link` string
+  holding the full `https://` URL.
+
+### Changed
+- Version bumped to **1.1.2** (versionCode **29**).
+- The link gets an underline, a 48dp minimum touch target, and an
+  `onClickLabel` so screen readers announce the action while still reading out
+  the address.
+- If no browser can handle the intent (kiosk builds, some AOSP images), the URL
+  is copied to the clipboard instead of the tap dying silently.
+
+### Internal
+- Audited the rest of the app for the same pattern; this was the only dead link.
+  `about_source_url` was the only URL string present, and the other
+  `colorScheme.primary` text uses are chart colours, not link styling.
+
 ## [1.1.1] — 2026-09-03
 
 ### Fixed

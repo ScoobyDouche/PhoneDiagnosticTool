@@ -277,6 +277,7 @@ class MainActivity : ComponentActivity() {
                                 AppScreen.ABOUT -> {
                                     AboutScreen(
                                         versionName = BuildConfig.VERSION_NAME,
+                                        onOpenSource = { openSourceRepository() },
                                         onBack = { viewModel.navigateBack() }
                                     )
                                 }
@@ -397,6 +398,30 @@ class MainActivity : ComponentActivity() {
         } catch (_: Exception) {
             Toast.makeText(this, R.string.toast_no_app_info, Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun openSourceRepository() {
+        val url = getString(R.string.about_source_link)
+        try {
+            // Deliberately no FLAG_ACTIVITY_NEW_TASK: launching into this task
+            // is what makes Back come straight back to About. The flag would
+            // hand the browser its own task and send Back to the launcher.
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (_: Exception) {
+            // A device with no browser is unusual but real (kiosk builds, some
+            // AOSP images). Copying the URL is more use than a dead tap.
+            copyUrlToClipboard(url, R.string.toast_no_browser)
+        }
+    }
+
+    private fun copyUrlToClipboard(url: String, @StringRes message: Int) {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        if (clipboard == null) {
+            Toast.makeText(this, R.string.toast_clipboard_unavailable, Toast.LENGTH_SHORT).show()
+            return
+        }
+        clipboard.setPrimaryClip(ClipData.newPlainText(url, url))
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     private fun uninstallApp(packageName: String) {

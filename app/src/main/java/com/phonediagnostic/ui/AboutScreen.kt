@@ -1,11 +1,13 @@
 package com.phonediagnostic.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -20,6 +22,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.phonediagnostic.R
 
@@ -27,6 +31,7 @@ import com.phonediagnostic.R
 @Composable
 fun AboutScreen(
     versionName: String,
+    onOpenSource: () -> Unit,
     onBack: () -> Unit
 ) {
     Scaffold(
@@ -93,10 +98,27 @@ fun AboutScreen(
                 style = MaterialTheme.typography.titleMedium
             )
             Spacer(modifier = Modifier.height(8.dp))
+            // This was styled as a link — primary colour, a URL for its text —
+            // but carried no click handler, so tapping it did nothing at all.
             Text(
                 text = stringResource(R.string.about_source_url),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                textDecoration = TextDecoration.Underline,
+                modifier = Modifier
+                    .clickable(
+                        // onClickLabel rather than a contentDescription: the
+                        // latter would replace the URL for screen readers, so
+                        // they would hear the action but never the address.
+                        onClickLabel = stringResource(R.string.about_source_action),
+                        role = Role.Button,
+                        onClick = onOpenSource
+                    )
+                    // One line of body text is well under the 48dp minimum
+                    // touch target, and the padding keeps the ripple from
+                    // hugging the glyphs.
+                    .sizeIn(minHeight = 48.dp)
+                    .padding(vertical = 12.dp)
             )
         }
     }
