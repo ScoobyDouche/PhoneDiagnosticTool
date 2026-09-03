@@ -44,15 +44,30 @@ Short version: diagnostics run locally. The only network use is an optional late
 
 ## Download
 
-Distribution is **GitHub Releases** — no store account required.
+**GitHub Releases** (recommended today) — grab the `.apk` from the
+[latest release](https://github.com/ScoobyDouche/PhoneDiagnosticTool/releases/latest).
+Allow install from unknown sources when prompted.
 
-1. Open the [latest release](https://github.com/ScoobyDouche/PhoneDiagnosticTool/releases/latest)
-2. Download the `.apk`
-3. Allow install from unknown sources when prompted
+Debug CI builds use a fixed keystore so they install over each other. **Store / production** builds use a separate release key when configured (see [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)).
 
-Debug builds use a fixed CI keystore, so a new release installs over an older one without uninstalling.
+**CI artifacts** — Actions → **Build APK** → latest green run:
 
-**Bleeding-edge builds** — Actions → **Build APK** → latest green run → artifact **PhoneDiagnostic-debug** (zipped; deleted after 14 days).
+| Artifact | Contents |
+|----------|----------|
+| `PhoneDiagnostic-debug` | Debug-signed APK |
+| `PhoneDiagnostic-release-apk` | Release APK (signed if secrets set) |
+| `PhoneDiagnostic-release-aab` | Play-ready AAB (signed if secrets set) |
+
+Artifacts expire after 14 days; Releases do not.
+
+## Stores
+
+Work in progress — packaging is ready; store accounts and listings are manual.
+
+- **Google Play** — upload the release **AAB**; enroll in Play App Signing
+- **F-Droid** — draft metadata in [`metadata/com.phonediagnostic.yml`](metadata/com.phonediagnostic.yml)
+
+Full checklist: **[docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)**.
 
 ## Changelog
 
@@ -67,14 +82,13 @@ git clone https://github.com/ScoobyDouche/PhoneDiagnosticTool.git
 cd PhoneDiagnosticTool
 # Optional: decode CI debug keystore for local parity
 # base64 -d keystore/debug.keystore.b64 > keystore/debug.keystore
-gradle test             # unit tests
-gradle assembleDebug    # or open in Android Studio
-gradle assembleRelease  # exercises R8 + resource shrinking
+gradle test              # unit tests
+gradle assembleDebug     # or open in Android Studio
+gradle assembleRelease   # R8 + shrink; signs if RELEASE_* env is set
+gradle bundleRelease     # Android App Bundle for Play
 ```
 
-CI runs all three on every push and pull request.
-
-APK output: `app/build/outputs/apk/debug/`
+CI runs tests, debug APK, release APK, and release AAB on every push and pull request.
 
 ## Permissions
 

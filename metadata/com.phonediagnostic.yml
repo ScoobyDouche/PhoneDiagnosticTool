@@ -1,0 +1,50 @@
+# F-Droid metadata draft for Phone Diagnostic Tool.
+# Submit via https://f-droid.org/docs/Inclusion_How-To/ (usually a merge request to fdroiddata).
+# Keep Builds[].commit in sync with the git tag you want F-Droid to build.
+
+Categories:
+  - System
+  - Development
+
+License: MIT
+
+AuthorName: ScoobyDouche
+AuthorWebSite: https://github.com/ScoobyDouche
+
+SourceCode: https://github.com/ScoobyDouche/PhoneDiagnosticTool
+IssueTracker: https://github.com/ScoobyDouche/PhoneDiagnosticTool/issues
+Changelog: https://github.com/ScoobyDouche/PhoneDiagnosticTool/blob/HEAD/CHANGELOG.md
+
+AutoName: Phone Diagnostic Tool
+
+RepoType: git
+Repo: https://github.com/ScoobyDouche/PhoneDiagnosticTool.git
+
+Builds:
+  - versionName: 1.1.0
+    versionCode: 27
+    commit: v1.1.0
+    subdir: app
+    gradle:
+      - yes
+
+# After a signed-release cutover, prefer building the release variant and document
+# any non-debug signing in the fdroiddata MR description. F-Droid generally
+# rebuilds from source rather than attaching upstream binaries.
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 1.1.0
+CurrentVersionCode: 27
+
+Summary: On-device phone diagnostics without accounts or analytics
+Description: |-
+    Phone Diagnostic Tool shows CPU, GPU, battery, RAM, storage, display,
+    sensors, cameras, and optional network latency — entirely on the device.
+
+    No accounts, no analytics SDKs, and no cloud upload of reports. The only
+    network use is an optional TCP latency probe (disabled in Settings).
+
+    Features include live sensor streaming, battery and thermal history,
+    a background monitor with a capped rotating log, CPU load test, and
+    share/export of diagnostic reports as text or JSON.

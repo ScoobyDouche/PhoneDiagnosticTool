@@ -31,6 +31,17 @@ android {
                 keyPassword = "android"
             }
         }
+        // Release signing is optional and driven entirely by environment variables
+        // (set in CI from GitHub Actions secrets). Never commit the real keystore.
+        val releaseStorePath = System.getenv("RELEASE_STORE_FILE")
+        if (!releaseStorePath.isNullOrBlank()) {
+            create("release") {
+                storeFile = file(releaseStorePath)
+                storePassword = System.getenv("RELEASE_STORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -47,6 +58,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Prefer a real release key when CI/local env provides one.
+            if (signingConfigs.findByName("release") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

@@ -45,6 +45,29 @@ jobs:
           base64 -d keystore/debug.keystore.b64 > keystore/debug.keystore
           ls -la keystore/debug.keystore
 
+      # Optional release signing for store / production APKs and AABs.
+      # Repo → Settings → Secrets and variables → Actions:
+      #   RELEASE_KEYSTORE_BASE64, RELEASE_STORE_PASSWORD,
+      #   RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD
+      - name: Restore release keystore (if secrets present)
+        id: release_sign
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ] && [ -n "$RELEASE_STORE_PASSWORD" ] \
+            && [ -n "$RELEASE_KEY_ALIAS" ] && [ -n "$RELEASE_KEY_PASSWORD" ]; then
+            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > keystore/release.keystore
+            echo "store_file=$GITHUB_WORKSPACE/keystore/release.keystore" >> "$GITHUB_OUTPUT"
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "Release keystore restored"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Release secrets not fully set — release builds will be unsigned (R8 still verified)"
+          fi
+
       - name: Grant execute (if wrapper present)
         run: |
           if [ -f gradlew ]; then chmod +x gradlew; fi
@@ -67,8 +90,23 @@ jobs:
       # The release variant runs R8 and resource shrinking, which the debug
       # variant does not. Without this it was never compiled, so a broken keep
       # rule would only surface when someone tried to cut a release.
-      - name: Build release APK (verifies R8 / shrinker config)
+      # When release secrets are present, the APK is production-signed.
+      - name: Build release APK
+        env:
+          RELEASE_STORE_FILE: ${{ steps.release_sign.outputs.store_file }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: ${{ steps.gradle.outputs.cmd }} assembleRelease --no-daemon --stacktrace
+
+      # Android App Bundle for Google Play (and other bundle-aware stores).
+      - name: Build release AAB
+        env:
+          RELEASE_STORE_FILE: ${{ steps.release_sign.outputs.store_file }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ${{ steps.gradle.outputs.cmd }} bundleRelease --no-daemon --stacktrace
 
       - name: Upload test report on failure
         if: failure()
@@ -79,10 +117,26 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Upload APK artifact
+      - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: PhoneDiagnostic-debug
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhoneDiagnostic-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload release AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhoneDiagnostic-release-aab
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: ignore
           retention-days: 14
