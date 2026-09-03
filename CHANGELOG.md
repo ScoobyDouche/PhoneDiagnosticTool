@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows a practical semantic versioning scheme for a single-app
 Android project (`MAJOR.MINOR.PATCH`).
 
+## [1.1.1] — 2026-09-03
+
+### Fixed
+- Per-app storage breakdown returned almost nothing on Android 11 and newer.
+  Since API 30 the platform filters `getInstalledApplications()` down to
+  packages the caller can already see, and the app declared neither
+  `QUERY_ALL_PACKAGES` nor a `<queries>` element while targeting API 35 — so
+  the Storage screen could list little beyond Phone Diagnostic itself. Added
+  `QUERY_ALL_PACKAGES`.
+
+### Changed
+- Version bumped to **1.1.1** (versionCode **28**).
+- README permission table and the privacy policy document the new permission.
+
+### Notes
+- `QUERY_ALL_PACKAGES` is a restricted permission on Google Play and would need
+  a justification form there. This app is distributed through GitHub Releases,
+  where that review does not apply; revisit if it is ever submitted to Play.
+- The installed-app list is read on demand and displayed only. It is not
+  written to the diagnostic log, not part of an exported report, and never
+  leaves the device.
+
 ## [1.1.0] — 2026-09-02
 
 ### Added

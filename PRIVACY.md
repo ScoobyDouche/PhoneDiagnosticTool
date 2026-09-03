@@ -30,6 +30,13 @@ Permissions:
 - `INTERNET` — used only for the optional latency probe
 - `ACCESS_NETWORK_STATE` — used to detect connection type (Wi‑Fi, cellular, etc.), plus DNS servers and IP addresses shown on the Network screen
 - `ACCESS_WIFI_STATE` — used to read the current Wi‑Fi link speed, band and signal strength on the Network screen
+- `QUERY_ALL_PACKAGES` — used to list installed apps so the storage screen can show which ones are using space
+
+On Android 11 and newer the system hides the installed-app list from apps
+that do not hold `QUERY_ALL_PACKAGES`, which is why the per-app storage
+breakdown needs it. The list is read on demand, shown on screen, and never
+leaves the device — it is not written to the diagnostic log, not included in
+an exported report, and not transmitted anywhere.
 
 The Network screen reads this device's own interface addresses and the active
 network's DNS settings. That is displayed locally and never uploaded. MAC

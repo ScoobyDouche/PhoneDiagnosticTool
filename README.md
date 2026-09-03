@@ -99,6 +99,7 @@ CI runs tests, debug APK, release APK, and release AAB on every push and pull re
 | `ACCESS_WIFI_STATE` | Wi‑Fi link speed, band and signal strength |
 | `VIBRATE` | Vibration hardware check under Tools |
 | `PACKAGE_USAGE_STATS` | Per-app storage (user must grant Usage Access) |
+| `QUERY_ALL_PACKAGES` | List installed apps for the per-app storage breakdown. Android 11+ hides the app list without it |
 | `REQUEST_DELETE_PACKAGES` | Uninstall from storage detail |
 | `FOREGROUND_SERVICE` / `SPECIAL_USE` | Optional background monitor |
 | `POST_NOTIFICATIONS` | Background monitor notification (Android 13+) |
@@ -110,7 +111,7 @@ Camera and sensors use system APIs without requesting CAMERA permission (charact
 - Kotlin, Jetpack Compose, Material 3
 - ViewModel + StateFlow
 - Min SDK 26 · Target / compile SDK 35
-- Version **1.1.0**
+- Version **1.1.1**
 
 Diagnostics are stored only on the device: a rotating log and a 24 h metric
 history live in internal storage, and the app opts out of Android cloud backup
