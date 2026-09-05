@@ -1,5 +1,8 @@
 # Security audit — 2026-09-05
 
+> **Status:** findings 1a and 1c are fixed in 1.1.3, which ships the release
+> variant. Finding **1b — the signing key is public — remains open.**
+
 Audit of Phone Diagnostic Tool at commit `24c529e` (v1.1.2 shipped).
 
 Findings below were verified against the **published v1.1.2 APK**, downloaded
@@ -110,7 +113,11 @@ must uninstall before installing — Android will not accept it as an update.
 
 ---
 
-## Outstanding at time of writing
+## Status
 
-- The Storage-screen localisation fix (`24c529e`) is on `main` but unreleased;
-  v1.1.2 remains the newest published build.
+- **1a (debuggable) — fixed in 1.1.3.** The release workflow now publishes
+  `app-release.apk`, and the build fails loudly rather than falling back to the
+  debug variant if that artifact is missing or unsigned.
+- **1c (debug tooling, 16.9 MB) — fixed in 1.1.3**, same change. 1.2 MB.
+- **1b (public signing key) — open.** Remediation Option B above is unchanged
+  and still requires a human to generate the key off-machine.

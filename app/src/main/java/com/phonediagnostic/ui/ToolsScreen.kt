@@ -39,6 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -46,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,11 +62,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.phonediagnostic.R
+import com.phonediagnostic.data.StorageSpeedResult
+import com.phonediagnostic.data.StorageSpeedTester
 import com.phonediagnostic.data.DiagnosticLog
 import com.phonediagnostic.data.LoadTestProgress
 import com.phonediagnostic.data.LoadTestResult
 import com.phonediagnostic.data.LoadTester
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,6 +87,10 @@ fun ToolsScreen(
     val listState = rememberLazyListState()
     val context = LocalContext.current
     var maxPointers by remember { mutableIntStateOf(0) }
+    var storageTesting by remember { mutableStateOf(false) }
+    var storageResult by remember { mutableStateOf<StorageSpeedResult?>(null) }
+    var storageError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     var showDisplayTest by remember { mutableStateOf(false) }
     var displayColorIndex by remember { mutableIntStateOf(0) }
 
@@ -291,6 +300,75 @@ fun ToolsScreen(
                                 enabled = !loadTesting
                             ) { Text(stringResource(R.string.tools_display)) }
                         }
+                        Box(modifier = Modifier.height(12.dp))
+                        HorizontalDivider()
+                        Box(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = stringResource(R.string.tools_storage_title),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Box(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.tools_storage_body, StorageSpeedTester.SAMPLE_MB),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Box(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                storageError = null
+                                storageResult = null
+                                storageTesting = true
+                                scope.launch {
+                                    try {
+                                        storageResult = StorageSpeedTester.run(context)
+                                    } catch (e: StorageSpeedTester.InsufficientSpace) {
+                                        storageError = context.getString(
+                                            R.string.tools_storage_no_space, e.freeMb
+                                        )
+                                    } catch (e: Exception) {
+                                        storageError = context.getString(
+                                            R.string.tools_storage_failed,
+                                            e.message ?: e.javaClass.simpleName
+                                        )
+                                    } finally {
+                                        storageTesting = false
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            // The CPU load test saturates every core, which would
+                            // make any I/O figure taken alongside it meaningless.
+                            enabled = !loadTesting && !storageTesting
+                        ) {
+                            Text(
+                                stringResource(
+                                    if (storageTesting) R.string.tools_storage_running
+                                    else R.string.tools_storage_run
+                                )
+                            )
+                        }
+                        storageResult?.let { r ->
+                            Box(modifier = Modifier.height(8.dp))
+                            MetricRow(
+                                stringResource(R.string.tools_storage_write),
+                                stringResource(R.string.tools_storage_mbps, r.writeMbPerSec)
+                            )
+                            MetricRow(
+                                stringResource(R.string.tools_storage_read),
+                                stringResource(R.string.tools_storage_mbps, r.readMbPerSec)
+                            )
+                        }
+                        storageError?.let { msg ->
+                            Box(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = msg,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        Box(modifier = Modifier.height(12.dp))
+                        HorizontalDivider()
                         Box(modifier = Modifier.height(12.dp))
                         Text(
                             text = stringResource(R.string.tools_multitouch_label),

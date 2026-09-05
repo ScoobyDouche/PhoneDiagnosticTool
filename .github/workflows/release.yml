@@ -189,9 +189,13 @@ jobs:
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: ${{ steps.gradle.outputs.cmd }} assembleRelease bundleRelease --no-daemon --stacktrace
 
-      # Only signed binaries are attached. An unsigned release APK cannot be
-      # installed and an unsigned AAB cannot be uploaded anywhere, so publishing
-      # either would just hand people a file that fails with no explanation.
+      # Ship the RELEASE variant, not the debug one. The debug build carries
+      # android:debuggable, the Compose tooling libraries and no minification —
+      # 16.9 MB against 1.2 MB, and a debugger-attachable app in users' hands.
+      # See docs/SECURITY-AUDIT.md.
+      #
+      # It is signed with the same key either way, so existing installs upgrade
+      # in place rather than needing an uninstall.
       #
       # No checksum file: it would sit on the same release page, served over the
       # same connection, as the APK it vouches for, so it proves nothing an
@@ -205,11 +209,18 @@ jobs:
           STAGE="$RUNNER_TEMP/assets"
           mkdir -p "$STAGE"
 
-          cp app/build/outputs/apk/debug/app-debug.apk "$STAGE/PhoneDiagnostic-v$VERSION.apk"
+          APK=app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$APK" ]; then
+            echo "::error::$APK missing. An unsigned build emits app-release-unsigned.apk;"
+            echo "::error::check the signing config rather than publishing the debug variant."
+            ls -la app/build/outputs/apk/release/ || true
+            exit 1
+          fi
+          cp "$APK" "$STAGE/PhoneDiagnostic-v$VERSION.apk"
 
+          # The bundle is only useful to a store, and only when it carries a real
+          # upload key, so it rides along only then.
           if [ "${{ steps.release_sign.outputs.enabled }}" = "true" ]; then
-            cp app/build/outputs/apk/release/app-release.apk \
-               "$STAGE/PhoneDiagnostic-v$VERSION-release.apk"
             cp app/build/outputs/bundle/release/app-release.aab \
                "$STAGE/PhoneDiagnostic-v$VERSION.aab"
           fi

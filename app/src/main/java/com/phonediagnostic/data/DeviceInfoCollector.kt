@@ -46,6 +46,14 @@ class DeviceInfoCollector(private val context: Context) {
 
     companion object {
         private const val LATENCY_HOST = "8.8.8.8"
+
+        /** Power-supply nodes vary by vendor; the fuel gauge is not always "battery". */
+        private val BATTERY_SUPPLY_DIRS = listOf(
+            "/sys/class/power_supply/battery",
+            "/sys/class/power_supply/bms",
+            "/sys/class/power_supply/max170xx_battery",
+            "/sys/class/power_supply/bat"
+        )
         private const val LATENCY_PORT = 53
         private const val LATENCY_TIMEOUT_MS = 3000
         private const val SENSOR_SAMPLE_MS = 250L
@@ -352,11 +360,55 @@ class DeviceInfoCollector(private val context: Context) {
             readSystemProperty("persist.sys.battery.capacity")
         ).firstNotNullOfOrNull { it.toIntOrNull()?.takeIf { n -> n > 500 } }
 
+        val (fullMah, designGaugeMah) = readBatteryCapacitiesMah()
+        // Only claim a health figure when the gauge gives both halves of it and
+        // the ratio is physically sensible. A gauge that has not learned yet can
+        // report full > design, which is not 112% of a new battery.
+        val healthPct = if (fullMah != null && designGaugeMah != null && designGaugeMah > 0) {
+            ((fullMah * 100.0) / designGaugeMah).toInt().takeIf { it in 1..100 }
+        } else null
+
         return BatteryInfo(
             level = batteryPct, status = status, health = health, temperature = temperature,
             voltage = voltage, technology = technology, isCharging = isCharging,
             powerSource = powerSource, currentNowMa = currentNowMa, currentAvgMa = currentAvgMa,
-            capacityMah = designMah, chargeCounterUah = chargeCounter
+            capacityMah = designMah ?: designGaugeMah, chargeCounterUah = chargeCounter,
+            fullChargeMah = fullMah, designChargeMah = designGaugeMah,
+            capacityHealthPercent = healthPct
+        )
+    }
+
+    /**
+     * Present full-charge and design capacity in mAh from the power-supply
+     * fuel gauge, as (full, design).
+     *
+     * Vendors disagree on both the node name and the supply directory, hence the
+     * candidate lists. Most devices also deny an untrusted app read access here
+     * under SELinux, so returning (null, null) is the expected outcome on plenty
+     * of hardware rather than a failure — the UI says so instead of guessing.
+     *
+     * Values are µAh; a few devices report mAh directly, so anything too small
+     * to be a µAh reading is treated as already being in mAh.
+     */
+    private fun readBatteryCapacitiesMah(): Pair<Int?, Int?> {
+        fun read(names: List<String>): Int? {
+            for (dir in BATTERY_SUPPLY_DIRS) {
+                for (name in names) {
+                    try {
+                        val f = File(dir, name)
+                        if (!f.canRead()) continue
+                        val raw = f.readText().trim().toLongOrNull() ?: continue
+                        if (raw <= 0L) continue
+                        val mah = if (raw > 100_000L) (raw / 1000L).toInt() else raw.toInt()
+                        if (mah in 100..30_000) return mah
+                    } catch (_: Exception) {}
+                }
+            }
+            return null
+        }
+        return Pair(
+            read(listOf("charge_full", "energy_full")),
+            read(listOf("charge_full_design", "energy_full_design"))
         )
     }
 

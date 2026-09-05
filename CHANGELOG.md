@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows a practical semantic versioning scheme for a single-app
 Android project (`MAJOR.MINOR.PATCH`).
 
+## [1.1.3] — 2026-09-05
+
+### Security
+- **Releases now ship the release build, not the debug build.** The published
+  APK carried `android:debuggable`, the Compose tooling libraries and no
+  minification — 16.9 MB against 1.2 MB. The signing key is unchanged, so this
+  installs over 1.1.2 in place. See [docs/SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md);
+  the key itself being public is tracked there and not addressed by this release.
+
+### Added
+- **Battery health.** Remaining capacity as a percentage of the factory rating,
+  read from the fuel gauge. Reported only when the device exposes both figures
+  and the ratio is plausible — most phones deny apps access, and the screen says
+  so rather than estimating.
+- **Charging power.** Live watts, in or out, from voltage x current. Answers
+  whether a charger or cable is actually delivering.
+- **Storage speed test** in Tools. Writes and reads back a 64 MB file in the app
+  cache and reports sequential throughput, then deletes it. Uses varied bytes so
+  a compressing layer cannot flatter the result, and `fsync`s so the write figure
+  is the flash rather than the page cache.
+- **Quick Settings tile** showing battery temperature and RAM use. Samples only
+  battery and memory, never a full collect.
+
+### Fixed
+- The Storage screen was never wired to string resources despite 37 being
+  defined for it, so it stayed English regardless of device language. The 1.1.0
+  claim of full localisation was wrong about that one screen.
+- Sensor detail numbered its fourth and later axes with a hardcoded label.
+
+### Changed
+- Version bumped to **1.1.3** (versionCode **30**).
+
 ## [1.1.2] — 2026-09-03
 
 ### Fixed

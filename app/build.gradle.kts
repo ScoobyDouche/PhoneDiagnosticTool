@@ -12,8 +12,8 @@ android {
         applicationId = "com.phonediagnostic"
         minSdk = 26
         targetSdk = 35
-        versionCode = 29
-        versionName = "1.1.2"
+        versionCode = 30
+        versionName = "1.1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -58,9 +58,19 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Prefer a real release key when CI/local env provides one.
-            if (signingConfigs.findByName("release") != null) {
-                signingConfig = signingConfigs.getByName("release")
+            // Prefer a real release key when CI/local env provides one. Failing
+            // that, fall back to the committed CI keystore rather than producing
+            // an unsigned APK: GitHub Releases ship this variant, and shipping
+            // the release build under the old key is what lets existing installs
+            // upgrade in place while dropping debuggable, the Compose tooling
+            // and ~15 MB. The key being public is tracked separately in
+            // docs/SECURITY-AUDIT.md; this does not make that worse.
+            signingConfig = when {
+                signingConfigs.findByName("release") != null ->
+                    signingConfigs.getByName("release")
+                rootProject.file("keystore/debug.keystore").exists() ->
+                    signingConfigs.getByName("ciDebug")
+                else -> null
             }
         }
     }

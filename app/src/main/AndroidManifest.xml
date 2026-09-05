@@ -53,6 +53,22 @@
                 android:value="On-device diagnostic sampling of battery and memory for a user-requested rotating log" />
         </service>
 
+        <!--
+          Quick Settings tile. exported=true and the BIND permission are both
+          required for the system to bind it; the permission is what stops
+          anything other than the system doing so.
+        -->
+        <service
+            android:name=".service.QuickTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_qs_diagnostic"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Grants read access to a single exported report file, per share. -->
         <provider
             android:name="androidx.core.content.FileProvider"

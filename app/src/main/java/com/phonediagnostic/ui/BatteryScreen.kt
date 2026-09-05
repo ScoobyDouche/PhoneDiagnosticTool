@@ -29,6 +29,7 @@ import com.phonediagnostic.ui.components.InfoCard
 import com.phonediagnostic.ui.components.InfoRow
 import com.phonediagnostic.ui.components.UsageBar
 import java.util.Locale
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,6 +125,19 @@ fun BatteryScreen(
                             battery.currentAvgMa?.let { "$it mA" }
                                 ?: stringResource(R.string.unavailable)
                         )
+                        // Volts x amps, which is the number people actually want
+                        // when asking whether a charger or cable is doing its job.
+                        val watts = battery.powerWatts
+                        if (watts != null) {
+                            InfoRow(
+                                stringResource(R.string.label_power_draw),
+                                stringResource(
+                                    if (watts >= 0f) R.string.battery_watts_charging
+                                    else R.string.battery_watts_discharging,
+                                    abs(watts)
+                                )
+                            )
+                        }
                         if (battery.capacityMah != null) {
                             InfoRow(
                                 stringResource(R.string.label_design_capacity),
@@ -152,6 +166,40 @@ fun BatteryScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+
+            item {
+                InfoCard(title = stringResource(R.string.battery_section_health)) {
+                    Column {
+                        val health = battery.capacityHealthPercent
+                        val full = battery.fullChargeMah
+                        val design = battery.designChargeMah
+                        if (health != null) {
+                            UsageBar(
+                                label = stringResource(R.string.label_capacity_health),
+                                percent = health,
+                                detail = stringResource(R.string.battery_health_percent, health)
+                            )
+                            if (full != null && design != null) {
+                                InfoRow(
+                                    stringResource(R.string.label_full_charge),
+                                    stringResource(R.string.battery_health_of, full, design)
+                                )
+                            }
+                            Text(
+                                text = stringResource(R.string.battery_health_note),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            Text(
+                                text = stringResource(R.string.battery_health_unavailable),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
 

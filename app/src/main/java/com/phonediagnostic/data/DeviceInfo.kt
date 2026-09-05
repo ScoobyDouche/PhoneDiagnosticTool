@@ -58,8 +58,29 @@ data class BatteryInfo(
     /** Design / reported capacity in mAh when exposed. */
     val capacityMah: Int? = null,
     /** Charge counter (µAh) when exposed. */
-    val chargeCounterUah: Long? = null
-)
+    val chargeCounterUah: Long? = null,
+    /** Present full-charge capacity in mAh, from the fuel gauge. Null if not exposed. */
+    val fullChargeMah: Int? = null,
+    /** Factory design capacity in mAh, from the fuel gauge. Null if not exposed. */
+    val designChargeMah: Int? = null,
+    /**
+     * Remaining capacity as a percentage of design, i.e. wear. Only produced
+     * when both gauge figures are readable and plausible — never estimated,
+     * because a made-up battery-health number is worse than none.
+     */
+    val capacityHealthPercent: Int? = null
+) {
+    /**
+     * Instantaneous power in watts: positive charging, negative discharging.
+     * Null unless both voltage and current are available.
+     */
+    val powerWatts: Float?
+        get() {
+            val ma = currentNowMa ?: return null
+            if (voltage <= 0) return null
+            return (voltage / 1000f) * (ma / 1000f)
+        }
+}
 
 data class MemoryInfo(
     val totalRamMb: Long,
