@@ -49,8 +49,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.phonediagnostic.R
 import com.phonediagnostic.data.AppStorageEntry
 import com.phonediagnostic.data.StorageInfo
 import com.phonediagnostic.data.StorageVolumeInfo
@@ -99,12 +101,12 @@ fun StorageDetailScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text(text = "Storage") },
+                title = { Text(text = stringResource(R.string.storage_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.action_back)
                         )
                     }
                 },
@@ -112,7 +114,7 @@ fun StorageDetailScreen(
                     IconButton(onClick = onRefresh) {
                         Icon(
                             imageVector = Icons.Filled.Refresh,
-                            contentDescription = "Refresh"
+                            contentDescription = stringResource(R.string.action_refresh)
                         )
                     }
                 }
@@ -134,7 +136,7 @@ fun StorageDetailScreen(
                 if (volumes.size > 1) {
                     item(key = "vol_header") {
                         Text(
-                            text = "Other volumes",
+                            text = stringResource(R.string.storage_other_volumes),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -160,7 +162,7 @@ fun StorageDetailScreen(
             } else {
                 item(key = "vol_loading") {
                     Text(
-                        text = "Loading storage…",
+                        text = stringResource(R.string.storage_loading),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -171,7 +173,7 @@ fun StorageDetailScreen(
                 Column {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     Text(
-                        text = "Apps",
+                        text = stringResource(R.string.storage_apps),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -217,7 +219,12 @@ fun StorageDetailScreen(
                 )
                 Box(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "App ${formatBytes(selectedApp.appBytes)} · Data ${formatBytes(selectedApp.dataBytes)} · Cache ${formatBytes(selectedApp.cacheBytes)}",
+                    text = stringResource(
+                        R.string.storage_app_breakdown,
+                        formatBytes(selectedApp.appBytes),
+                        formatBytes(selectedApp.dataBytes),
+                        formatBytes(selectedApp.cacheBytes)
+                    ),
                     style = MaterialTheme.typography.bodySmall
                 )
                 Box(modifier = Modifier.height(8.dp))
@@ -235,9 +242,9 @@ fun StorageDetailScreen(
                     Box(modifier = Modifier.padding(horizontal = 8.dp))
                     Text(
                         text = if (selectedApp.cacheBytes >= CACHE_SAFE_BYTES) {
-                            "Clear cache in App info (recommended)"
+                            stringResource(R.string.storage_clear_cache)
                         } else {
-                            "Open App info"
+                            stringResource(R.string.storage_open_app_info)
                         }
                     )
                 }
@@ -256,7 +263,7 @@ fun StorageDetailScreen(
                         )
                         Box(modifier = Modifier.padding(horizontal = 8.dp))
                         Text(
-                            text = "Uninstall…",
+                            text = stringResource(R.string.storage_uninstall),
                             color = MaterialTheme.colorScheme.error
                         )
                     }
@@ -269,15 +276,19 @@ fun StorageDetailScreen(
     if (uninstallTarget != null) {
         AlertDialog(
             onDismissRequest = { pendingUninstall = null },
-            title = { Text(text = "Uninstall ${uninstallTarget.appLabel}?") },
+            title = { Text(text = stringResource(R.string.storage_uninstall_title, uninstallTarget.appLabel)) },
             text = {
                 Column {
                     Text(
-                        text = "Removes the app and its data (${formatBytes(uninstallTarget.dataBytes)} data + ${formatBytes(uninstallTarget.cacheBytes)} cache)."
+                        text = stringResource(
+                            R.string.storage_uninstall_body,
+                            formatBytes(uninstallTarget.dataBytes),
+                            formatBytes(uninstallTarget.cacheBytes)
+                        )
                     )
                     Box(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "If unsure, cancel and clear cache instead.",
+                        text = stringResource(R.string.storage_uninstall_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -290,12 +301,12 @@ fun StorageDetailScreen(
                         pendingUninstall = null
                     }
                 ) {
-                    Text(text = "Uninstall", color = MaterialTheme.colorScheme.error)
+                    Text(text = stringResource(R.string.storage_uninstall_confirm), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { pendingUninstall = null }) {
-                    Text(text = "Cancel")
+                    Text(text = stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -325,18 +336,18 @@ private fun LazyListScope.appCleanupItems(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Usage access for per-app sizes",
+                        text = stringResource(R.string.storage_usage_access_title),
                         fontWeight = FontWeight.SemiBold
                     )
                     Box(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Overall storage works without this. Grant access to see which apps use space.",
+                        text = stringResource(R.string.storage_usage_access_body),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Box(modifier = Modifier.height(12.dp))
                     Button(onClick = onRequestPermission) {
-                        Text(text = "Open Usage Access")
+                        Text(text = stringResource(R.string.storage_open_usage_access))
                     }
                 }
             }
@@ -362,13 +373,13 @@ private fun LazyListScope.appCleanupItems(
         item(key = "apps_empty") {
             Column {
                 Text(
-                    text = "No per-app storage data.",
+                    text = stringResource(R.string.storage_no_app_data),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Box(modifier = Modifier.height(8.dp))
                 Button(onClick = onRefresh) {
-                    Text(text = "Try again")
+                    Text(text = stringResource(R.string.storage_try_again))
                 }
             }
         }
@@ -410,16 +421,20 @@ private fun LazyListScope.appCleanupItems(
             )
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
-                Text(text = "Measured across apps", fontWeight = FontWeight.SemiBold)
+                Text(text = stringResource(R.string.storage_measured), fontWeight = FontWeight.SemiBold)
                 Box(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${formatBytes(totalAppBytes)} total · ${formatBytes(totalCacheBytes)} cache",
+                    text = stringResource(
+                        R.string.storage_totals,
+                        formatBytes(totalAppBytes),
+                        formatBytes(totalCacheBytes)
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (safeCacheTotal > 0L) {
                     Text(
-                        text = "~${formatBytes(safeCacheTotal)} in large caches (safe to clear)",
+                        text = stringResource(R.string.storage_safe_caches, formatBytes(safeCacheTotal)),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF2E7D32)
                     )
@@ -434,8 +449,8 @@ private fun LazyListScope.appCleanupItems(
             onValueChange = onQueryChange,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            label = { Text("Search apps") },
-            placeholder = { Text("Name or package") }
+            label = { Text(stringResource(R.string.storage_search)) },
+            placeholder = { Text(stringResource(R.string.storage_search_hint)) }
         )
     }
 
@@ -445,12 +460,14 @@ private fun LazyListScope.appCleanupItems(
 
     item(key = "filter_help") {
         Text(
-            text = when (filter) {
-                StorageFilter.SAFE_CACHE -> "Large cache (≥50 MB). Clear cache is usually safe."
-                StorageFilter.USER_APPS -> "Apps you installed."
-                StorageFilter.LARGE -> "≥500 MB total."
-                StorageFilter.ALL -> "All apps. Prefer clear cache over uninstall."
-            },
+            text = stringResource(
+                when (filter) {
+                    StorageFilter.SAFE_CACHE -> R.string.storage_filter_hint_safe
+                    StorageFilter.USER_APPS -> R.string.storage_filter_hint_mine
+                    StorageFilter.LARGE -> R.string.storage_filter_hint_large
+                    StorageFilter.ALL -> R.string.storage_filter_hint_all
+                }
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -459,7 +476,7 @@ private fun LazyListScope.appCleanupItems(
     if (filtered.isEmpty()) {
         item(key = "filter_empty") {
             Text(
-                text = "Nothing matches.",
+                text = stringResource(R.string.storage_nothing_matches),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -488,20 +505,19 @@ private fun OverviewCard(s: StorageInfo) {
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = "Internal storage", fontWeight = FontWeight.SemiBold)
+            Text(text = stringResource(R.string.storage_internal), fontWeight = FontWeight.SemiBold)
             Box(modifier = Modifier.height(8.dp))
             UsageBar(
-                label = "Used",
+                label = stringResource(R.string.label_used),
                 percent = s.usagePercent,
-                detail = String.format(
-                    Locale.US,
-                    "%.1f / %.1f GB",
+                detail = stringResource(
+                    R.string.storage_gb_used,
                     s.usedInternalGb,
                     s.totalInternalGb
                 )
             )
             Text(
-                text = String.format(Locale.US, "%.1f GB free", s.freeInternalGb),
+                text = stringResource(R.string.storage_gb_free, s.freeInternalGb),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -533,18 +549,17 @@ private fun VolumeCard(vol: StorageVolumeInfo) {
             Box(modifier = Modifier.height(6.dp))
             if (vol.totalBytes > 0L) {
                 UsageBar(
-                    label = "Used",
+                    label = stringResource(R.string.label_used),
                     percent = vol.usagePercent,
-                    detail = String.format(
-                        Locale.US,
-                        "%.1f / %.1f GB",
+                    detail = stringResource(
+                        R.string.storage_gb_used,
                         vol.usedGb,
                         vol.totalGb
                     )
                 )
             } else {
                 Text(
-                    text = "State: ${vol.state}",
+                    text = stringResource(R.string.storage_state, vol.state),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -567,22 +582,22 @@ private fun FilterRow(
         FilterChip(
             selected = selected == StorageFilter.SAFE_CACHE,
             onClick = { onSelect(StorageFilter.SAFE_CACHE) },
-            label = { Text(text = "Safe cache") }
+            label = { Text(text = stringResource(R.string.storage_filter_safe)) }
         )
         FilterChip(
             selected = selected == StorageFilter.USER_APPS,
             onClick = { onSelect(StorageFilter.USER_APPS) },
-            label = { Text(text = "My apps") }
+            label = { Text(text = stringResource(R.string.storage_filter_mine)) }
         )
         FilterChip(
             selected = selected == StorageFilter.LARGE,
             onClick = { onSelect(StorageFilter.LARGE) },
-            label = { Text(text = "Large") }
+            label = { Text(text = stringResource(R.string.storage_filter_large)) }
         )
         FilterChip(
             selected = selected == StorageFilter.ALL,
             onClick = { onSelect(StorageFilter.ALL) },
-            label = { Text(text = "All") }
+            label = { Text(text = stringResource(R.string.storage_filter_all)) }
         )
     }
 }
@@ -593,15 +608,15 @@ private fun RiskHint(risk: CleanupRisk) {
     val color: Color
     when (risk) {
         CleanupRisk.SAFE_CACHE -> {
-            label = "Safe: large cache"
+            label = stringResource(R.string.storage_risk_safe)
             color = Color(0xFF2E7D32)
         }
         CleanupRisk.REVIEW -> {
-            label = "Review before uninstall"
+            label = stringResource(R.string.storage_risk_review)
             color = Color(0xFFF9A825)
         }
         CleanupRisk.SYSTEM -> {
-            label = "System app"
+            label = stringResource(R.string.storage_risk_system)
             color = MaterialTheme.colorScheme.error
         }
     }
@@ -654,7 +669,12 @@ private fun StorageRow(
             Box(modifier = Modifier.height(4.dp))
             RiskHint(risk = risk)
             Text(
-                text = "App ${formatBytes(row.appBytes)} · Data ${formatBytes(row.dataBytes)} · Cache ${formatBytes(row.cacheBytes)}",
+                text = stringResource(
+                    R.string.storage_app_breakdown,
+                    formatBytes(row.appBytes),
+                    formatBytes(row.dataBytes),
+                    formatBytes(row.cacheBytes)
+                ),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

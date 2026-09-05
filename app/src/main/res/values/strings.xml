@@ -7,7 +7,6 @@
     <string name="action_back">Back</string>
     <string name="action_refresh">Refresh</string>
     <string name="state_paused">Paused</string>
-    <string name="state_live">Live</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
     <string name="details_chevron">Details ›</string>
@@ -152,6 +151,7 @@
     <string name="label_metered">Metered</string>
     <string name="label_internal_data">Internal data</string>
     <string name="label_free">Free</string>
+    <string name="label_used">Used</string>
     <string name="label_volumes">Volumes</string>
     <string name="label_external">External</string>
     <string name="external_emulated">Emulated (%1$s)</string>

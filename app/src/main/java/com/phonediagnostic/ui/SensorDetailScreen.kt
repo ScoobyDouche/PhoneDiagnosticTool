@@ -50,6 +50,11 @@ import java.util.Locale
 private const val WINDOW_SIZE = 120
 private const val PUBLISH_INTERVAL_MS = 100L
 private val AXIS_LABELS = listOf("X", "Y", "Z")
+
+/** Named axes for the first three values; anything beyond them is numbered. */
+@Composable
+private fun axisLabel(index: Int): String =
+    AXIS_LABELS.getOrNull(index) ?: stringResource(R.string.label_value_n, index + 1)
 private val AXIS_COLORS = listOf(
     Color(0xFFE53935),
     Color(0xFF43A047),
@@ -196,7 +201,7 @@ fun SensorDetailScreen(
                         } else {
                             latest.forEachIndexed { index, value ->
                                 InfoRow(
-                                    AXIS_LABELS.getOrElse(index) { "Value ${index + 1}" },
+                                    axisLabel(index),
                                     String.format(Locale.US, "%.4f", value)
                                 )
                             }
@@ -214,7 +219,7 @@ fun SensorDetailScreen(
                             repeat(axisCount) { axis ->
                                 val series = window.map { it.getOrElse(axis) { 0f } }
                                 Text(
-                                    text = AXIS_LABELS.getOrElse(axis) { "Value ${axis + 1}" },
+                                    text = axisLabel(axis),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = AXIS_COLORS.getOrElse(axis) {
                                         MaterialTheme.colorScheme.primary
