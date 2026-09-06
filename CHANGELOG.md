@@ -29,7 +29,10 @@ Android project (`MAJOR.MINOR.PATCH`).
   a compressing layer cannot flatter the result, and `fsync`s so the write figure
   is the flash rather than the page cache.
 - **Quick Settings tile** showing battery temperature and RAM use. Samples only
-  battery and memory, never a full collect.
+  battery and memory, never a full collect. Settings gains a one-tap **Add to
+  Quick Settings** button on Android 13 and newer, since third-party tiles are
+  never added automatically and finding one in the shade's edit screen is the
+  step people miss; below 13 it shows where to look instead.
 
 ### Fixed
 - The Storage screen was never wired to string resources despite 37 being

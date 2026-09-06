@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,7 +46,8 @@ fun SettingsScreen(
     onThemeModeChange: (ThemeMode) -> Unit,
     onBack: () -> Unit,
     onOpenAbout: () -> Unit,
-    onOpenTools: () -> Unit
+    onOpenTools: () -> Unit,
+    onAddQuickTile: (() -> Unit)?
 ) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -129,7 +131,43 @@ fun SettingsScreen(
                 )
             }
 
-            Box(modifier = Modifier.height(12.dp))
+            Box(modifier = Modifier.height(16.dp))
+            HorizontalDivider()
+            Box(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = stringResource(R.string.settings_tile_heading),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Box(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.settings_tile_title),
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = stringResource(R.string.settings_tile_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Box(modifier = Modifier.height(8.dp))
+            // Android 13 can prompt to add the tile in one tap. Below that the
+            // user has to go and find it, so say where it is rather than
+            // offering a button that cannot work.
+            if (onAddQuickTile != null) {
+                Button(onClick = onAddQuickTile) {
+                    Text(stringResource(R.string.settings_tile_add))
+                }
+            } else {
+                Text(
+                    text = stringResource(R.string.settings_tile_manual),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Box(modifier = Modifier.height(16.dp))
+            HorizontalDivider()
+            Box(modifier = Modifier.height(16.dp))
             Text(
                 text = stringResource(R.string.settings_tools_link),
                 style = MaterialTheme.typography.bodyLarge,

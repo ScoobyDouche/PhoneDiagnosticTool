@@ -175,6 +175,12 @@
     <string name="tools_storage_no_space">Not enough free space to run the test (%1$d MB free).</string>
     <string name="tools_storage_failed">Storage test failed: %1$s</string>
     <string name="tile_subtitle">%1$s°C · RAM %2$d%%</string>
+    <string name="settings_tile_heading">Quick Settings</string>
+    <string name="settings_tile_title">Add the tile</string>
+    <string name="settings_tile_description">Puts battery temperature and RAM use in the notification shade.</string>
+    <string name="settings_tile_add">Add to Quick Settings</string>
+    <string name="settings_tile_manual">Pull the shade fully down, tap the edit (pencil) button, then drag Phone Diagnostic up from the inactive tiles at the bottom.</string>
+    <string name="toast_tile_request_failed">Could not open the tile prompt. Add it from the shade edit screen instead.</string>
     <string name="label_volumes">Volumes</string>
     <string name="label_external">External</string>
     <string name="external_emulated">Emulated (%1$s)</string>

@@ -7,6 +7,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.app.StatusBarManager
+import android.content.ComponentName
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -17,6 +20,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.WindowInsets
@@ -73,6 +77,7 @@ import com.phonediagnostic.ui.ToolsScreen
 import com.phonediagnostic.ui.isMainTab
 import com.phonediagnostic.ui.theme.PhoneDiagnosticTheme
 import java.io.File
+import com.phonediagnostic.service.QuickTileService
 
 class MainActivity : ComponentActivity() {
 
@@ -271,7 +276,12 @@ class MainActivity : ComponentActivity() {
                                         onThemeModeChange = { viewModel.setThemeMode(it) },
                                         onBack = { viewModel.navigateBack() },
                                         onOpenAbout = { viewModel.openAbout() },
-                                        onOpenTools = { viewModel.openTools() }
+                                        onOpenTools = { viewModel.openTools() },
+                                        onAddQuickTile = if (
+                                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                                        ) {
+                                            { requestAddQuickTile() }
+                                        } else null
                                     )
                                 }
                                 AppScreen.ABOUT -> {
@@ -411,6 +421,37 @@ class MainActivity : ComponentActivity() {
             // A device with no browser is unusual but real (kiosk builds, some
             // AOSP images). Copying the URL is more use than a dead tap.
             copyUrlToClipboard(url, R.string.toast_no_browser)
+        }
+    }
+
+    /**
+     * Ask the system to offer the Quick Settings tile in one tap.
+     *
+     * Third-party tiles are not added automatically: without this the user has
+     * to open the shade's edit screen and find ours among the inactive tiles,
+     * which is exactly the step people miss. Android 13 added this prompt; the
+     * caller passes null below that, and Settings shows directions instead.
+     *
+     * The result callback is deliberately empty — the system dialog already
+     * tells the user what happened, and a toast on top of it would be noise.
+     */
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private fun requestAddQuickTile() {
+        val statusBar = getSystemService(StatusBarManager::class.java)
+        if (statusBar == null) {
+            Toast.makeText(this, R.string.toast_tile_request_failed, Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            statusBar.requestAddTileService(
+                ComponentName(this, QuickTileService::class.java),
+                getString(R.string.app_name),
+                Icon.createWithResource(this, R.drawable.ic_qs_diagnostic),
+                mainExecutor,
+                { _ -> }
+            )
+        } catch (_: Exception) {
+            Toast.makeText(this, R.string.toast_tile_request_failed, Toast.LENGTH_SHORT).show()
         }
     }
 
