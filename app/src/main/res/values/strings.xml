@@ -158,7 +158,10 @@
     <string name="battery_section_health">Battery health</string>
     <string name="battery_health_percent">%1$d%% of design</string>
     <string name="battery_health_of">%1$d of %2$d mAh</string>
-    <string name="battery_health_unavailable">This device does not expose its fuel-gauge capacity to apps, so wear cannot be measured. Most phones restrict it.</string>
+    <string name="battery_health_unavailable">No wear data available. Android keeps the state-of-health percentage as a system API, so ordinary apps cannot read it, and this device does not expose its fuel-gauge capacity either. Charge cycles need Android 14 or newer.</string>
+    <string name="battery_health_no_percent">Charge cycles are available, but this device does not expose the fuel-gauge capacity a wear percentage needs.</string>
+    <string name="label_cycle_count">Charge cycles</string>
+    <string name="battery_cycles_note">Full charge cycles since the battery was new. Most phone batteries are rated to hold roughly 80%% of their capacity for 500 to 1000 cycles.</string>
     <string name="battery_health_note">Compares the charge the battery accepts now against its factory rating. Read from the fuel gauge, not estimated.</string>
     <string name="battery_watts_charging">%1$.2f W in</string>
     <string name="battery_watts_discharging">%1$.2f W out</string>

@@ -360,6 +360,14 @@ class DeviceInfoCollector(private val context: Context) {
             readSystemProperty("persist.sys.battery.capacity")
         ).firstNotNullOfOrNull { it.toIntOrNull()?.takeIf { n -> n > 500 } }
 
+        // Public since API 34. The state-of-health percentage added alongside it
+        // is a system API, so an ordinary app cannot read it — cycle count is the
+        // wear figure actually available to us, and it is measured rather than
+        // inferred.
+        val cycleCount = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            batteryStatus?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, -1)?.takeIf { it > 0 }
+        } else null
+
         val (fullMah, designGaugeMah) = readBatteryCapacitiesMah()
         // Only claim a health figure when the gauge gives both halves of it and
         // the ratio is physically sensible. A gauge that has not learned yet can
@@ -374,7 +382,7 @@ class DeviceInfoCollector(private val context: Context) {
             powerSource = powerSource, currentNowMa = currentNowMa, currentAvgMa = currentAvgMa,
             capacityMah = designMah ?: designGaugeMah, chargeCounterUah = chargeCounter,
             fullChargeMah = fullMah, designChargeMah = designGaugeMah,
-            capacityHealthPercent = healthPct
+            capacityHealthPercent = healthPct, cycleCount = cycleCount
         )
     }
 
@@ -407,8 +415,8 @@ class DeviceInfoCollector(private val context: Context) {
             return null
         }
         return Pair(
-            read(listOf("charge_full", "energy_full")),
-            read(listOf("charge_full_design", "energy_full_design"))
+            read(listOf("charge_full", "energy_full", "battery_full_capacity")),
+            read(listOf("charge_full_design", "energy_full_design", "battery_design_capacity"))
         )
     }
 

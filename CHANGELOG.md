@@ -16,10 +16,12 @@ Android project (`MAJOR.MINOR.PATCH`).
   the key itself being public is tracked there and not addressed by this release.
 
 ### Added
-- **Battery health.** Remaining capacity as a percentage of the factory rating,
-  read from the fuel gauge. Reported only when the device exposes both figures
-  and the ratio is plausible — most phones deny apps access, and the screen says
-  so rather than estimating.
+- **Battery health.** Charge cycle count on Android 14 and newer, from the
+  battery-changed broadcast. Plus remaining capacity as a percentage of the
+  factory rating where the fuel gauge exposes it — most phones do not, and the
+  screen says which route is closed rather than estimating a number. Android
+  keeps its own state-of-health percentage as a system API, so no ordinary app
+  can read it.
 - **Charging power.** Live watts, in or out, from voltage x current. Answers
   whether a charger or cable is actually delivering.
 - **Storage speed test** in Tools. Writes and reads back a 64 MB file in the app

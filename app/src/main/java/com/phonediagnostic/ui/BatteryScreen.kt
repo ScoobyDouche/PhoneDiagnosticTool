@@ -175,6 +175,8 @@ fun BatteryScreen(
                         val health = battery.capacityHealthPercent
                         val full = battery.fullChargeMah
                         val design = battery.designChargeMah
+                        val cycles = battery.cycleCount
+
                         if (health != null) {
                             UsageBar(
                                 label = stringResource(R.string.label_capacity_health),
@@ -187,14 +189,29 @@ fun BatteryScreen(
                                     stringResource(R.string.battery_health_of, full, design)
                                 )
                             }
-                            Text(
-                                text = stringResource(R.string.battery_health_note),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        // Cycles come from a different source than the wear
+                        // percentage, so either can be present without the other.
+                        if (cycles != null) {
+                            InfoRow(
+                                stringResource(R.string.label_cycle_count),
+                                cycles.toString()
                             )
-                        } else {
+                        }
+
+                        val note = when {
+                            health != null -> R.string.battery_health_note
+                            cycles != null -> R.string.battery_health_no_percent
+                            else -> R.string.battery_health_unavailable
+                        }
+                        Text(
+                            text = stringResource(note),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (cycles != null) {
                             Text(
-                                text = stringResource(R.string.battery_health_unavailable),
+                                text = stringResource(R.string.battery_cycles_note),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

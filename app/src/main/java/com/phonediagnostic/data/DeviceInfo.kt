@@ -68,7 +68,13 @@ data class BatteryInfo(
      * when both gauge figures are readable and plausible — never estimated,
      * because a made-up battery-health number is worse than none.
      */
-    val capacityHealthPercent: Int? = null
+    val capacityHealthPercent: Int? = null,
+    /**
+     * Charge cycles the battery has been through. Android 14 (API 34) exposes
+     * this on the battery-changed broadcast; nothing below that reports it, and
+     * not every vendor populates it even then.
+     */
+    val cycleCount: Int? = null
 ) {
     /**
      * Instantaneous power in watts: positive charging, negative discharging.
