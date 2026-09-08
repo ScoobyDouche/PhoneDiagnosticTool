@@ -157,8 +157,25 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "Release secrets not set — shipping the debug-signed APK only"
           fi
+
+      # Without this the workflow would quietly fall back to the committed CI
+      # keystore, whose private key is public, and publish under it — the exact
+      # outcome the release key exists to prevent. A missing or mistyped secret
+      # must stop the release, not downgrade it.
+      - name: Require a real release key
+        if: steps.release_sign.outputs.enabled != 'true'
+        run: |
+          echo "::error::Release signing is not configured, so this release would"
+          echo "::error::be signed with the CI debug key whose private half is"
+          echo "::error::committed to this public repository."
+          echo "::error::"
+          echo "::error::Set all four repository secrets, then re-run:"
+          echo "::error::  RELEASE_KEYSTORE_BASE64  RELEASE_STORE_PASSWORD"
+          echo "::error::  RELEASE_KEY_ALIAS        RELEASE_KEY_PASSWORD"
+          echo "::error::"
+          echo "::error::Steps: docs/DISTRIBUTION.md -> Create a release keystore"
+          exit 1
 
       - name: Grant execute (if wrapper present)
         run: |
@@ -227,6 +244,21 @@ jobs:
 
           ls -la "$STAGE"
           echo "dir=$STAGE" >> "$GITHUB_OUTPUT"
+
+      # keytool cannot read a v2/v3-only signature, which is what modern builds
+      # produce, so this uses apksigner from build-tools.
+      - name: Report signing certificate
+        run: |
+          set -euo pipefail
+          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$APKSIGNER" ]; then
+            echo "apksigner not found; skipping fingerprint report"
+            exit 0
+          fi
+          echo "Signing certificate of the artifact being published:"
+          "$APKSIGNER" verify --print-certs \
+            "${{ steps.assets.outputs.dir }}/PhoneDiagnostic-v${{ steps.v.outputs.version }}.apk" \
+            | grep -Ei "SHA-256|Subject" || true
 
       - name: Publish release
         env:

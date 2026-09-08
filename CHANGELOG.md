@@ -9,6 +9,14 @@ Android project (`MAJOR.MINOR.PATCH`).
 ## [1.1.3] — 2026-09-05
 
 ### Security
+- **Signed with a private release key.** Every release through 1.1.2 was signed
+  with a key committed to this public repository, so anyone could build an APK
+  that Android accepts as an update to it. **Existing installs must be
+  uninstalled before updating** — a new certificate is not an update as far as
+  Android is concerned, and uninstalling clears the log, history and settings.
+  The release workflow now refuses to publish unless a real key is configured,
+  rather than silently falling back, and records the signing certificate in the
+  run log.
 - **Releases now ship the release build, not the debug build.** The published
   APK carried `android:debuggable`, the Compose tooling libraries and no
   minification — 16.9 MB against 1.2 MB. The signing key is unchanged, so this

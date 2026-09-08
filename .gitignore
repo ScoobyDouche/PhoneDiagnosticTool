@@ -42,6 +42,13 @@ captures/
 # Decoded CI debug keystore (repo keeps only .b64)
 keystore/debug.keystore
 
+# Base64-encoded keystores. This is the form a key takes on its way to a
+# GitHub secret, and committing one is exactly how this project ended up
+# shipping under a public key. The debug one below is deliberate and already
+# tracked; nothing else in this shape may be added.
+*.b64
+!keystore/debug.keystore.b64
+
 # Google Services / Firebase
 google-services.json
 

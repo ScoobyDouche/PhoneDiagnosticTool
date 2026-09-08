@@ -46,41 +46,71 @@ to `main`, then run the workflow.
 
 ## 1. Create a release keystore (do this once)
 
-On a trusted machine:
+> **Read this paragraph before running anything.** This key becomes the app's
+> permanent identity. If you lose it you can never publish an update that
+> existing installs will accept — the only way back is a new package name and
+> asking everyone to reinstall. If someone else obtains it they can publish an
+> update that Android installs over yours, inheriting its data and permissions.
+> Back it up somewhere you will still have in five years, and nowhere public.
+
+Run this **on your own machine**, not in CI and not in an AI session — the
+private key must never pass through a transcript or a log.
 
 ```bash
 keytool -genkeypair -v \
-  -keystore phonediagnostic-release.keystore \
+  -keystore phonediagnostic-release.jks \
+  -storetype PKCS12 \
   -alias phonediagnostic \
-  -keyalg RSA -keysize 2048 \
+  -keyalg RSA -keysize 4096 \
   -validity 10000
 ```
 
-Back up the `.keystore` file and both passwords offline. **Never commit them.**
+It asks for a password, then for name/organisation details. The details are
+cosmetic for sideloaded distribution — only the key matters — but they are
+baked into the certificate permanently, so put something you are happy to have
+public.
 
-Encode for GitHub Actions:
+**PKCS12 keeps one password for both the store and the key.** So when you fill
+in the secrets below, `RELEASE_STORE_PASSWORD` and `RELEASE_KEY_PASSWORD` are
+the *same value*. This trips people up; keytool will not warn you.
+
+Then encode it for GitHub:
 
 ```bash
-base64 -w0 phonediagnostic-release.keystore > release.keystore.b64
+# Linux
+base64 -w0 phonediagnostic-release.jks > release.keystore.b64
+# macOS
+base64 -i phonediagnostic-release.jks | tr -d '\n' > release.keystore.b64
 ```
+
+`.gitignore` covers `*.jks` and `*.b64`, so neither file can be committed by
+accident. Delete `release.keystore.b64` once the secret is set — it is the
+private key in a form that looks harmless.
 
 ## 2. GitHub Actions secrets
 
-Repo → **Settings → Secrets and variables → Actions** → New repository secret:
+**Settings → Secrets and variables → Actions → New repository secret**, four times:
 
-| Secret name | Value |
-|-------------|--------|
-| `RELEASE_KEYSTORE_BASE64` | Contents of `release.keystore.b64` |
-| `RELEASE_STORE_PASSWORD` | Keystore password |
-| `RELEASE_KEY_ALIAS` | e.g. `phonediagnostic` |
-| `RELEASE_KEY_PASSWORD` | Key password |
+| Secret | Value |
+| --- | --- |
+| `RELEASE_KEYSTORE_BASE64` | the whole contents of `release.keystore.b64` |
+| `RELEASE_STORE_PASSWORD` | the password you chose |
+| `RELEASE_KEY_ALIAS` | `phonediagnostic` |
+| `RELEASE_KEY_PASSWORD` | the same password again (see PKCS12 note above) |
 
-After the next green run on `main`, download:
+The `Release` workflow **refuses to publish** unless all four are present — it
+will not fall back to the CI debug key. Every release run also prints the
+signing certificate's SHA-256 to the log, so you can confirm which key actually
+signed what shipped.
 
-- **PhoneDiagnostic-release-apk** — signed APK for F-Droid / sideload
-- **PhoneDiagnostic-release-aab** — signed AAB for Play Console
+### The one-time cost
 
-> **Note:** Existing users on debug-signed GitHub builds must **uninstall once** when switching to release-signed packages (different certificate).
+A new certificate means Android will not treat the next build as an update.
+**Existing installs must be uninstalled first**, which loses their diagnostic
+log, metric history and settings. There is no migration path; this is how
+Android package signing works.
+
+Do it while the install base is small. The cost only grows.
 
 ## 3. Google Play
 

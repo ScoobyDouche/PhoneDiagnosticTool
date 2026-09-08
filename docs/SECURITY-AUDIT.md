@@ -119,5 +119,9 @@ must uninstall before installing — Android will not accept it as an update.
   `app-release.apk`, and the build fails loudly rather than falling back to the
   debug variant if that artifact is missing or unsigned.
 - **1c (debug tooling, 16.9 MB) — fixed in 1.1.3**, same change. 1.2 MB.
-- **1b (public signing key) — open.** Remediation Option B above is unchanged
-  and still requires a human to generate the key off-machine.
+- **1b (public signing key) — fixed in 1.1.3**, once the four release secrets
+  are set. The release workflow now fails rather than falling back to the CI
+  debug key, so a release cannot be published under the public certificate by
+  accident, and each run prints the signing certificate for the record.
+  The committed `keystore/debug.keystore.b64` stays for debug-variant builds,
+  which are no longer published.
