@@ -49,23 +49,35 @@ Android project (`MAJOR.MINOR.PATCH`).
   JIT optimising the synthetic work away.
 
 ### Notes
+- **Still signed with the public CI key.** Moving to a private release key was
+  prepared in 1.1.3 but not carried out, so this release is signed with the key
+  whose private half is committed to this repository: anyone can build an APK
+  that Android will accept as an update over it. Publishing under that key is now
+  a deliberate per-run choice in the release workflow rather than a silent
+  fallback, and the release page says so. The switch to a private key will cost
+  one uninstall when it happens, since Android does not accept a new certificate
+  as an update.
+- 1.1.3 was never published, so this release also carries everything listed under
+  it above.
 - The feature is entirely opt-in and off by default; with neither Shizuku nor
   root present the app behaves exactly as before. Adds the Shizuku client API
   and provider (`dev.rikka.shizuku`); no new runtime network use. Rooting can
   trip a hardware fuse (e.g. Samsung Knox) and break banking/wallet apps — the
   Settings copy says so, and the app only ever reads.
 
-## [1.1.3] — 2026-09-05
+## [1.1.3] — 2026-09-05 (never published)
+
+Prepared but never tagged. These changes first reached users in 1.2.0.
+
 
 ### Security
-- **Signed with a private release key.** Every release through 1.1.2 was signed
-  with a key committed to this public repository, so anyone could build an APK
-  that Android accepts as an update to it. **Existing installs must be
-  uninstalled before updating** — a new certificate is not an update as far as
-  Android is concerned, and uninstalling clears the log, history and settings.
-  The release workflow now refuses to publish unless a real key is configured,
-  rather than silently falling back, and records the signing certificate in the
-  run log.
+- **The release workflow refuses to sign with the public key by default.** Every
+  release through 1.1.2 was signed with a key committed to this public
+  repository, so anyone could build an APK that Android accepts as an update to
+  it. The workflow used to fall back to that key whenever the release secrets
+  were missing or mistyped, silently and looking like a normal release; it now
+  stops instead, and records the signing certificate in the run log. **The key
+  itself has not changed** — see the note under 1.2.0.
 - **Releases now ship the release build, not the debug build.** The published
   APK carried `android:debuggable`, the Compose tooling libraries and no
   minification — 16.9 MB against 1.2 MB. The signing key is unchanged, so this

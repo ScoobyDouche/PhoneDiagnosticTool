@@ -22,6 +22,11 @@ on:
         required: false
         default: false
         type: boolean
+      allow_public_key_signing:
+        description: "Publish without a release key, signing with the CI key whose private half is public. The release is labelled as such."
+        required: false
+        default: false
+        type: boolean
   # Pushing a v* tag from a workstation releases too, so the button is a
   # convenience rather than the only route.
   push:
@@ -159,23 +164,67 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # Without this the workflow would quietly fall back to the committed CI
-      # keystore, whose private key is public, and publish under it — the exact
-      # outcome the release key exists to prevent. A missing or mistyped secret
-      # must stop the release, not downgrade it.
-      - name: Require a real release key
-        if: steps.release_sign.outputs.enabled != 'true'
+      # Falling back to the committed CI keystore, whose private key is public,
+      # must never be something that just happens — a missing or mistyped secret
+      # has to stop the release rather than quietly downgrade it. So the fallback
+      # is still refused by default, and is reachable only by ticking
+      # allow_public_key_signing on a dispatch, which a human does knowingly and
+      # per run. Tag pushes carry no such signal and so can never take it.
+      #
+      # When it is taken, the release says so on its own page: the original
+      # concern was a public-key build going out looking exactly like a normal
+      # release, and that stays fixed whichever branch is taken here.
+      - name: Resolve signing key
+        id: keycheck
+        env:
+          OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_public_key_signing }}
         run: |
-          echo "::error::Release signing is not configured, so this release would"
-          echo "::error::be signed with the CI debug key whose private half is"
-          echo "::error::committed to this public repository."
-          echo "::error::"
-          echo "::error::Set all four repository secrets, then re-run:"
-          echo "::error::  RELEASE_KEYSTORE_BASE64  RELEASE_STORE_PASSWORD"
-          echo "::error::  RELEASE_KEY_ALIAS        RELEASE_KEY_PASSWORD"
-          echo "::error::"
-          echo "::error::Steps: docs/DISTRIBUTION.md -> Create a release keystore"
-          exit 1
+          set -euo pipefail
+
+          if [ "${{ steps.release_sign.outputs.enabled }}" = "true" ]; then
+            echo "public_key=false" >> "$GITHUB_OUTPUT"
+            echo "Signing with the configured release key."
+            exit 0
+          fi
+
+          if [ "$OVERRIDE" != "true" ]; then
+            echo "::error::Release signing is not configured, so this release would"
+            echo "::error::be signed with the CI debug key whose private half is"
+            echo "::error::committed to this public repository."
+            echo "::error::"
+            echo "::error::Set all four repository secrets, then re-run:"
+            echo "::error::  RELEASE_KEYSTORE_BASE64  RELEASE_STORE_PASSWORD"
+            echo "::error::  RELEASE_KEY_ALIAS        RELEASE_KEY_PASSWORD"
+            echo "::error::"
+            echo "::error::Steps: docs/DISTRIBUTION.md -> Create a release keystore"
+            echo "::error::"
+            echo "::error::To publish under the public key anyway, re-run this"
+            echo "::error::workflow with 'allow_public_key_signing' ticked."
+            exit 1
+          fi
+
+          echo "public_key=true" >> "$GITHUB_OUTPUT"
+          echo "::warning::Publishing signed with the CI key whose private half is public."
+
+          # Prepended, not appended: someone deciding whether to install reads the
+          # top of the page, and this is the part that changes that decision.
+          BODY="${{ steps.notes.outputs.body_file }}"
+          WARN="$RUNNER_TEMP/key-warning.md"
+          {
+            echo "> ## ⚠️ Signed with a publicly known key"
+            echo ">"
+            echo "> The private half of this APK's signing key is committed to this public"
+            echo "> repository. Anyone can build an APK that Android will accept as an update"
+            echo "> over this one, inheriting its data and permissions — so the signature"
+            echo "> proves nothing about where the file came from. Install it only from this"
+            echo "> page."
+            echo ">"
+            echo "> Moving to a private key is still planned. That switch will require"
+            echo "> uninstalling first, because Android does not accept a new certificate as"
+            echo "> an update to an existing install."
+            echo ""
+          } > "$WARN"
+          cat "$WARN" "$BODY" > "$BODY.new" && mv "$BODY.new" "$BODY"
 
       - name: Grant execute (if wrapper present)
         run: |
@@ -272,10 +321,14 @@ jobs:
             --title "${{ steps.notes.outputs.title }}"
             --target "$GITHUB_SHA"
           )
-          if [ "${{ steps.notes.outputs.generate }}" = "true" ]; then
-            ARGS+=(--generate-notes)
+          # Checked against the file rather than the notes step's verdict: the
+          # signing step may have written a warning into a body that was empty
+          # when that verdict was recorded, and that warning must not be lost.
+          BODY="${{ steps.notes.outputs.body_file }}"
+          if [ -s "$BODY" ]; then
+            ARGS+=(--notes-file "$BODY")
           else
-            ARGS+=(--notes-file "${{ steps.notes.outputs.body_file }}")
+            ARGS+=(--generate-notes)
           fi
           if [ "${{ github.event_name }}" != "push" ]; then
             if [ "${{ inputs.prerelease }}" = "true" ]; then ARGS+=(--prerelease); fi
