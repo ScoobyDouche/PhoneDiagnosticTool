@@ -8,7 +8,18 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.sqrt
+
+/**
+ * How hard the load test works each core.
+ *
+ * [STANDARD] is the original tight FPU loop — a stable benchmark number.
+ * [THERMAL] mixes transcendental math with strided writes across a per-thread
+ * buffer, exercising the memory subsystem as well as the FPU to drive more heat.
+ */
+enum class LoadMode { STANDARD, THERMAL }
 
 data class LoadTestProgress(
     val running: Boolean,
@@ -58,12 +69,15 @@ object LoadTester {
         context: Context,
         durationSec: Int = 60,
         threads: Int = 4,
+        mode: LoadMode = LoadMode.STANDARD,
         onProgress: (LoadTestProgress) -> Unit = {}
     ): LoadTestResult = withContext(Dispatchers.Default) {
         val collector = DeviceInfoCollector(context)
         val sec = durationSec.coerceIn(60, 600)
         val durationMs = sec * 1000L
-        val threadCount = threads.coerceIn(1, 8)
+        // Up to one worker per core on modern many-core phones; the old cap of 8
+        // left higher-core SoCs under-stressed.
+        val threadCount = threads.coerceIn(1, 64)
         val ops = AtomicLong(0)
         val stopFlag = AtomicBoolean(false)
 
@@ -101,8 +115,20 @@ object LoadTester {
             Thread({
                 var local = 0L
                 var x = 1.000001
+                // The thermal path thrashes this buffer; the standard path never
+                // allocates it. Size is a power of two so the index masks cheaply.
+                val buf = if (mode == LoadMode.THERMAL) DoubleArray(BUFFER_DOUBLES) else DoubleArray(0)
+                var i = 0
                 while (System.nanoTime() < endAt && !stopFlag.get()) {
-                    x = sqrt(x * x + 1.000001)
+                    if (mode == LoadMode.THERMAL) {
+                        x = sqrt(x * x + 1.000001) + sin(x) * cos(x)
+                        val idx = (i * STRIDE) and (BUFFER_DOUBLES - 1)
+                        buf[idx] = buf[idx] * 1.0000001 + x
+                        x += buf[idx] * 1e-12   // read back so the writes aren't dead
+                        i++
+                    } else {
+                        x = sqrt(x * x + 1.000001)
+                    }
                     local++
                     // Publish periodically so the live counter actually moves;
                     // it previously only landed once the worker finished.
@@ -112,6 +138,9 @@ object LoadTester {
                 }
                 // The tail that never reached a publish boundary.
                 ops.addAndGet(local % PUBLISH_EVERY)
+                // Consume x so the JIT cannot prove the math chain dead and
+                // optimise the whole loop away; the branch is never taken.
+                if (x == 0.0) ops.incrementAndGet()
             }, "load-test-$index").apply {
                 isDaemon = true
                 start()
@@ -143,7 +172,8 @@ object LoadTester {
         val score = totalOps / elapsedSec / 1000L
 
         val summary = buildString {
-            append("Load test ${sec / 60}m x $threadCount threads - ")
+            val modeLabel = if (mode == LoadMode.THERMAL) "thermal" else "standard"
+            append("Load test ($modeLabel) ${sec / 60}m x $threadCount threads - ")
             append("${score}k ops/s - ")
             append("RAM ${before.ramUsedMb}->${after.ramUsedMb} MB - ")
             append("Bat ${before.batteryPct}%->${after.batteryPct}% - ")
@@ -183,4 +213,9 @@ object LoadTester {
     private const val PROGRESS_INTERVAL_MS = 1000L
     private const val WORKER_JOIN_MS = 2000L
     private const val COOLDOWN_MS = 400L
+
+    /** Thermal-mode per-thread buffer: 2^17 doubles = 1 MB, a power of two for masking. */
+    private const val BUFFER_DOUBLES = 1 shl 17
+    /** Odd stride so successive writes jump cache lines instead of running sequentially. */
+    private const val STRIDE = 257
 }

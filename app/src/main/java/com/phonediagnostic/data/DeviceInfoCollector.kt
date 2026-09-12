@@ -23,6 +23,8 @@ import android.os.SystemClock
 import android.os.storage.StorageManager
 import android.hardware.display.DisplayManager
 import android.view.Display
+import com.phonediagnostic.data.elevated.AccessTier
+import com.phonediagnostic.data.elevated.ElevatedShell
 import java.util.Locale
 import java.io.BufferedReader
 import java.io.File
@@ -43,6 +45,40 @@ import kotlin.math.abs
 import kotlin.math.sqrt
 
 class DeviceInfoCollector(private val context: Context) {
+
+    /**
+     * Optional privileged reader. When the user has opted into Shizuku or root,
+     * the ViewModel sets this and the gated sysfs reads below fall through to it
+     * after the direct read is denied. Null — the default and the value in every
+     * background service — keeps collection on its normal no-elevation path.
+     */
+    @Volatile
+    var elevated: ElevatedShell? = null
+
+    /** A sysfs read plus where it came from: null source means a direct read. */
+    private data class NodeRead(val value: String?, val source: AccessTier?)
+
+    /**
+     * Reads a sysfs file directly, then through elevated access if that is
+     * denied and available, recording which path produced the value so the UI
+     * can mark elevated-sourced readings.
+     */
+    private fun readNodeSourced(path: String): NodeRead {
+        val f = File(path)
+        if (runCatching { f.canRead() }.getOrDefault(false)) {
+            val direct = runCatching { f.readText().trim() }.getOrNull()
+            if (!direct.isNullOrBlank()) return NodeRead(direct, null)
+        }
+        val e = elevated
+        if (e != null) {
+            val v = e.readFileOrNull(path)
+            if (!v.isNullOrBlank()) return NodeRead(v, e.tier)
+        }
+        return NodeRead(null, null)
+    }
+
+    /** Convenience for callers that only need the value, not its provenance. */
+    private fun readNode(path: String): String? = readNodeSourced(path).value
 
     companion object {
         private const val LATENCY_HOST = "8.8.8.8"
@@ -102,7 +138,12 @@ class DeviceInfoCollector(private val context: Context) {
             battery = collectBattery(),
             memory = collectMemory(),
             network = collectNetworkLight(previous.network, networkProbe),
-            cpu = previous.cpu.copy(currentFreqMhz = readCpuFrequenciesMhz()),
+            cpu = readCpuFrequenciesMhz().let { (freqs, source) ->
+                previous.cpu.copy(
+                    currentFreqMhz = freqs,
+                    clockSource = source?.name ?: previous.cpu.clockSource
+                )
+            },
             // Keep the previously captured readings when we are not re-sampling.
             sensors = if (sampleSensors) collectSensors(live = true) else previous.sensors,
             thermals = collectThermals()
@@ -181,12 +222,13 @@ class DeviceInfoCollector(private val context: Context) {
             .ifBlank { readSystemProperty("ro.product.board") }
             .ifBlank { hardware }
         val processor = resolveProcessorName(hardware, boardPlatform)
-        val freqs = readCpuFrequenciesMhz()
-        val (minF, maxF) = readCpuFreqRangeMhz()
+        val (freqs, freqSource) = readCpuFrequenciesMhz()
+        val (minF, maxF, rangeSource) = readCpuFreqRangeMhz()
         return CpuInfo(
             cores = cores, architecture = arch, supportedAbis = abis,
             hardware = hardware, processor = processor, boardPlatform = boardPlatform,
-            currentFreqMhz = freqs, minFreqMhz = minF, maxFreqMhz = maxF
+            currentFreqMhz = freqs, minFreqMhz = minF, maxFreqMhz = maxF,
+            clockSource = (freqSource ?: rangeSource)?.name
         )
     }
 
@@ -241,43 +283,40 @@ class DeviceInfoCollector(private val context: Context) {
         }
     }
 
-    private fun readCpuFrequenciesMhz(): List<Int> {
+    /** Per-core clocks in MHz, plus the elevated tier that produced them if any. */
+    private fun readCpuFrequenciesMhz(): Pair<List<Int>, AccessTier?> {
         val result = ArrayList<Int>()
+        var source: AccessTier? = null
         for (i in 0 until 16) {
-            val f = File("/sys/devices/system/cpu/cpu$i/cpufreq/scaling_cur_freq")
-            if (!f.canRead()) continue
-            try {
-                val khz = f.readText().trim().toLongOrNull() ?: continue
-                result.add((khz / 1000L).toInt())
-            } catch (_: Exception) {}
+            val r = readNodeSourced("/sys/devices/system/cpu/cpu$i/cpufreq/scaling_cur_freq")
+            val khz = r.value?.toLongOrNull() ?: continue
+            if (r.source != null) source = r.source
+            result.add((khz / 1000L).toInt())
         }
-        return result
+        return result to source
     }
 
-    private fun readCpuFreqRangeMhz(): Pair<Int?, Int?> {
+    private fun readCpuFreqRangeMhz(): Triple<Int?, Int?, AccessTier?> {
         var min: Long? = null
         var max: Long? = null
+        var source: AccessTier? = null
         for (p in listOf(
             "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq",
             "/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq",
             "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_min_freq"
         )) {
-            try {
-                val f = File(p)
-                if (f.canRead()) { min = f.readText().trim().toLongOrNull(); if (min != null) break }
-            } catch (_: Exception) {}
+            val r = readNodeSourced(p); min = r.value?.toLongOrNull()
+            if (min != null) { if (r.source != null) source = r.source; break }
         }
         for (p in listOf(
             "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq",
             "/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq",
             "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_max_freq"
         )) {
-            try {
-                val f = File(p)
-                if (f.canRead()) { max = f.readText().trim().toLongOrNull(); if (max != null) break }
-            } catch (_: Exception) {}
+            val r = readNodeSourced(p); max = r.value?.toLongOrNull()
+            if (max != null) { if (r.source != null) source = r.source; break }
         }
-        return Pair(min?.let { (it / 1000L).toInt() }, max?.let { (it / 1000L).toInt() })
+        return Triple(min?.let { (it / 1000L).toInt() }, max?.let { (it / 1000L).toInt() }, source)
     }
 
     private fun collectGpu(): GpuInfo {
@@ -360,21 +399,29 @@ class DeviceInfoCollector(private val context: Context) {
             readSystemProperty("persist.sys.battery.capacity")
         ).firstNotNullOfOrNull { it.toIntOrNull()?.takeIf { n -> n > 500 } }
 
-        // Public since API 34. The state-of-health percentage added alongside it
-        // is a system API, so an ordinary app cannot read it — cycle count is the
-        // wear figure actually available to us, and it is measured rather than
-        // inferred.
-        val cycleCount = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            batteryStatus?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, -1)?.takeIf { it > 0 }
-        } else null
-
-        val (fullMah, designGaugeMah) = readBatteryCapacitiesMah()
+        val caps = readBatteryGaugeCaps()
+        val fullMah = caps.fullMah
+        val designGaugeMah = caps.designMah
         // Only claim a health figure when the gauge gives both halves of it and
         // the ratio is physically sensible. A gauge that has not learned yet can
         // report full > design, which is not 112% of a new battery.
         val healthPct = if (fullMah != null && designGaugeMah != null && designGaugeMah > 0) {
             ((fullMah * 100.0) / designGaugeMah).toInt().takeIf { it in 1..100 }
         } else null
+        val healthSource = if (healthPct != null) caps.source?.name else null
+
+        // Public since API 34, delivered on the battery-changed broadcast — but
+        // several vendors (Samsung among them) never populate it, so when it is
+        // absent fall back to the gauge's own cycle node, which elevated access
+        // can reach. Only the kernel-standard POWER_SUPPLY_CYCLE_COUNT is used,
+        // as its unit is plainly cycles; vendor-scaled nodes are not, to avoid
+        // showing a wrong number.
+        val broadcastCycles = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            batteryStatus?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, -1)?.takeIf { it > 0 }
+        } else null
+        val gaugeCycles = if (broadcastCycles == null) readBatteryCycleCount() else null
+        val cycleCount = broadcastCycles ?: gaugeCycles?.count
+        val cycleSource = if (broadcastCycles == null) gaugeCycles?.source?.name else null
 
         return BatteryInfo(
             level = batteryPct, status = status, health = health, temperature = temperature,
@@ -382,43 +429,97 @@ class DeviceInfoCollector(private val context: Context) {
             powerSource = powerSource, currentNowMa = currentNowMa, currentAvgMa = currentAvgMa,
             capacityMah = designMah ?: designGaugeMah, chargeCounterUah = chargeCounter,
             fullChargeMah = fullMah, designChargeMah = designGaugeMah,
-            capacityHealthPercent = healthPct, cycleCount = cycleCount
+            capacityHealthPercent = healthPct, cycleCount = cycleCount,
+            healthSource = healthSource, cycleSource = cycleSource
         )
     }
 
+    /** Full/design capacity in mAh plus the tier that produced them (null = direct). */
+    private data class GaugeCaps(val fullMah: Int?, val designMah: Int?, val source: AccessTier?)
+
+    /** A charge-cycle count plus where it came from. */
+    private data class CycleRead(val count: Int, val source: AccessTier?)
+
+    // Reading µAh: a few devices report mAh directly, so anything too small to be
+    // a µAh figure is treated as already mAh; then bounds-check the result.
+    private fun normalizeCapacityMah(raw: Long): Int? {
+        if (raw <= 0L) return null
+        val mah = if (raw > 100_000L) (raw / 1000L).toInt() else raw.toInt()
+        return mah.takeIf { it in 100..30_000 }
+    }
+
     /**
-     * Present full-charge and design capacity in mAh from the power-supply
-     * fuel gauge, as (full, design).
+     * Full-charge and design capacity in mAh from the power-supply fuel gauge.
      *
      * Vendors disagree on both the node name and the supply directory, hence the
-     * candidate lists. Most devices also deny an untrusted app read access here
-     * under SELinux, so returning (null, null) is the expected outcome on plenty
-     * of hardware rather than a failure — the UI says so instead of guessing.
-     *
-     * Values are µAh; a few devices report mAh directly, so anything too small
-     * to be a µAh reading is treated as already being in mAh.
+     * candidate lists. Many devices deny an untrusted app read access here under
+     * SELinux — that is what elevated access is for — and some (Samsung) block
+     * the discrete nodes but leave the aggregate `uevent` readable, so it is
+     * tried as a second source. Returning all-null is still an expected outcome
+     * on hardware that locks everything down; the UI says so instead of guessing.
      */
-    private fun readBatteryCapacitiesMah(): Pair<Int?, Int?> {
-        fun read(names: List<String>): Int? {
+    private fun readBatteryGaugeCaps(): GaugeCaps {
+        var source: AccessTier? = null
+        fun note(s: AccessTier?) { if (s != null) source = s }
+
+        fun readDiscrete(names: List<String>): Int? {
             for (dir in BATTERY_SUPPLY_DIRS) {
                 for (name in names) {
-                    try {
-                        val f = File(dir, name)
-                        if (!f.canRead()) continue
-                        val raw = f.readText().trim().toLongOrNull() ?: continue
-                        if (raw <= 0L) continue
-                        val mah = if (raw > 100_000L) (raw / 1000L).toInt() else raw.toInt()
-                        if (mah in 100..30_000) return mah
-                    } catch (_: Exception) {}
+                    val r = readNodeSourced("$dir/$name")
+                    val mah = r.value?.toLongOrNull()?.let { normalizeCapacityMah(it) } ?: continue
+                    note(r.source)
+                    return mah
                 }
             }
             return null
         }
-        return Pair(
-            read(listOf("charge_full", "energy_full", "battery_full_capacity")),
-            read(listOf("charge_full_design", "energy_full_design", "battery_design_capacity"))
-        )
+
+        var full = readDiscrete(listOf("charge_full", "energy_full", "battery_full_capacity"))
+        var design = readDiscrete(listOf("charge_full_design", "energy_full_design", "battery_design_capacity"))
+
+        // Fill anything still missing from the aggregate uevent dump.
+        if (full == null || design == null) {
+            val (props, ueSource) = readBatteryUevent()
+            if (full == null) {
+                full = firstProp(props, "POWER_SUPPLY_CHARGE_FULL", "POWER_SUPPLY_ENERGY_FULL")
+                    ?.let { normalizeCapacityMah(it) }?.also { note(ueSource) }
+            }
+            if (design == null) {
+                design = firstProp(props, "POWER_SUPPLY_CHARGE_FULL_DESIGN", "POWER_SUPPLY_ENERGY_FULL_DESIGN")
+                    ?.let { normalizeCapacityMah(it) }?.also { note(ueSource) }
+            }
+        }
+        return GaugeCaps(full, design, source)
     }
+
+    /** Kernel-standard charge cycles from the gauge, when the broadcast omits them. */
+    private fun readBatteryCycleCount(): CycleRead? {
+        for (dir in BATTERY_SUPPLY_DIRS) {
+            val r = readNodeSourced("$dir/cycle_count")
+            val n = r.value?.toIntOrNull()?.takeIf { it > 0 }
+            if (n != null) return CycleRead(n, r.source)
+        }
+        val (props, ueSource) = readBatteryUevent()
+        val n = props["POWER_SUPPLY_CYCLE_COUNT"]?.toIntOrNull()?.takeIf { it > 0 }
+        return n?.let { CycleRead(it, ueSource) }
+    }
+
+    /** Parses the aggregate `uevent` (KEY=value per line) from the first readable supply dir. */
+    private fun readBatteryUevent(): Pair<Map<String, String>, AccessTier?> {
+        for (dir in BATTERY_SUPPLY_DIRS) {
+            val r = readNodeSourced("$dir/uevent")
+            val text = r.value ?: continue
+            val props = text.lineSequence().mapNotNull { line ->
+                val i = line.indexOf('=')
+                if (i <= 0) null else line.substring(0, i).trim() to line.substring(i + 1).trim()
+            }.toMap()
+            if (props.isNotEmpty()) return props to r.source
+        }
+        return emptyMap<String, String>() to null
+    }
+
+    private fun firstProp(props: Map<String, String>, vararg keys: String): Long? =
+        keys.firstNotNullOfOrNull { props[it]?.toLongOrNull()?.takeIf { v -> v > 0L } }
 
     private fun normalizeBatteryCurrentMa(rawUa: Int): Int? {
         if (rawUa == Int.MIN_VALUE || rawUa == 0) return null

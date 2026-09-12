@@ -6,6 +6,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows a practical semantic versioning scheme for a single-app
 Android project (`MAJOR.MINOR.PATCH`).
 
+## [1.2.0] — 2026-09-12
+
+### Added
+- **Optional elevated access (Shizuku or root).** A new *Elevated access* section
+  in Settings lets you opt into reading data the platform otherwise keeps behind
+  sysfs permissions an ordinary app cannot get. Three tiers:
+  - **Off** (default) — unchanged behaviour; nothing elevated is read.
+  - **Shizuku** — helper reads run as the shell user (UID 2000), the same reach
+    as `adb shell`. No root, nothing permanent to the device. Requires the
+    Shizuku app installed and started, and a one-tap grant.
+  - **Root** — reads run via `su`, reaching nodes even the shell user cannot.
+  The chosen backend is used only as a *fallback* when the direct read is denied,
+  so devices that already expose a node are unaffected. First consumers are the
+  **battery fuel gauge** (so the capacity-health percentage can appear on devices
+  that block it from apps) and **per-core CPU clocks / frequency range** on
+  locked-down devices. Settings shows live status (installed / running /
+  permission / root detected) and why a tier is or is not active.
+- **"Read via Shizuku / root" markers.** Any value that was only obtainable
+  through elevated access is tagged as such on the Battery and CPU screens, so
+  it is visible which readings the feature actually unlocked on your device.
+- **Aggregate `uevent` battery fallback.** When a device blocks the individual
+  fuel-gauge nodes but leaves `/sys/class/power_supply/*/uevent` readable (common
+  on Samsung), capacity health and charge cycles are parsed from that instead.
+  Cycles fall back to the kernel-standard `POWER_SUPPLY_CYCLE_COUNT` when the
+  Android 14 broadcast field is absent — which several vendors never populate.
+- **System-wide process list via elevated access.** With Shizuku (or root) the
+  RAM detail screen shows every running process from `dumpsys meminfo`, with
+  per-process CPU load from `dumpsys cpuinfo`, instead of the self-only view
+  Android's `hidepid` otherwise limits apps to. Tagged "Read via Shizuku / root".
+- **Thermal load-test mode.** A heavier CPU stress option that adds
+  transcendental math and strided memory thrashing on top of the FPU loop to
+  drive more heat, in addition to now running one worker per core.
+
+### Fixed
+- **Multi-touch pad showed only the peak.** It now shows the live count of
+  fingers currently down (which falls back as you lift them) alongside the
+  session max, instead of appearing stuck at the highest number seen.
+- **Load test only used 4 threads.** It now runs one worker per CPU core, so it
+  actually saturates the whole processor on 6-, 8- and higher-core devices
+  rather than a fixed half of it; the worker loop is also hardened against the
+  JIT optimising the synthetic work away.
+
+### Notes
+- The feature is entirely opt-in and off by default; with neither Shizuku nor
+  root present the app behaves exactly as before. Adds the Shizuku client API
+  and provider (`dev.rikka.shizuku`); no new runtime network use. Rooting can
+  trip a hardware fuse (e.g. Samsung Knox) and break banking/wallet apps — the
+  Settings copy says so, and the app only ever reads.
+
 ## [1.1.3] — 2026-09-05
 
 ### Security

@@ -32,6 +32,7 @@ Captured on a Galaxy Z Flip4 running Android 16.
 - Background monitor with rotating log (capped at **5000** lines)
 - CPU load test (1 / 5 / 10 min) with a k-ops/s score
 - Share as text or JSON, share as a file attachment, save to a file, or copy to clipboard
+- Optional elevated access (Shizuku or root) to read data the platform gates from apps — battery fuel gauge, per-core clocks — off by default
 - Theme: system / light / dark
 - Settings + About (license & privacy summary)
 - UI chrome fully externalised to string resources (ready for translation packs)
@@ -103,6 +104,7 @@ CI runs tests, debug APK, release APK, and release AAB on every push and pull re
 | `REQUEST_DELETE_PACKAGES` | Uninstall from storage detail |
 | `FOREGROUND_SERVICE` / `SPECIAL_USE` | Optional background monitor |
 | `POST_NOTIFICATIONS` | Background monitor notification (Android 13+) |
+| `moe.shizuku.manager.permission.API_V23` | Optional elevated access via Shizuku (off by default). Grants nothing unless you install Shizuku and approve this app |
 
 Camera and sensors use system APIs without requesting CAMERA permission (characteristics only; no capture).
 
@@ -111,7 +113,7 @@ Camera and sensors use system APIs without requesting CAMERA permission (charact
 - Kotlin, Jetpack Compose, Material 3
 - ViewModel + StateFlow
 - Min SDK 26 · Target / compile SDK 35
-- Version **1.1.3**
+- Version **1.2.0**
 
 Diagnostics are stored only on the device: a rotating log and a 24 h metric
 history live in internal storage, and the app opts out of Android cloud backup

@@ -10,16 +10,27 @@ import android.os.Build
 import android.os.Debug
 import android.os.Process
 import android.os.storage.StorageManager
+import com.phonediagnostic.data.elevated.ElevatedShell
 
 class UsageCollector(private val context: Context) {
 
     private val pm: PackageManager = context.packageManager
 
     /**
+     * Optional elevated reader. When set (Shizuku or root), the process list is
+     * gathered system-wide from dumpsys instead of the self-only view Android
+     * otherwise allows. Null keeps the normal behaviour.
+     */
+    @Volatile
+    var elevated: ElevatedShell? = null
+
+    /**
      * Android hides other apps' process memory. We always report *this* app accurately
      * via Debug.MemoryInfo + getProcessMemoryInfo(myPid), then any other visible processes.
+     * With elevated access we can instead read the whole process table from dumpsys.
      */
     fun collectProcessRam(): List<ProcessRamEntry> {
+        collectProcessRamElevated()?.let { if (it.isNotEmpty()) return it }
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val byPid = LinkedHashMap<Int, ProcessRamEntry>()
 
@@ -155,6 +166,33 @@ class UsageCollector(private val context: Context) {
         }
 
         return result.sortedByDescending { it.totalBytes }
+    }
+
+    // ------------------------------------------------------------ elevated path
+
+    /**
+     * System-wide process memory (and CPU where available) via dumpsys, run
+     * through the elevated shell. Returns null when no elevated access is set or
+     * the output could not be parsed, so the caller falls back to the self view.
+     */
+    private fun collectProcessRamElevated(): List<ProcessRamEntry>? {
+        val shell = elevated ?: return null
+        val meminfo = shell.exec("dumpsys meminfo") ?: return null
+        val pss = DumpsysParsers.parseMeminfoPss(meminfo)
+        if (pss.isEmpty()) return null
+        val cpu = shell.exec("dumpsys cpuinfo")?.let { DumpsysParsers.parseCpuinfo(it) } ?: emptyMap()
+        val sourceName = shell.tier.name
+        return pss.map { (pid, entry) ->
+            ProcessRamEntry(
+                pid = pid,
+                processName = entry.name,
+                appLabel = labelForProcess(entry.name),
+                importance = "",
+                pssMb = entry.pssKb / 1024f,
+                cpuPercent = cpu[pid],
+                elevatedSource = sourceName
+            )
+        }.sortedByDescending { it.pssMb }
     }
 
     private fun labelForProcess(processName: String): String {

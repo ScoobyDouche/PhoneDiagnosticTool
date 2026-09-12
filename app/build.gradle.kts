@@ -12,8 +12,8 @@ android {
         applicationId = "com.phonediagnostic"
         minSdk = 26
         targetSdk = 35
-        versionCode = 30
-        versionName = "1.1.3"
+        versionCode = 31
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -87,6 +87,8 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        // The elevated-access helper Shizuku binds is defined by an AIDL contract.
+        aidl = true
     }
 
     packaging {
@@ -114,6 +116,12 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    // Optional, opt-in elevated access. The app runs fine with neither the
+    // Shizuku manager app installed nor root; these only add the client API and
+    // the provider the manager binds to.
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
 
     testImplementation("junit:junit:4.13.2")
     // The android.jar stub throws on every org.json call, so unit tests need the
