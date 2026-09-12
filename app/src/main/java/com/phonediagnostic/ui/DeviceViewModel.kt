@@ -429,7 +429,9 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                 val result = LoadTester.run(
                     context = appContext,
                     durationSec = durationSec,
-                    threads = LOAD_TEST_THREADS,
+                    // One worker per core, so the test actually saturates the
+                    // whole CPU instead of a hardcoded half of it.
+                    threads = Runtime.getRuntime().availableProcessors().coerceAtLeast(1),
                     onProgress = { progress ->
                         _loadProgress.value = progress
                     }
@@ -507,6 +509,5 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     companion object {
         private const val LIVE_INTERVAL_MS = 3000L
         private const val MAX_BACK_STACK = 16
-        private const val LOAD_TEST_THREADS = 4
     }
 }

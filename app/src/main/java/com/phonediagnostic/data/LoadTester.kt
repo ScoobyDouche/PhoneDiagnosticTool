@@ -63,7 +63,9 @@ object LoadTester {
         val collector = DeviceInfoCollector(context)
         val sec = durationSec.coerceIn(60, 600)
         val durationMs = sec * 1000L
-        val threadCount = threads.coerceIn(1, 8)
+        // Up to one worker per core on modern many-core phones; the old cap of 8
+        // left higher-core SoCs under-stressed.
+        val threadCount = threads.coerceIn(1, 64)
         val ops = AtomicLong(0)
         val stopFlag = AtomicBoolean(false)
 
@@ -112,6 +114,9 @@ object LoadTester {
                 }
                 // The tail that never reached a publish boundary.
                 ops.addAndGet(local % PUBLISH_EVERY)
+                // Consume x so the JIT cannot prove the sqrt chain dead and
+                // optimise the whole loop away; the branch is never taken.
+                if (x == 0.0) ops.incrementAndGet()
             }, "load-test-$index").apply {
                 isDaemon = true
                 start()

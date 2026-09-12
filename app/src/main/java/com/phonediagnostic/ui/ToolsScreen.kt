@@ -87,6 +87,7 @@ fun ToolsScreen(
     val listState = rememberLazyListState()
     val context = LocalContext.current
     var maxPointers by remember { mutableIntStateOf(0) }
+    var currentPointers by remember { mutableIntStateOf(0) }
     var storageTesting by remember { mutableStateOf(false) }
     var storageResult by remember { mutableStateOf<StorageSpeedResult?>(null) }
     var storageError by remember { mutableStateOf<String?>(null) }
@@ -387,22 +388,34 @@ fun ToolsScreen(
                                     awaitPointerEventScope {
                                         while (true) {
                                             val event = awaitPointerEvent()
+                                            // Live count of fingers currently down; falls
+                                            // back as they lift, and tracks the peak.
                                             val count = event.changes.count { it.pressed }
+                                            currentPointers = count
                                             if (count > maxPointers) maxPointers = count
                                         }
                                     }
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = if (maxPointers == 0) {
-                                    stringResource(R.string.tools_touch_here)
-                                } else {
-                                    stringResource(R.string.tools_max_fingers, maxPointers)
-                                },
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = if (currentPointers == 0) {
+                                        stringResource(R.string.tools_touch_here)
+                                    } else {
+                                        stringResource(R.string.tools_live_fingers, currentPointers)
+                                    },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                if (maxPointers > 0) {
+                                    Text(
+                                        text = stringResource(R.string.tools_max_fingers, maxPointers),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
                     }
                 }

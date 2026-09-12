@@ -262,7 +262,8 @@
     <string name="tools_display">Display</string>
     <string name="tools_multitouch_label">Multi-touch: put fingers on the pad below</string>
     <string name="tools_touch_here">Touch here</string>
-    <string name="tools_max_fingers">Max fingers: %1$d</string>
+    <string name="tools_live_fingers">Fingers down: %1$d</string>
+    <string name="tools_max_fingers">Max: %1$d</string>
     <string name="tools_display_hint">%1$s\nTap to cycle · Back to exit</string>
     <string name="color_red">Red</string>
     <string name="color_green">Green</string>

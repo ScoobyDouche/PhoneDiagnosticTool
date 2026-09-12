@@ -32,6 +32,15 @@ Android project (`MAJOR.MINOR.PATCH`).
   Cycles fall back to the kernel-standard `POWER_SUPPLY_CYCLE_COUNT` when the
   Android 14 broadcast field is absent — which several vendors never populate.
 
+### Fixed
+- **Multi-touch pad showed only the peak.** It now shows the live count of
+  fingers currently down (which falls back as you lift them) alongside the
+  session max, instead of appearing stuck at the highest number seen.
+- **Load test only used 4 threads.** It now runs one worker per CPU core, so it
+  actually saturates the whole processor on 6-, 8- and higher-core devices
+  rather than a fixed half of it; the worker loop is also hardened against the
+  JIT optimising the synthetic work away.
+
 ### Notes
 - The feature is entirely opt-in and off by default; with neither Shizuku nor
   root present the app behaves exactly as before. Adds the Shizuku client API
