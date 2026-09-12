@@ -33,7 +33,13 @@ data class CpuInfo(
     val currentFreqMhz: List<Int> = emptyList(),
     /** Best-effort min/max from cpufreq policy when readable. */
     val minFreqMhz: Int? = null,
-    val maxFreqMhz: Int? = null
+    val maxFreqMhz: Int? = null,
+    /**
+     * Name of the elevated tier (SHIZUKU / ROOT) that supplied the clock
+     * readings, or null when they came from a direct read. Lets the UI mark
+     * values only visible thanks to elevated access.
+     */
+    val clockSource: String? = null
 )
 
 data class GpuInfo(
@@ -74,7 +80,15 @@ data class BatteryInfo(
      * this on the battery-changed broadcast; nothing below that reports it, and
      * not every vendor populates it even then.
      */
-    val cycleCount: Int? = null
+    val cycleCount: Int? = null,
+    /**
+     * Name of the elevated tier (SHIZUKU / ROOT) that made the capacity-health
+     * figure readable, or null when it came from a direct read. Null health with
+     * a non-null source never happens — this is only set when a value exists.
+     */
+    val healthSource: String? = null,
+    /** As [healthSource], for the charge-cycle count. */
+    val cycleSource: String? = null
 ) {
     /**
      * Instantaneous power in watts: positive charging, negative discharging.

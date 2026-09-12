@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.phonediagnostic.R
 import com.phonediagnostic.data.CpuInfo
+import com.phonediagnostic.ui.components.ElevatedTag
 import com.phonediagnostic.ui.components.InfoCard
 import com.phonediagnostic.ui.components.InfoRow
 
@@ -124,7 +125,9 @@ fun CpuScreen(
                                 String.format("%.0f MHz", avg)
                             )
                         }
-                    }
+                        // Shown only when the clocks needed elevated access to read.
+                        ElevatedTag(cpu.clockSource)
+}
                 }
             }
 

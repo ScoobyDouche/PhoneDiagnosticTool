@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.phonediagnostic.R
 import com.phonediagnostic.data.BatteryInfo
 import com.phonediagnostic.data.ThermalZone
+import com.phonediagnostic.ui.components.ElevatedTag
 import com.phonediagnostic.ui.components.InfoCard
 import com.phonediagnostic.ui.components.InfoRow
 import com.phonediagnostic.ui.components.UsageBar
@@ -216,6 +217,8 @@ fun BatteryScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        // Mark whichever figure was only readable via elevated access.
+                        ElevatedTag(battery.healthSource ?: battery.cycleSource)
                     }
                 }
             }

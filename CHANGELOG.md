@@ -23,6 +23,14 @@ Android project (`MAJOR.MINOR.PATCH`).
   that block it from apps) and **per-core CPU clocks / frequency range** on
   locked-down devices. Settings shows live status (installed / running /
   permission / root detected) and why a tier is or is not active.
+- **"Read via Shizuku / root" markers.** Any value that was only obtainable
+  through elevated access is tagged as such on the Battery and CPU screens, so
+  it is visible which readings the feature actually unlocked on your device.
+- **Aggregate `uevent` battery fallback.** When a device blocks the individual
+  fuel-gauge nodes but leaves `/sys/class/power_supply/*/uevent` readable (common
+  on Samsung), capacity health and charge cycles are parsed from that instead.
+  Cycles fall back to the kernel-standard `POWER_SUPPLY_CYCLE_COUNT` when the
+  Android 14 broadcast field is absent — which several vendors never populate.
 
 ### Notes
 - The feature is entirely opt-in and off by default; with neither Shizuku nor

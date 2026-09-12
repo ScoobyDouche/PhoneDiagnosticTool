@@ -102,6 +102,8 @@
     <string name="elevated_root_unavailable">No su binary found — this device does not appear to be rooted.</string>
     <string name="elevated_root_warning">Rooting can trip a hardware fuse (e.g. Samsung Knox) that permanently disables secure features, and may break banking and wallet apps. This is your call; the app only reads.</string>
     <string name="elevated_refresh">Refresh status</string>
+    <string name="elevated_source_shizuku">Read via Shizuku</string>
+    <string name="elevated_source_root">Read via root</string>
 
     <string name="settings_appearance_heading">Appearance</string>
     <string name="settings_about_link">About and privacy</string>
