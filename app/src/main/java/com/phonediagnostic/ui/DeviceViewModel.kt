@@ -18,6 +18,9 @@ import com.phonediagnostic.data.NetworkDetail
 import com.phonediagnostic.data.ProcessRamEntry
 import com.phonediagnostic.data.ThemeMode
 import com.phonediagnostic.data.UsageCollector
+import com.phonediagnostic.data.elevated.AccessTier
+import com.phonediagnostic.data.elevated.ElevatedAccessManager
+import com.phonediagnostic.data.elevated.ElevatedStatus
 import com.phonediagnostic.service.MonitorService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -62,6 +65,10 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val usageCollector = UsageCollector(appContext)
     private val log = DiagnosticLog.get(appContext)
     private val history = MetricHistory.get(appContext)
+    private val elevatedManager = ElevatedAccessManager(appContext)
+
+    /** Live view of what elevated access is available and active, for Settings. */
+    val elevatedStatus: StateFlow<ElevatedStatus> = elevatedManager.status
 
     private val _report = MutableStateFlow<FullDeviceReport?>(null)
     val report: StateFlow<FullDeviceReport?> = _report.asStateFlow()
@@ -159,6 +166,19 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
         if (prefs.backgroundMonitorEnabled) {
             MonitorService.start(appContext)
+        }
+
+        // Feed the collector whichever elevated shell is live, and re-collect
+        // once one becomes available so gated data (battery fuel gauge, per-core
+        // clocks) appears without the user having to hit refresh.
+        viewModelScope.launch {
+            elevatedManager.activeShell.collect { shell ->
+                val gained = collector.elevated == null && shell != null
+                collector.elevated = shell
+                if (gained && !_isRefreshing.value && !_loadTesting.value) {
+                    viewModelScope.launch(Dispatchers.Default) { runCollection(full = true) }
+                }
+            }
         }
     }
 
@@ -370,6 +390,21 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     fun setThemeMode(mode: ThemeMode) {
         prefs.themeMode = mode
         _themeMode.value = mode
+    }
+
+    // ------------------------------------------------------------ elevated access
+
+    fun setAccessTier(tier: AccessTier) {
+        elevatedManager.setPreferredTier(tier)
+    }
+
+    fun requestShizukuPermission() {
+        elevatedManager.requestShizukuPermission()
+    }
+
+    /** Re-check Shizuku/root state — e.g. after returning from the Shizuku app. */
+    fun refreshElevatedStatus() {
+        elevatedManager.refresh()
     }
 
     fun refreshLog() {

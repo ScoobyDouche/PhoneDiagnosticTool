@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows a practical semantic versioning scheme for a single-app
 Android project (`MAJOR.MINOR.PATCH`).
 
+## [1.2.0] — 2026-09-12
+
+### Added
+- **Optional elevated access (Shizuku or root).** A new *Elevated access* section
+  in Settings lets you opt into reading data the platform otherwise keeps behind
+  sysfs permissions an ordinary app cannot get. Three tiers:
+  - **Off** (default) — unchanged behaviour; nothing elevated is read.
+  - **Shizuku** — helper reads run as the shell user (UID 2000), the same reach
+    as `adb shell`. No root, nothing permanent to the device. Requires the
+    Shizuku app installed and started, and a one-tap grant.
+  - **Root** — reads run via `su`, reaching nodes even the shell user cannot.
+  The chosen backend is used only as a *fallback* when the direct read is denied,
+  so devices that already expose a node are unaffected. First consumers are the
+  **battery fuel gauge** (so the capacity-health percentage can appear on devices
+  that block it from apps) and **per-core CPU clocks / frequency range** on
+  locked-down devices. Settings shows live status (installed / running /
+  permission / root detected) and why a tier is or is not active.
+
+### Notes
+- The feature is entirely opt-in and off by default; with neither Shizuku nor
+  root present the app behaves exactly as before. Adds the Shizuku client API
+  and provider (`dev.rikka.shizuku`); no new runtime network use. Rooting can
+  trip a hardware fuse (e.g. Samsung Knox) and break banking/wallet apps — the
+  Settings copy says so, and the app only ever reads.
+
 ## [1.1.3] — 2026-09-05
 
 ### Security

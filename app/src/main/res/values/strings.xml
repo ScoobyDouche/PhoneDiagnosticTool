@@ -85,6 +85,24 @@
     <string name="settings_monitor_title">Keep monitoring</string>
     <string name="settings_monitor_description">Samples battery and RAM every 30s with a persistent notification. Log is capped at %1$d lines (oldest drop; ~0.5–1 MB full).</string>
     <string name="settings_tools_link">Tools · log and load test</string>
+
+    <string name="settings_elevated_heading">Elevated access</string>
+    <string name="settings_elevated_intro">Some readings — the battery fuel gauge, per-core clocks on locked-down devices — sit behind sysfs permissions this app cannot get on its own. Opt in to Shizuku or root and it reads them where the platform allows; leave it off and nothing changes.</string>
+    <string name="elevated_tier_off">Off</string>
+    <string name="elevated_tier_off_desc">Default. No elevated reads; the app uses only what any app can access.</string>
+    <string name="elevated_tier_shizuku">Shizuku</string>
+    <string name="elevated_tier_shizuku_desc">Runs helper reads as the shell user, the same reach as adb. No root, nothing permanent to the device.</string>
+    <string name="elevated_tier_root">Root (su)</string>
+    <string name="elevated_tier_root_desc">Reaches nodes even the shell user cannot. Requires a rooted device.</string>
+    <string name="elevated_active">Active — reading data the app otherwise cannot.</string>
+    <string name="elevated_shizuku_not_installed">Shizuku is not installed. Install and start the Shizuku app, then return here.</string>
+    <string name="elevated_shizuku_not_running">Shizuku is installed but not running. Start it from the Shizuku app or via adb, then refresh.</string>
+    <string name="elevated_shizuku_needs_permission">Shizuku is running. Grant this app access to turn it on.</string>
+    <string name="elevated_shizuku_grant">Grant Shizuku access</string>
+    <string name="elevated_root_unavailable">No su binary found — this device does not appear to be rooted.</string>
+    <string name="elevated_root_warning">Rooting can trip a hardware fuse (e.g. Samsung Knox) that permanently disables secure features, and may break banking and wallet apps. This is your call; the app only reads.</string>
+    <string name="elevated_refresh">Refresh status</string>
+
     <string name="settings_appearance_heading">Appearance</string>
     <string name="settings_about_link">About and privacy</string>
     <string name="theme_system">System default</string>

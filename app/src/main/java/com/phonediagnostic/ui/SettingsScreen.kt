@@ -31,9 +31,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.OutlinedButton
 import com.phonediagnostic.R
 import com.phonediagnostic.data.DiagnosticLog
 import com.phonediagnostic.data.ThemeMode
+import com.phonediagnostic.data.elevated.AccessTier
+import com.phonediagnostic.data.elevated.ElevatedStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,9 +44,13 @@ fun SettingsScreen(
     networkProbeEnabled: Boolean,
     backgroundMonitorEnabled: Boolean,
     themeMode: ThemeMode,
+    elevatedStatus: ElevatedStatus,
     onNetworkProbeChange: (Boolean) -> Unit,
     onBackgroundMonitorChange: (Boolean) -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
+    onAccessTierChange: (AccessTier) -> Unit,
+    onRequestShizuku: () -> Unit,
+    onRefreshElevated: () -> Unit,
     onBack: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenTools: () -> Unit,
@@ -182,6 +189,17 @@ fun SettingsScreen(
             HorizontalDivider()
             Box(modifier = Modifier.height(16.dp))
 
+            ElevatedAccessSection(
+                status = elevatedStatus,
+                onAccessTierChange = onAccessTierChange,
+                onRequestShizuku = onRequestShizuku,
+                onRefreshElevated = onRefreshElevated
+            )
+
+            Box(modifier = Modifier.height(16.dp))
+            HorizontalDivider()
+            Box(modifier = Modifier.height(16.dp))
+
             Text(
                 text = stringResource(R.string.settings_appearance_heading),
                 style = MaterialTheme.typography.titleMedium
@@ -229,6 +247,124 @@ fun SettingsScreen(
                     .clickable(onClick = onOpenAbout)
                     .padding(vertical = 12.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun ElevatedAccessSection(
+    status: ElevatedStatus,
+    onAccessTierChange: (AccessTier) -> Unit,
+    onRequestShizuku: () -> Unit,
+    onRefreshElevated: () -> Unit
+) {
+    Text(
+        text = stringResource(R.string.settings_elevated_heading),
+        style = MaterialTheme.typography.titleMedium
+    )
+    Box(modifier = Modifier.height(4.dp))
+    Text(
+        text = stringResource(R.string.settings_elevated_intro),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Box(modifier = Modifier.height(8.dp))
+
+    AccessTier.entries.forEach { tier ->
+        val selected = status.preferredTier == tier
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectable(
+                    selected = selected,
+                    onClick = { onAccessTierChange(tier) },
+                    role = Role.RadioButton
+                )
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(selected = selected, onClick = { onAccessTierChange(tier) })
+            Column(modifier = Modifier.padding(start = 8.dp)) {
+                Text(
+                    text = stringResource(
+                        when (tier) {
+                            AccessTier.NONE -> R.string.elevated_tier_off
+                            AccessTier.SHIZUKU -> R.string.elevated_tier_shizuku
+                            AccessTier.ROOT -> R.string.elevated_tier_root
+                        }
+                    ),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    text = stringResource(
+                        when (tier) {
+                            AccessTier.NONE -> R.string.elevated_tier_off_desc
+                            AccessTier.SHIZUKU -> R.string.elevated_tier_shizuku_desc
+                            AccessTier.ROOT -> R.string.elevated_tier_root_desc
+                        }
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+
+    // Live status for the chosen tier, so the user knows why it is or is not working.
+    when (status.preferredTier) {
+        AccessTier.NONE -> Unit
+        AccessTier.SHIZUKU -> {
+            val active = status.activeTier == AccessTier.SHIZUKU
+            val (msgRes, isError) = when {
+                active -> R.string.elevated_active to false
+                !status.shizukuInstalled -> R.string.elevated_shizuku_not_installed to true
+                !status.shizukuRunning -> R.string.elevated_shizuku_not_running to true
+                !status.shizukuPermission -> R.string.elevated_shizuku_needs_permission to false
+                else -> R.string.elevated_shizuku_needs_permission to false
+            }
+            Box(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(msgRes),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isError) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (status.shizukuRunning && !status.shizukuPermission) {
+                Box(modifier = Modifier.height(8.dp))
+                Button(onClick = onRequestShizuku) {
+                    Text(stringResource(R.string.elevated_shizuku_grant))
+                }
+            }
+        }
+        AccessTier.ROOT -> {
+            val active = status.activeTier == AccessTier.ROOT
+            Box(modifier = Modifier.height(4.dp))
+            if (active) {
+                Text(
+                    text = stringResource(R.string.elevated_active),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else if (!status.rootAvailable) {
+                Text(
+                    text = stringResource(R.string.elevated_root_unavailable),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+            Box(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.elevated_root_warning),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+
+    if (status.preferredTier != AccessTier.NONE) {
+        Box(modifier = Modifier.height(8.dp))
+        OutlinedButton(onClick = onRefreshElevated) {
+            Text(stringResource(R.string.elevated_refresh))
         }
     }
 }

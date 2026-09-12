@@ -24,6 +24,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+      Opt-in elevated access. This permission lets the app talk to the Shizuku
+      manager when the user has installed and started it; with no Shizuku
+      present it grants nothing and the feature stays off. Root, if chosen
+      instead, needs no manifest permission.
+    -->
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
 
     <application
         android:allowBackup="false"
@@ -68,6 +75,20 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+
+        <!--
+          Shizuku's provider. The manager binds through this to hand the app a
+          privileged binder; it is inert unless the user has Shizuku running and
+          grants this app access. Declared exactly as the Shizuku API requires.
+        -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"
+            tools:ignore="ExportedContentProvider" />
 
         <!-- Grants read access to a single exported report file, per share. -->
         <provider

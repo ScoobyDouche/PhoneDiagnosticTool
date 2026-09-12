@@ -23,6 +23,7 @@ import android.os.SystemClock
 import android.os.storage.StorageManager
 import android.hardware.display.DisplayManager
 import android.view.Display
+import com.phonediagnostic.data.elevated.ElevatedShell
 import java.util.Locale
 import java.io.BufferedReader
 import java.io.File
@@ -43,6 +44,28 @@ import kotlin.math.abs
 import kotlin.math.sqrt
 
 class DeviceInfoCollector(private val context: Context) {
+
+    /**
+     * Optional privileged reader. When the user has opted into Shizuku or root,
+     * the ViewModel sets this and the gated sysfs reads below fall through to it
+     * after the direct read is denied. Null — the default and the value in every
+     * background service — keeps collection on its normal no-elevation path.
+     */
+    @Volatile
+    var elevated: ElevatedShell? = null
+
+    /**
+     * Reads a sysfs file directly, then through elevated access if that is
+     * denied and available. Returns trimmed contents or null.
+     */
+    private fun readNode(path: String): String? {
+        val f = File(path)
+        if (runCatching { f.canRead() }.getOrDefault(false)) {
+            val direct = runCatching { f.readText().trim() }.getOrNull()
+            if (!direct.isNullOrBlank()) return direct
+        }
+        return elevated?.readFileOrNull(path)
+    }
 
     companion object {
         private const val LATENCY_HOST = "8.8.8.8"
@@ -244,12 +267,9 @@ class DeviceInfoCollector(private val context: Context) {
     private fun readCpuFrequenciesMhz(): List<Int> {
         val result = ArrayList<Int>()
         for (i in 0 until 16) {
-            val f = File("/sys/devices/system/cpu/cpu$i/cpufreq/scaling_cur_freq")
-            if (!f.canRead()) continue
-            try {
-                val khz = f.readText().trim().toLongOrNull() ?: continue
-                result.add((khz / 1000L).toInt())
-            } catch (_: Exception) {}
+            val khz = readNode("/sys/devices/system/cpu/cpu$i/cpufreq/scaling_cur_freq")
+                ?.toLongOrNull() ?: continue
+            result.add((khz / 1000L).toInt())
         }
         return result
     }
@@ -262,20 +282,14 @@ class DeviceInfoCollector(private val context: Context) {
             "/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq",
             "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_min_freq"
         )) {
-            try {
-                val f = File(p)
-                if (f.canRead()) { min = f.readText().trim().toLongOrNull(); if (min != null) break }
-            } catch (_: Exception) {}
+            min = readNode(p)?.toLongOrNull(); if (min != null) break
         }
         for (p in listOf(
             "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq",
             "/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq",
             "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_max_freq"
         )) {
-            try {
-                val f = File(p)
-                if (f.canRead()) { max = f.readText().trim().toLongOrNull(); if (max != null) break }
-            } catch (_: Exception) {}
+            max = readNode(p)?.toLongOrNull(); if (max != null) break
         }
         return Pair(min?.let { (it / 1000L).toInt() }, max?.let { (it / 1000L).toInt() })
     }
@@ -403,9 +417,7 @@ class DeviceInfoCollector(private val context: Context) {
             for (dir in BATTERY_SUPPLY_DIRS) {
                 for (name in names) {
                     try {
-                        val f = File(dir, name)
-                        if (!f.canRead()) continue
-                        val raw = f.readText().trim().toLongOrNull() ?: continue
+                        val raw = readNode("$dir/$name")?.toLongOrNull() ?: continue
                         if (raw <= 0L) continue
                         val mah = if (raw > 100_000L) (raw / 1000L).toInt() else raw.toInt()
                         if (mah in 100..30_000) return mah

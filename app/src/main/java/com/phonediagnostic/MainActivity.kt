@@ -45,6 +45,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -148,6 +149,7 @@ class MainActivity : ComponentActivity() {
                     val latencyStats by viewModel.latencyStats.collectAsStateWithLifecycle()
                     val latencyRunning by viewModel.latencyRunning.collectAsStateWithLifecycle()
                     val selectedSensor by viewModel.selectedSensor.collectAsStateWithLifecycle()
+                    val elevatedStatus by viewModel.elevatedStatus.collectAsStateWithLifecycle()
 
                     // Back used to leave the app from every detail screen. Intercept
                     // while there is somewhere to return to, and hold it entirely
@@ -261,10 +263,14 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                                 AppScreen.SETTINGS -> {
+                                    // Grants may have changed in the Shizuku app while we
+                                    // were away; recheck each time Settings comes up.
+                                    LaunchedEffect(Unit) { viewModel.refreshElevatedStatus() }
                                     SettingsScreen(
                                         networkProbeEnabled = networkProbe,
                                         backgroundMonitorEnabled = bgMonitor,
                                         themeMode = themeMode,
+                                        elevatedStatus = elevatedStatus,
                                         onNetworkProbeChange = { viewModel.setNetworkProbeEnabled(it) },
                                         onBackgroundMonitorChange = { enabled ->
                                             if (enabled) {
@@ -274,6 +280,9 @@ class MainActivity : ComponentActivity() {
                                             }
                                         },
                                         onThemeModeChange = { viewModel.setThemeMode(it) },
+                                        onAccessTierChange = { viewModel.setAccessTier(it) },
+                                        onRequestShizuku = { viewModel.requestShizukuPermission() },
+                                        onRefreshElevated = { viewModel.refreshElevatedStatus() },
                                         onBack = { viewModel.navigateBack() },
                                         onOpenAbout = { viewModel.openAbout() },
                                         onOpenTools = { viewModel.openTools() },

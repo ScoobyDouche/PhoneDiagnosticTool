@@ -1,6 +1,6 @@
 # Privacy Policy — Phone Diagnostic Tool
 
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-12
 
 Phone Diagnostic Tool is designed to be privacy-first.
 
@@ -47,6 +47,25 @@ it normally shows as hidden.
 When **Network latency check** is enabled (default on, can be turned off in Settings), the app measures TCP connect time to Google Public DNS at `8.8.8.8:53`. No DNS query payload beyond a TCP connect is required for this measurement, and no diagnostic report is uploaded.
 
 When the latency check is disabled, the app does not open network connections for diagnostics — including the repeat-probe button on the Network screen, which is unavailable while it is off.
+
+## Elevated access (optional, off by default)
+
+The app can optionally read a few extra hardware values — the battery fuel
+gauge, per-core CPU clocks on locked-down devices — that Android otherwise
+keeps behind sysfs permissions an ordinary app cannot get. This is **off by
+default** and only takes effect if you turn it on in Settings and choose a
+backend:
+
+- **Shizuku** — the app talks to the Shizuku manager (which you install and run
+  separately) to execute small read-only shell commands as the shell user. This
+  needs the `moe.shizuku.manager.permission.API_V23` permission and grants
+  nothing unless Shizuku is present and you approve this app inside it.
+- **Root** — the app runs the same read-only commands through `su`.
+
+In both cases the commands are limited to reading diagnostic values (e.g.
+`cat`-ing a sysfs node), the results are shown on-device exactly like every
+other reading, and **nothing about this is transmitted anywhere**. No elevated
+access is used, requested, or bound while the feature is set to Off.
 
 ## On-device storage
 
