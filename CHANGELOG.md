@@ -31,6 +31,13 @@ Android project (`MAJOR.MINOR.PATCH`).
   on Samsung), capacity health and charge cycles are parsed from that instead.
   Cycles fall back to the kernel-standard `POWER_SUPPLY_CYCLE_COUNT` when the
   Android 14 broadcast field is absent — which several vendors never populate.
+- **System-wide process list via elevated access.** With Shizuku (or root) the
+  RAM detail screen shows every running process from `dumpsys meminfo`, with
+  per-process CPU load from `dumpsys cpuinfo`, instead of the self-only view
+  Android's `hidepid` otherwise limits apps to. Tagged "Read via Shizuku / root".
+- **Thermal load-test mode.** A heavier CPU stress option that adds
+  transcendental math and strided memory thrashing on top of the FPU loop to
+  drive more heat, in addition to now running one worker per core.
 
 ### Fixed
 - **Multi-touch pad showed only the peak.** It now shows the live count of

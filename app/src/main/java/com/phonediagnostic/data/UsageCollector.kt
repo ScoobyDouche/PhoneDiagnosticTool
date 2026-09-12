@@ -10,16 +10,27 @@ import android.os.Build
 import android.os.Debug
 import android.os.Process
 import android.os.storage.StorageManager
+import com.phonediagnostic.data.elevated.ElevatedShell
 
 class UsageCollector(private val context: Context) {
 
     private val pm: PackageManager = context.packageManager
 
     /**
+     * Optional elevated reader. When set (Shizuku or root), the process list is
+     * gathered system-wide from dumpsys instead of the self-only view Android
+     * otherwise allows. Null keeps the normal behaviour.
+     */
+    @Volatile
+    var elevated: ElevatedShell? = null
+
+    /**
      * Android hides other apps' process memory. We always report *this* app accurately
      * via Debug.MemoryInfo + getProcessMemoryInfo(myPid), then any other visible processes.
+     * With elevated access we can instead read the whole process table from dumpsys.
      */
     fun collectProcessRam(): List<ProcessRamEntry> {
+        collectProcessRamElevated()?.let { if (it.isNotEmpty()) return it }
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val byPid = LinkedHashMap<Int, ProcessRamEntry>()
 
@@ -155,6 +166,77 @@ class UsageCollector(private val context: Context) {
         }
 
         return result.sortedByDescending { it.totalBytes }
+    }
+
+    // ------------------------------------------------------------ elevated path
+
+    private data class PssEntry(val name: String, val pssKb: Long)
+
+    /**
+     * System-wide process memory (and CPU where available) via dumpsys, run
+     * through the elevated shell. Returns null when no elevated access is set or
+     * the output could not be parsed, so the caller falls back to the self view.
+     */
+    private fun collectProcessRamElevated(): List<ProcessRamEntry>? {
+        val shell = elevated ?: return null
+        val meminfo = shell.exec("dumpsys meminfo") ?: return null
+        val pss = parseMeminfoPss(meminfo)
+        if (pss.isEmpty()) return null
+        val cpu = shell.exec("dumpsys cpuinfo")?.let { parseCpuinfo(it) } ?: emptyMap()
+        val sourceName = shell.tier.name
+        return pss.map { (pid, entry) ->
+            ProcessRamEntry(
+                pid = pid,
+                processName = entry.name,
+                appLabel = labelForProcess(entry.name),
+                importance = "",
+                pssMb = entry.pssKb / 1024f,
+                cpuPercent = cpu[pid],
+                elevatedSource = sourceName
+            )
+        }.sortedByDescending { it.pssMb }
+    }
+
+    /** Parses the "Total PSS by process:" block of `dumpsys meminfo`. */
+    private fun parseMeminfoPss(text: String): Map<Int, PssEntry> {
+        val out = LinkedHashMap<Int, PssEntry>()
+        var inSection = false
+        for (line in text.lineSequence()) {
+            if (!inSection) {
+                if (line.trimStart().startsWith("Total PSS by process")) inSection = true
+                continue
+            }
+            val trimmed = line.trim()
+            // The block ends at a blank line or the next "Total … by" header.
+            if (trimmed.isEmpty()) break
+            val m = PSS_LINE.find(line)
+            if (m == null) {
+                if (trimmed.startsWith("Total ")) break else continue
+            }
+            val pssKb = m.groupValues[1].replace(",", "").toLongOrNull() ?: continue
+            val pid = m.groupValues[3].toIntOrNull() ?: continue
+            out[pid] = PssEntry(m.groupValues[2].trim(), pssKb)
+        }
+        return out
+    }
+
+    /** Parses per-process CPU percentages from `dumpsys cpuinfo`. */
+    private fun parseCpuinfo(text: String): Map<Int, Float> {
+        val out = HashMap<Int, Float>()
+        for (line in text.lineSequence()) {
+            val m = CPU_LINE.find(line) ?: continue
+            val pct = m.groupValues[1].toFloatOrNull() ?: continue
+            val pid = m.groupValues[2].toIntOrNull() ?: continue
+            out[pid] = pct
+        }
+        return out
+    }
+
+    private companion object {
+        // "  445,876K: com.foo (pid 3990 / activities)"
+        val PSS_LINE = Regex("""^\s*([\d,]+)K:\s+(.+?)\s+\(pid (\d+)""")
+        // "  12% 1234/com.foo: 4% user + 8% kernel"
+        val CPU_LINE = Regex("""^\s*([\d.]+)%\s+(\d+)/(\S+?):""")
     }
 
     private fun labelForProcess(processName: String): String {

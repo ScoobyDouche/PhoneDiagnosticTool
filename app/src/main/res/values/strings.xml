@@ -253,6 +253,8 @@
     <string name="tools_load_test_title">Load test</string>
     <string name="tools_load_test_body">CPU stress test. Phone may warm up and drain battery. Live stats update while running.</string>
     <string name="tools_duration_min">%1$d min</string>
+    <string name="tools_thermal_title">Thermal mode (heavier)</string>
+    <string name="tools_thermal_desc">Adds transcendental math and memory thrashing on top of the FPU loop, to push more heat. Not comparable to the standard score.</string>
     <string name="tools_last_result">Last result</string>
     <string name="tools_score_line">%1$sk ops/s across %2$d threads</string>
     <string name="tools_hardware_title">Hardware checks</string>
@@ -400,6 +402,8 @@
     <string name="ram_system_memory">System memory</string>
     <string name="ram_available_threshold">Available %1$d MB · Threshold %2$d MB</string>
     <string name="ram_processes_heading">Processes (limited by Android privacy)</string>
+    <string name="ram_processes_heading_all">Processes (all, system-wide)</string>
+    <string name="ram_all_processes">Every running process, sorted by memory (PSS), with CPU load where reported.</string>
     <string name="ram_privacy_blocked">Android blocks other apps process memory on modern versions. Dashboard totals are still accurate.</string>
     <string name="ram_only_this_app">Usually only this app appears — not a full task manager.</string>
     <string name="ram_sorted_pss">Sorted by memory (PSS).</string>

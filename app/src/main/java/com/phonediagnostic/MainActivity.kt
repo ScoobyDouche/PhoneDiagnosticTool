@@ -335,8 +335,8 @@ class MainActivity : ComponentActivity() {
                                         onRefreshLog = { viewModel.refreshLog() },
                                         onClearLog = { viewModel.clearLog() },
                                         onShareLog = { shareLog() },
-                                        onRunLoadTest = { durationSec ->
-                                            viewModel.runLoadTest(durationSec)
+                                        onRunLoadTest = { durationSec, thermal ->
+                                            viewModel.runLoadTest(durationSec, thermal)
                                         }
                                     )
                                 }

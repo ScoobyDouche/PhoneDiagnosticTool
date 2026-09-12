@@ -11,6 +11,7 @@ import com.phonediagnostic.data.FullDeviceReport
 import com.phonediagnostic.data.LatencyStats
 import com.phonediagnostic.data.LoadTestProgress
 import com.phonediagnostic.data.LoadTestResult
+import com.phonediagnostic.data.LoadMode
 import com.phonediagnostic.data.LoadTester
 import com.phonediagnostic.data.MetricHistory
 import com.phonediagnostic.data.MetricSample
@@ -175,6 +176,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
             elevatedManager.activeShell.collect { shell ->
                 val gained = collector.elevated == null && shell != null
                 collector.elevated = shell
+                usageCollector.elevated = shell
                 if (gained && !_isRefreshing.value && !_loadTesting.value) {
                     viewModelScope.launch(Dispatchers.Default) { runCollection(full = true) }
                 }
@@ -418,13 +420,14 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     // ----------------------------------------------------------------- load test
 
-    fun runLoadTest(durationSec: Int) {
+    fun runLoadTest(durationSec: Int, thermal: Boolean = false) {
         if (_loadTesting.value) return
         viewModelScope.launch(Dispatchers.Default) {
             _loadTesting.value = true
             _loadProgress.value = null
             try {
-                log.append("Load test starting (${durationSec / 60} min)")
+                val modeLabel = if (thermal) "thermal" else "standard"
+                log.append("Load test starting ($modeLabel, ${durationSec / 60} min)")
                 refreshLog()
                 val result = LoadTester.run(
                     context = appContext,
@@ -432,6 +435,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                     // One worker per core, so the test actually saturates the
                     // whole CPU instead of a hardcoded half of it.
                     threads = Runtime.getRuntime().availableProcessors().coerceAtLeast(1),
+                    mode = if (thermal) LoadMode.THERMAL else LoadMode.STANDARD,
                     onProgress = { progress ->
                         _loadProgress.value = progress
                     }

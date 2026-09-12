@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.phonediagnostic.R
 import com.phonediagnostic.data.MemoryInfo
 import com.phonediagnostic.data.ProcessRamEntry
+import com.phonediagnostic.ui.components.ElevatedTag
 import com.phonediagnostic.ui.components.UsageBar
 import java.util.Locale
 
@@ -128,8 +129,12 @@ fun RamDetailScreen(
             }
 
             item {
+                val systemWide = entries?.firstOrNull()?.elevatedSource != null
                 Text(
-                    text = stringResource(R.string.ram_processes_heading),
+                    text = stringResource(
+                        if (systemWide) R.string.ram_processes_heading_all
+                        else R.string.ram_processes_heading
+                    ),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 8.dp)
@@ -162,16 +167,18 @@ fun RamDetailScreen(
 
                 else -> {
                     val rows = entries
+                    val elevatedSource = rows.firstOrNull()?.elevatedSource
                     item {
                         Text(
-                            text = if (rows.size <= 2) {
-                                stringResource(R.string.ram_only_this_app)
-                            } else {
-                                stringResource(R.string.ram_sorted_pss)
+                            text = when {
+                                elevatedSource != null -> stringResource(R.string.ram_all_processes)
+                                rows.size <= 2 -> stringResource(R.string.ram_only_this_app)
+                                else -> stringResource(R.string.ram_sorted_pss)
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        ElevatedTag(elevatedSource)
                     }
                     items(
                         items = rows,
@@ -233,16 +240,27 @@ private fun ProcessRow(row: ProcessRamEntry) {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
-                    text = row.importance,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                if (row.importance.isNotBlank()) {
+                    Text(
+                        text = row.importance,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
-            Text(
-                text = String.format(Locale.US, "%.1f MB", row.pssMb),
-                fontWeight = FontWeight.Medium
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = String.format(Locale.US, "%.1f MB", row.pssMb),
+                    fontWeight = FontWeight.Medium
+                )
+                row.cpuPercent?.let { cpu ->
+                    Text(
+                        text = String.format(Locale.US, "CPU %.1f%%", cpu),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }

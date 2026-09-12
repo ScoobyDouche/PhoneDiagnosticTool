@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -82,12 +83,13 @@ fun ToolsScreen(
     onRefreshLog: () -> Unit,
     onClearLog: () -> Unit,
     onShareLog: () -> Unit,
-    onRunLoadTest: (durationSec: Int) -> Unit
+    onRunLoadTest: (durationSec: Int, thermal: Boolean) -> Unit
 ) {
     val listState = rememberLazyListState()
     val context = LocalContext.current
     var maxPointers by remember { mutableIntStateOf(0) }
     var currentPointers by remember { mutableIntStateOf(0) }
+    var thermalMode by remember { mutableStateOf(false) }
     var storageTesting by remember { mutableStateOf(false) }
     var storageResult by remember { mutableStateOf<StorageSpeedResult?>(null) }
     var storageError by remember { mutableStateOf<String?>(null) }
@@ -206,6 +208,28 @@ fun ToolsScreen(
                         } else {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.tools_thermal_title),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.tools_thermal_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = thermalMode,
+                                    onCheckedChange = { thermalMode = it },
+                                    enabled = !loadTesting
+                                )
+                            }
+                            Box(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 val durations = LoadTester.ALLOWED_DURATIONS_SEC
@@ -216,13 +240,13 @@ fun ToolsScreen(
                                     )
                                     if (index == durations.lastIndex) {
                                         Button(
-                                            onClick = { onRunLoadTest(seconds) },
+                                            onClick = { onRunLoadTest(seconds, thermalMode) },
                                             modifier = Modifier.weight(1f),
                                             enabled = !loadTesting
                                         ) { Text(label) }
                                     } else {
                                         OutlinedButton(
-                                            onClick = { onRunLoadTest(seconds) },
+                                            onClick = { onRunLoadTest(seconds, thermalMode) },
                                             modifier = Modifier.weight(1f),
                                             enabled = !loadTesting
                                         ) { Text(label) }
