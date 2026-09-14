@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows a practical semantic versioning scheme for a single-app
 Android project (`MAJOR.MINOR.PATCH`).
 
-## [Unreleased]
+## [1.2.1] — 2026-09-14
 
 ### Fixed
 - **"App was denied access" when granting Usage Access.** Android 13+ treats Usage
@@ -16,6 +16,11 @@ Android project (`MAJOR.MINOR.PATCH`).
   on Android 13+) and spells out the *App info → ⋮ → Allow restricted settings*
   step, with a button that opens this app's App info page directly. README covers
   the same steps for anyone hitting it before opening the app.
+- **Both CI workflows were failing before they built anything.**
+  `android-actions/setup-android` defaults to installing `tools platform-tools`,
+  and Google has withdrawn the obsolete `tools` package, so `sdkmanager` exited
+  non-zero on every run — the release workflow included. They now ask for the
+  packages the project actually builds against.
 
 ## [1.2.0] — 2026-09-12
 
