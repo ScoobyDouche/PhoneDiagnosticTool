@@ -138,6 +138,7 @@ class MainActivity : ComponentActivity() {
                     val appStorage by viewModel.appStorage.collectAsStateWithLifecycle()
                     val appStorageLoading by viewModel.appStorageLoading.collectAsStateWithLifecycle()
                     val hasUsageStats by viewModel.hasUsageStats.collectAsStateWithLifecycle()
+                    val usageAccessRestricted by viewModel.usageAccessRestricted.collectAsStateWithLifecycle()
                     val logLines by viewModel.logLines.collectAsStateWithLifecycle()
                     val loadTesting by viewModel.loadTesting.collectAsStateWithLifecycle()
                     val loadProgress by viewModel.loadProgress.collectAsStateWithLifecycle()
@@ -315,6 +316,7 @@ class MainActivity : ComponentActivity() {
                                         entries = appStorage,
                                         isLoading = appStorageLoading,
                                         hasPermission = hasUsageStats,
+                                        usageAccessRestricted = usageAccessRestricted,
                                         onBack = { viewModel.navigateBack() },
                                         onRefresh = {
                                             viewModel.refreshNow()

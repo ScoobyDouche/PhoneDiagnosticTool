@@ -489,6 +489,8 @@
     <string name="storage_usage_access_title">Usage access for per-app sizes</string>
     <string name="storage_usage_access_body">Overall storage works without this. Grant access to see which apps use space.</string>
     <string name="storage_open_usage_access">Open Usage Access</string>
+    <string name="storage_restricted_setting_title">Toggle blocked? (\"App was denied access\")</string>
+    <string name="storage_restricted_setting_body">Android blocks this permission for apps installed outside the Play Store until you unblock it: App info → ⋮ (top right) → Allow restricted settings, then come back and turn on Usage Access.</string>
     <string name="storage_no_app_data">No per-app storage data.</string>
     <string name="storage_try_again">Try again</string>
     <string name="storage_measured">Measured across apps</string>

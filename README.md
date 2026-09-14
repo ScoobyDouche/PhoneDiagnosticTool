@@ -51,6 +51,21 @@ Allow install from unknown sources when prompted.
 
 Debug CI builds use a fixed keystore so they install over each other. **Store / production** builds use a separate release key when configured (see [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)).
 
+### Usage Access is blocked after a sideload install
+
+On Android 13 and newer, the per-app storage breakdown needs **Usage Access**, and
+Android treats that permission as a *restricted setting* for apps installed outside
+the Play Store. Flipping the toggle shows **"App was denied access"** until the app
+is unblocked:
+
+1. **Settings → Apps → Phone Diagnostic**
+2. **⋮** (top right) → **Allow restricted settings** (confirm with PIN / biometrics)
+3. Back in the app: **Storage → Open Usage Access**, then turn the toggle on
+
+Overall volume sizes work without this; only the per-app breakdown needs it.
+If the menu item is missing, reinstall the APK with a file manager or
+`adb install` and try again — some installers do not surface it.
+
 **CI artifacts** — Actions → **Build APK** → latest green run:
 
 | Artifact | Contents |

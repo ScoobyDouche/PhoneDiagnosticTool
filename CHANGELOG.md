@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows a practical semantic versioning scheme for a single-app
 Android project (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Fixed
+- **"App was denied access" when granting Usage Access.** Android 13+ treats Usage
+  Access as a restricted setting for apps installed outside the Play Store, so the
+  toggle refuses to turn on until the app is unblocked in App info. The storage
+  screen now detects that case (installed by something other than the Play Store,
+  on Android 13+) and spells out the *App info → ⋮ → Allow restricted settings*
+  step, with a button that opens this app's App info page directly. README covers
+  the same steps for anyone hitting it before opening the app.
+
 ## [1.2.0] — 2026-09-12
 
 ### Added
