@@ -120,6 +120,9 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val _hasUsageStats = MutableStateFlow(usageCollector.hasUsageStatsPermission())
     val hasUsageStats: StateFlow<Boolean> = _hasUsageStats.asStateFlow()
 
+    private val _usageAccessRestricted = MutableStateFlow(usageCollector.mayNeedRestrictedSettingUnblock())
+    val usageAccessRestricted: StateFlow<Boolean> = _usageAccessRestricted.asStateFlow()
+
     private val _logLines = MutableStateFlow(log.snapshot())
     val logLines: StateFlow<List<String>> = _logLines.asStateFlow()
 
@@ -352,6 +355,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     fun refreshUsagePermission() {
         _hasUsageStats.value = usageCollector.hasUsageStatsPermission()
+        _usageAccessRestricted.value = usageCollector.mayNeedRestrictedSettingUnblock()
     }
 
     fun refreshHistory() {

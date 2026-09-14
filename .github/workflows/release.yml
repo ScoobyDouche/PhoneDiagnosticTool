@@ -133,6 +133,10 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Same reason as build-apk.yml: the action's default "tools" package
+          # no longer exists in the SDK repository, so the default list fails.
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4

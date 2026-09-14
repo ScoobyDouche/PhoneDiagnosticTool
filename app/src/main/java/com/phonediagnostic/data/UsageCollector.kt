@@ -123,6 +123,27 @@ class UsageCollector(private val context: Context) {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
+    /**
+     * Android 13+ blocks the Usage Access toggle for apps that were not installed
+     * through a session-based installer it trusts ("Restricted setting"). The user
+     * sees "App was denied access" with no way forward from the Usage Access screen
+     * itself — the unblock lives in App info → ⋮ → Allow restricted settings.
+     *
+     * We cannot query that state, so we infer it: on 13+ an app installed by
+     * anything other than the Play Store is the case where that dialog appears.
+     * Used only to decide whether to show the extra hint, so a false positive
+     * costs one line of guidance.
+     */
+    fun mayNeedRestrictedSettingUnblock(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+        val installer = try {
+            pm.getInstallSourceInfo(context.packageName).installingPackageName
+        } catch (_: Exception) {
+            null
+        }
+        return installer !in TRUSTED_INSTALLERS
+    }
+
     fun collectAppStorage(): List<AppStorageEntry> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return emptyList()
         if (!hasUsageStatsPermission()) return emptyList()
@@ -222,5 +243,10 @@ class UsageCollector(private val context: Context) {
             ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE -> "Gone"
             else -> "Other"
         }
+    }
+
+    private companion object {
+        /** Installers whose apps Android does not put behind the restricted-setting gate. */
+        val TRUSTED_INSTALLERS = setOf("com.android.vending")
     }
 }

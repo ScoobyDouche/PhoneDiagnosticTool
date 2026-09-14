@@ -35,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -49,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,6 +84,7 @@ fun StorageDetailScreen(
     entries: List<AppStorageEntry>?,
     isLoading: Boolean,
     hasPermission: Boolean,
+    usageAccessRestricted: Boolean,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onRequestPermission: () -> Unit,
@@ -182,6 +185,7 @@ fun StorageDetailScreen(
 
             appCleanupItems(
                 hasPermission = hasPermission,
+                usageAccessRestricted = usageAccessRestricted,
                 isLoading = isLoading,
                 entries = entries,
                 filter = filter,
@@ -189,6 +193,7 @@ fun StorageDetailScreen(
                 onQueryChange = { query = it },
                 onFilterChange = { filter = it },
                 onRequestPermission = onRequestPermission,
+                onOpenAppInfo = onOpenAppInfo,
                 onRefresh = onRefresh,
                 onSelect = { selected = it }
             )
@@ -315,6 +320,7 @@ fun StorageDetailScreen(
 
 private fun LazyListScope.appCleanupItems(
     hasPermission: Boolean,
+    usageAccessRestricted: Boolean,
     isLoading: Boolean,
     entries: List<AppStorageEntry>?,
     filter: StorageFilter,
@@ -322,6 +328,7 @@ private fun LazyListScope.appCleanupItems(
     onQueryChange: (String) -> Unit,
     onFilterChange: (StorageFilter) -> Unit,
     onRequestPermission: () -> Unit,
+    onOpenAppInfo: (String) -> Unit,
     onRefresh: () -> Unit,
     onSelect: (AppStorageEntry) -> Unit
 ) {
@@ -348,6 +355,25 @@ private fun LazyListScope.appCleanupItems(
                     Box(modifier = Modifier.height(12.dp))
                     Button(onClick = onRequestPermission) {
                         Text(text = stringResource(R.string.storage_open_usage_access))
+                    }
+                    if (usageAccessRestricted) {
+                        val context = LocalContext.current
+                        Box(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = stringResource(R.string.storage_restricted_setting_title),
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Box(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.storage_restricted_setting_body),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Box(modifier = Modifier.height(8.dp))
+                        OutlinedButton(onClick = { onOpenAppInfo(context.packageName) }) {
+                            Text(text = stringResource(R.string.storage_open_app_info))
+                        }
                     }
                 }
             }
