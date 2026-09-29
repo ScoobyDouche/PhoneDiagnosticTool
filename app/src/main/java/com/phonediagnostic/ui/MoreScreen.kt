@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material3.Card
@@ -51,6 +52,7 @@ fun MoreScreen(
     onOpenStorage: () -> Unit,
     onOpenNetwork: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenThermals: () -> Unit,
     onOpenTools: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAbout: () -> Unit,
@@ -85,13 +87,80 @@ fun MoreScreen(
                 )
             }
 
+            // ── Diagnostics ──────────────────────────────────────────────
             item {
-                Text(
-                    text = stringResource(R.string.more_section_report),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                SectionHeader(stringResource(R.string.more_section_diagnostics))
+            }
+            item {
+                MoreLink(
+                    icon = Icons.Outlined.Memory,
+                    title = stringResource(R.string.more_ram),
+                    subtitle = report?.memory?.let {
+                        "${it.usedRamMb} / ${it.totalRamMb} MB"
+                    } ?: stringResource(R.string.more_ram_sub_fallback),
+                    onClick = onOpenRam
                 )
+            }
+            item {
+                MoreLink(
+                    icon = Icons.Filled.Storage,
+                    title = stringResource(R.string.more_storage),
+                    subtitle = report?.storage?.let {
+                        stringResource(R.string.more_storage_free, it.freeInternalGb)
+                    } ?: stringResource(R.string.more_storage_sub_fallback),
+                    onClick = onOpenStorage
+                )
+            }
+            item {
+                MoreLink(
+                    icon = Icons.Filled.Wifi,
+                    title = stringResource(R.string.more_network),
+                    subtitle = report?.network?.let {
+                        stringResource(R.string.more_network_sub, it.networkType)
+                    } ?: stringResource(R.string.more_network_sub_fallback),
+                    onClick = onOpenNetwork
+                )
+            }
+            item {
+                MoreLink(
+                    icon = Icons.Filled.Thermostat,
+                    title = stringResource(R.string.more_thermals),
+                    subtitle = report?.thermals?.let { zones ->
+                        if (zones.isEmpty()) stringResource(R.string.more_thermals_none)
+                        else stringResource(R.string.more_thermals_count, zones.size)
+                    } ?: stringResource(R.string.more_thermals_sub_fallback),
+                    onClick = onOpenThermals
+                )
+            }
+            item {
+                MoreLink(
+                    icon = Icons.AutoMirrored.Filled.ShowChart,
+                    title = stringResource(R.string.more_history),
+                    subtitle = if (historySamples > 0) {
+                        stringResource(R.string.more_history_samples, historySamples)
+                    } else {
+                        stringResource(R.string.more_history_fallback)
+                    },
+                    onClick = onOpenHistory
+                )
+            }
+
+            // ── Hardware tests ───────────────────────────────────────────
+            item {
+                SectionHeader(stringResource(R.string.more_section_tests))
+            }
+            item {
+                MoreLink(
+                    icon = Icons.Filled.Build,
+                    title = stringResource(R.string.more_tools),
+                    subtitle = stringResource(R.string.more_tools_sub),
+                    onClick = onOpenTools
+                )
+            }
+
+            // ── Report ───────────────────────────────────────────────────
+            item {
+                SectionHeader(stringResource(R.string.more_section_report))
             }
             item {
                 MoreLink(
@@ -172,63 +241,9 @@ fun MoreScreen(
                 )
             }
 
+            // ── App ──────────────────────────────────────────────────────
             item {
-                Text(
-                    text = stringResource(R.string.more_section_details),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Outlined.Memory,
-                    title = stringResource(R.string.more_ram),
-                    subtitle = report?.memory?.let {
-                        "${it.usedRamMb} / ${it.totalRamMb} MB"
-                    } ?: stringResource(R.string.more_ram_sub_fallback),
-                    onClick = onOpenRam
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.Storage,
-                    title = stringResource(R.string.more_storage),
-                    subtitle = report?.storage?.let {
-                        stringResource(R.string.more_storage_free, it.freeInternalGb)
-                    } ?: stringResource(R.string.more_storage_sub_fallback),
-                    onClick = onOpenStorage
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.Wifi,
-                    title = stringResource(R.string.more_network),
-                    subtitle = report?.network?.let {
-                        stringResource(R.string.more_network_sub, it.networkType)
-                    } ?: stringResource(R.string.more_network_sub_fallback),
-                    onClick = onOpenNetwork
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.AutoMirrored.Filled.ShowChart,
-                    title = stringResource(R.string.more_history),
-                    subtitle = if (historySamples > 0) {
-                        stringResource(R.string.more_history_samples, historySamples)
-                    } else {
-                        stringResource(R.string.more_history_fallback)
-                    },
-                    onClick = onOpenHistory
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.Build,
-                    title = stringResource(R.string.more_tools),
-                    subtitle = stringResource(R.string.more_tools_sub),
-                    onClick = onOpenTools
-                )
+                SectionHeader(stringResource(R.string.more_section_app))
             }
             item {
                 MoreLink(
@@ -248,6 +263,16 @@ fun MoreScreen(
             }
         }
     }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+    )
 }
 
 @Composable
