@@ -146,13 +146,27 @@ data class StorageInfo(
     val emulatedExternal: Boolean = false
 )
 
+/**
+ * Display panel characteristics. All fields are best-effort from public APIs;
+ * missing values stay at sensible defaults so older call sites remain valid.
+ */
 data class DisplayInfo(
     val widthPx: Int,
     val heightPx: Int,
     val densityDpi: Int,
     val density: Float,
     val refreshRate: Float,
-    val screenSizeInches: Double
+    val screenSizeInches: Double,
+    /** Supported refresh rates in Hz when the panel reports them (API 23+). */
+    val supportedRefreshRatesHz: List<Float> = emptyList(),
+    /** True when the display reports HDR capability. */
+    val hdrSupported: Boolean = false,
+    /** Current HDR mode name when available, otherwise empty. */
+    val hdrType: String = "",
+    /** Human-readable orientation (portrait / landscape / ...). */
+    val orientation: String = "",
+    /** Approximate physical diagonal in inches already computed; kept for clarity. */
+    val name: String = "Primary"
 )
 
 data class NetworkInfo(
@@ -253,6 +267,50 @@ data class ThermalZone(
     val type: String = ""
 )
 
+/**
+ * Passive NFC status. Uses NfcAdapter when present; never requests extra
+ * permissions and never starts discovery.
+ */
+data class NfcInfo(
+    val present: Boolean = false,
+    val enabled: Boolean = false,
+    val summary: String = "Not available"
+)
+
+/**
+ * Passive Bluetooth status. Best-effort; may be limited without the
+ * BLUETOOTH_CONNECT permission on newer Android versions.
+ */
+data class BluetoothInfo(
+    val present: Boolean = false,
+    val enabled: Boolean = false,
+    val name: String = "",
+    val address: String = "",
+    val summary: String = "Not available"
+)
+
+/**
+ * Basic audio routing / device presence. No recording or playback is performed
+ * during collection.
+ */
+data class AudioInfo(
+    val outputDevices: List<String> = emptyList(),
+    val inputDevices: List<String> = emptyList(),
+    val summary: String = ""
+)
+
+/**
+ * Read-only security / boot surface. All values are best-effort from public
+ * properties or Settings; nothing is written and no identifiers are collected.
+ */
+data class SecurityInfo(
+    val verifiedBootState: String = "",
+    val selinuxStatus: String = "",
+    val encryptionStatus: String = "",
+    val bootloaderUnlocked: String = "",
+    val summary: String = ""
+)
+
 data class FullDeviceReport(
     val overview: DeviceOverview,
     val cpu: CpuInfo,
@@ -264,5 +322,9 @@ data class FullDeviceReport(
     val network: NetworkInfo,
     val sensors: List<SensorEntry> = emptyList(),
     val cameras: List<CameraEntry> = emptyList(),
-    val thermals: List<ThermalZone> = emptyList()
+    val thermals: List<ThermalZone> = emptyList(),
+    val nfc: NfcInfo = NfcInfo(),
+    val bluetooth: BluetoothInfo = BluetoothInfo(),
+    val audio: AudioInfo = AudioInfo(),
+    val security: SecurityInfo = SecurityInfo()
 )
