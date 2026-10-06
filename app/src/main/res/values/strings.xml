@@ -134,6 +134,8 @@
     <string name="section_network">Network</string>
     <string name="section_storage">Storage</string>
     <string name="section_display">Display</string>
+    <string name="section_connectivity">Connectivity &amp; audio</string>
+    <string name="section_security">Security</string>
 
     <string name="label_manufacturer">Manufacturer</string>
     <string name="label_model">Model</string>
@@ -186,11 +188,11 @@
     <string name="battery_watts_charging">%1$.2f W in</string>
     <string name="battery_watts_discharging">%1$.2f W out</string>
     <string name="tools_storage_title">Storage speed</string>
-    <string name="tools_storage_body">Writes and reads back a %1$d MB file in the app cache, then deletes it. Sequential throughput, not random access.</string>
+    <string name="tools_storage_body">Writes and reads back a %1$d MB file in the app cache, then deletes it. Sequential throughput, not random access. The file was only just written, so the read figure can include memory cache and run higher than the flash itself.</string>
     <string name="tools_storage_run">Run storage test</string>
     <string name="tools_storage_running">Testing…</string>
     <string name="tools_storage_write">Write</string>
-    <string name="tools_storage_read">Read</string>
+    <string name="tools_storage_read">Read (may be cached)</string>
     <string name="tools_storage_mbps">%1$.1f MB/s</string>
     <string name="tools_storage_no_space">Not enough free space to run the test (%1$d MB free).</string>
     <string name="tools_storage_failed">Storage test failed: %1$s</string>
@@ -208,6 +210,22 @@
     <string name="label_density">Density</string>
     <string name="label_refresh_rate">Refresh Rate</string>
     <string name="label_approx_size">Approx. Size</string>
+    <string name="label_supported_rates">Supported rates</string>
+    <string name="label_hdr">HDR</string>
+    <string name="label_wide_gamut">Wide colour gamut</string>
+    <string name="label_nfc">NFC</string>
+    <string name="label_bluetooth">Bluetooth</string>
+    <string name="label_audio_out">Audio out</string>
+    <string name="label_audio_in">Audio in</string>
+    <string name="label_verified_boot">Verified boot</string>
+    <string name="label_bootloader_lock">Bootloader lock</string>
+    <string name="label_encryption">Encryption</string>
+    <string name="none">None</string>
+    <string name="radio_on">On</string>
+    <string name="radio_off">Off</string>
+    <string name="radio_absent">Not present</string>
+    <string name="bootloader_locked">Locked</string>
+    <string name="bootloader_unlocked">Unlocked</string>
 
     <!-- More screen -->
     <string name="more_title">More</string>
