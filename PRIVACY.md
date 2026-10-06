@@ -20,6 +20,9 @@ The app reads standard Android system APIs on-device to show:
 - CPU / GPU / memory / storage / display metrics
 - Battery status
 - Network type and (if enabled) latency
+- Whether NFC and Bluetooth are present and switched on (never the Bluetooth
+  name or address), and which kinds of audio device are connected
+- Verified-boot, bootloader-lock and encryption state, where Android exposes it
 
 That information stays on your phone unless **you** choose to share or export a report.
 

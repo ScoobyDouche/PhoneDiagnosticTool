@@ -63,8 +63,10 @@ object StorageSpeedTester {
             }
             coroutineContext.ensureActive()
 
-            // Drop our own page-cache residency as far as an unprivileged app
-            // can: reopen, and read into a fresh buffer.
+            // Reopening and reading into a fresh buffer is as far as an
+            // unprivileged app can go: it cannot drop the kernel page cache,
+            // so much of this file may still be in RAM and the read figure is
+            // an upper bound. The UI labels it as such.
             val readBuf = ByteArray(CHUNK_BYTES)
             val readNs = measureNanoTime {
                 RandomAccessFile(file, "r").use { raf ->

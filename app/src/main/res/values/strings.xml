@@ -1,1 +1,545 @@
-SEE_LOCAL_FILE
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Phone Diagnostic</string>
+    <string name="app_full_name">Phone Diagnostic Tool</string>
+
+    <!-- Shared -->
+    <string name="action_back">Back</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="state_paused">Paused</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="details_chevron">Details ›</string>
+    <string name="history_chevron">History ›</string>
+    <string name="unknown">Unknown</string>
+    <string name="unavailable">Unavailable</string>
+    <string name="none_reported">None reported.</string>
+    <string name="action_cancel">Cancel</string>
+
+    <!-- Bottom navigation -->
+    <string name="tab_overview">Overview</string>
+    <string name="tab_cpu">CPU</string>
+    <string name="tab_battery">Battery</string>
+    <string name="tab_sensors">Sensors</string>
+    <string name="tab_more">More</string>
+
+    <!-- Sharing, saving and clipboard -->
+    <string name="report_subject">Phone Diagnostic Report</string>
+    <string name="report_subject_json">Phone Diagnostic Report (JSON)</string>
+    <string name="log_subject">Phone Diagnostic Log</string>
+    <string name="chooser_share_report">Share diagnostic report</string>
+    <string name="chooser_share_json">Share JSON report</string>
+    <string name="chooser_share_log">Share diagnostic log</string>
+    <string name="chooser_share_file">Share report file</string>
+    <string name="toast_no_report_yet">No report collected yet</string>
+    <string name="toast_log_empty">Log is empty</string>
+    <string name="toast_no_share_app">No app available to share with</string>
+    <string name="toast_no_file_picker">No file picker available</string>
+    <string name="toast_report_saved">Report saved</string>
+    <string name="toast_report_copied">Report copied</string>
+    <string name="toast_clipboard_unavailable">Clipboard unavailable</string>
+    <string name="toast_no_browser">No browser installed — link copied to clipboard</string>
+    <string name="toast_prepare_file_failed">Could not prepare file: %1$s</string>
+    <string name="toast_save_failed">Save failed: %1$s</string>
+    <string name="error_open_selected_file">Could not open the selected file</string>
+
+    <!-- System screens we hand the user off to -->
+    <string name="toast_notification_permission_needed">Notification permission needed for background monitor</string>
+    <string name="toast_no_usage_access_settings">Could not open Usage Access settings</string>
+    <string name="toast_no_app_info">Could not open app info</string>
+    <string name="toast_no_uninstall">Could not start uninstall</string>
+
+    <!-- Background monitor notification -->
+    <string name="monitor_notification_title">Diagnostics monitoring</string>
+    <string name="monitor_notification_text">Sampling battery and RAM · fixed log</string>
+    <string name="monitor_action_stop">Stop</string>
+    <string name="monitor_channel_name">Background monitor</string>
+    <string name="monitor_channel_description">Shows while diagnostic sampling is active</string>
+
+    <!-- About -->
+    <string name="about_title">About</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_summary">On-device hardware and system diagnostics for Android. No accounts. No analytics SDKs.</string>
+    <string name="about_privacy_heading">Privacy</string>
+    <string name="about_privacy_body">Diagnostics run on your device. The optional network latency check opens a short TCP connection to 8.8.8.8:53 and does not upload reports. You can turn it off in Settings. Full policy: PRIVACY.md in the repository.</string>
+    <string name="about_license_heading">License</string>
+    <string name="about_license_body">MIT License. See LICENSE in the project repository.</string>
+    <string name="about_source_heading">Source</string>
+    <string name="about_source_url">github.com/ScoobyDouche/PhoneDiagnosticTool</string>
+    <!--
+      The display string above is deliberately scheme-less because it reads
+      better on screen, so it cannot be handed to ACTION_VIEW as-is: Uri.parse
+      on a scheme-less string yields a relative URI that resolves to nothing.
+      This is the one that gets opened.
+    -->
+    <string name="about_source_link" translatable="false">https://github.com/ScoobyDouche/PhoneDiagnosticTool</string>
+    <!-- Announced by screen readers as "double tap to <this>". -->
+    <string name="about_source_action">open the source repository in a browser</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_privacy_heading">Privacy and network</string>
+    <string name="settings_latency_title">Network latency check</string>
+    <string name="settings_latency_description">When on, measures TCP connect time to 8.8.8.8:53. No report is uploaded.</string>
+    <string name="settings_background_heading">Background</string>
+    <string name="settings_monitor_title">Keep monitoring</string>
+    <string name="settings_monitor_description">Samples battery and RAM every 30s with a persistent notification. Log is capped at %1$d lines (oldest drop; ~0.5–1 MB full).</string>
+    <string name="settings_tools_link">Tools · log and load test</string>
+
+    <string name="settings_elevated_heading">Elevated access</string>
+    <string name="settings_elevated_intro">Some readings — the battery fuel gauge, per-core clocks on locked-down devices — sit behind sysfs permissions this app cannot get on its own. Opt in to Shizuku or root and it reads them where the platform allows; leave it off and nothing changes.</string>
+    <string name="elevated_tier_off">Off</string>
+    <string name="elevated_tier_off_desc">Default. No elevated reads; the app uses only what any app can access.</string>
+    <string name="elevated_tier_shizuku">Shizuku</string>
+    <string name="elevated_tier_shizuku_desc">Runs helper reads as the shell user, the same reach as adb. No root, nothing permanent to the device.</string>
+    <string name="elevated_tier_root">Root (su)</string>
+    <string name="elevated_tier_root_desc">Reaches nodes even the shell user cannot. Requires a rooted device.</string>
+    <string name="elevated_active">Active — reading data the app otherwise cannot.</string>
+    <string name="elevated_shizuku_not_installed">Shizuku is not installed. Install and start the Shizuku app, then return here.</string>
+    <string name="elevated_shizuku_not_running">Shizuku is installed but not running. Start it from the Shizuku app or via adb, then refresh.</string>
+    <string name="elevated_shizuku_needs_permission">Shizuku is running. Grant this app access to turn it on.</string>
+    <string name="elevated_shizuku_grant">Grant Shizuku access</string>
+    <string name="elevated_root_unavailable">No su binary found — this device does not appear to be rooted.</string>
+    <string name="elevated_root_warning">Rooting can trip a hardware fuse (e.g. Samsung Knox) that permanently disables secure features, and may break banking and wallet apps. This is your call; the app only reads.</string>
+    <string name="elevated_refresh">Refresh status</string>
+    <string name="elevated_source_shizuku">Read via Shizuku</string>
+    <string name="elevated_source_root">Read via root</string>
+
+    <string name="settings_appearance_heading">Appearance</string>
+    <string name="settings_about_link">About and privacy</string>
+    <string name="theme_system">System default</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+
+    <!-- Dashboard / Overview -->
+    <string name="dashboard_title">Overview</string>
+    <string name="dashboard_live_status">Live · %1$s</string>
+    <string name="dashboard_paused_status">Paused · %1$s</string>
+    <string name="dashboard_pause_cd">Pause live updates</string>
+    <string name="dashboard_resume_cd">Resume live updates</string>
+    <string name="dashboard_collecting">Collecting device info…</string>
+    <string name="dashboard_pull_to_refresh">Pull down to refresh</string>
+    <string name="dashboard_error_title">Couldn’t load diagnostics</string>
+    <string name="dashboard_try_again">Try again</string>
+    <string name="dashboard_live_badge">● LIVE</string>
+    <string name="dashboard_paused_badge">○ PAUSED</string>
+    <string name="dashboard_live_hint">Updates every 3s · Pull to full refresh</string>
+    <string name="dashboard_paused_hint">Tap play to resume</string>
+    <string name="dashboard_footer">Use bottom tabs for CPU · Battery · Sensors\nNetwork, history, sharing and settings are under More · v%1$s</string>
+
+    <string name="section_device">Device</string>
+    <string name="section_gpu">GPU</string>
+    <string name="section_memory">Memory (RAM) · Live</string>
+    <string name="section_trends">Trends</string>
+    <string name="section_network">Network</string>
+    <string name="section_storage">Storage</string>
+    <string name="section_display">Display</string>
+    <string name="section_connectivity">Connectivity &amp; audio</string>
+    <string name="section_security">Security</string>
+
+    <string name="label_manufacturer">Manufacturer</string>
+    <string name="label_model">Model</string>
+    <string name="label_brand">Brand</string>
+    <string name="label_android">Android</string>
+    <string name="label_security_patch">Security Patch</string>
+    <string name="label_build_id">Build ID</string>
+    <string name="label_board">Board</string>
+    <string name="label_bootloader">Bootloader</string>
+    <string name="label_hardware">Hardware</string>
+    <string name="label_build_type">Build type</string>
+    <string name="label_uptime">Uptime</string>
+    <string name="label_kernel">Kernel</string>
+    <string name="label_radio">Radio</string>
+    <string name="label_fingerprint">Fingerprint</string>
+    <string name="label_renderer">Renderer</string>
+    <string name="label_vendor">Vendor</string>
+    <string name="label_version">Version</string>
+    <string name="label_in_use">In use (incl. cache)</string>
+    <string name="label_available">Available</string>
+    <string name="label_low_mem_threshold">Low-mem threshold</string>
+    <string name="label_pressure">Pressure</string>
+    <string name="pressure_yes">Yes — freeing caches</string>
+    <string name="pressure_no">No</string>
+    <string name="trends_body">Battery, temperature and RAM over time, from samples this app records while it runs.</string>
+    <string name="label_connection">Connection</string>
+    <string name="connection_connected">Connected</string>
+    <string name="connection_disconnected">Disconnected</string>
+    <string name="label_type">Type</string>
+    <string name="label_latency">Latency</string>
+    <string name="label_target">Target</string>
+    <string name="label_status">Status</string>
+    <string name="label_link_bandwidth">Link bandwidth</string>
+    <string name="label_validated">Validated</string>
+    <string name="label_metered">Metered</string>
+    <string name="label_internal_data">Internal data</string>
+    <string name="label_free">Free</string>
+    <string name="label_used">Used</string>
+    <string name="label_power_draw">Power</string>
+    <string name="label_capacity_health">Capacity health</string>
+    <string name="label_full_charge">Full charge</string>
+    <string name="battery_section_health">Battery health</string>
+    <string name="battery_health_percent">%1$d%% of design</string>
+    <string name="battery_health_of">%1$d of %2$d mAh</string>
+    <string name="battery_health_unavailable">No wear data available. Android keeps the state-of-health percentage as a system API, so ordinary apps cannot read it, and this device does not expose its fuel-gauge capacity either. Charge cycles need Android 14 or newer.</string>
+    <string name="battery_health_no_percent">Charge cycles are available, but this device does not expose the fuel-gauge capacity a wear percentage needs.</string>
+    <string name="label_cycle_count">Charge cycles</string>
+    <string name="battery_cycles_note">Full charge cycles since the battery was new. Most phone batteries are rated to hold roughly 80%% of their capacity for 500 to 1000 cycles.</string>
+    <string name="battery_health_note">Compares the charge the battery accepts now against its factory rating. Read from the fuel gauge, not estimated.</string>
+    <string name="battery_watts_charging">%1$.2f W in</string>
+    <string name="battery_watts_discharging">%1$.2f W out</string>
+    <string name="tools_storage_title">Storage speed</string>
+    <string name="tools_storage_body">Writes and reads back a %1$d MB file in the app cache, then deletes it. Sequential throughput, not random access. The file was only just written, so the read figure can include memory cache and run higher than the flash itself.</string>
+    <string name="tools_storage_run">Run storage test</string>
+    <string name="tools_storage_running">Testing…</string>
+    <string name="tools_storage_write">Write</string>
+    <string name="tools_storage_read">Read (may be cached)</string>
+    <string name="tools_storage_mbps">%1$.1f MB/s</string>
+    <string name="tools_storage_no_space">Not enough free space to run the test (%1$d MB free).</string>
+    <string name="tools_storage_failed">Storage test failed: %1$s</string>
+    <string name="tile_subtitle">%1$s°C · RAM %2$d%%</string>
+    <string name="settings_tile_heading">Quick Settings</string>
+    <string name="settings_tile_title">Add the tile</string>
+    <string name="settings_tile_description">Puts battery temperature and RAM use in the notification shade.</string>
+    <string name="settings_tile_add">Add to Quick Settings</string>
+    <string name="settings_tile_manual">Pull the shade fully down, tap the edit (pencil) button, then drag Phone Diagnostic up from the inactive tiles at the bottom.</string>
+    <string name="toast_tile_request_failed">Could not open the tile prompt. Add it from the shade edit screen instead.</string>
+    <string name="label_volumes">Volumes</string>
+    <string name="label_external">External</string>
+    <string name="external_emulated">Emulated (%1$s)</string>
+    <string name="label_resolution">Resolution</string>
+    <string name="label_density">Density</string>
+    <string name="label_refresh_rate">Refresh Rate</string>
+    <string name="label_approx_size">Approx. Size</string>
+    <string name="label_supported_rates">Supported rates</string>
+    <string name="label_hdr">HDR</string>
+    <string name="label_wide_gamut">Wide colour gamut</string>
+    <string name="label_nfc">NFC</string>
+    <string name="label_bluetooth">Bluetooth</string>
+    <string name="label_audio_out">Audio out</string>
+    <string name="label_audio_in">Audio in</string>
+    <string name="label_verified_boot">Verified boot</string>
+    <string name="label_bootloader_lock">Bootloader lock</string>
+    <string name="label_encryption">Encryption</string>
+    <string name="none">None</string>
+    <string name="radio_on">On</string>
+    <string name="radio_off">Off</string>
+    <string name="radio_absent">Not present</string>
+    <string name="bootloader_locked">Locked</string>
+    <string name="bootloader_unlocked">Unlocked</string>
+
+    <!-- More screen -->
+    <string name="more_title">More</string>
+    <string name="more_intro">CPU, Battery, and Sensors are in the bottom tabs. Everything else is organised below.</string>
+    <string name="more_section_diagnostics">Diagnostics</string>
+    <string name="more_section_tests">Hardware tests</string>
+    <string name="more_section_app">App</string>
+    <string name="more_thermals">Thermals</string>
+    <string name="more_thermals_sub_fallback">Temperature zones</string>
+    <string name="more_thermals_none">No readable zones</string>
+    <string name="more_thermals_count">%1$d zones</string>
+    <string name="more_section_report">Report</string>
+    <string name="more_section_details">Details and tools</string>
+    <string name="more_share_text">Share as text</string>
+    <string name="more_share_text_sub">Plain-text diagnostic report</string>
+    <string name="more_share_json">Share as JSON</string>
+    <string name="more_share_json_sub">Machine-readable export</string>
+    <string name="more_share_file">Share as file</string>
+    <string name="more_share_file_sub">Send a .txt attachment — survives long reports</string>
+    <string name="more_save_txt">Save as .txt</string>
+    <string name="more_save_txt_sub">Choose where to save it</string>
+    <string name="more_save_json">Save as .json</string>
+    <string name="more_save_json_sub">Machine-readable file</string>
+    <string name="more_copy_text">Copy text</string>
+    <string name="more_copy_text_sub">Copy report to clipboard</string>
+    <string name="more_collect_first">Collect a report first</string>
+    <string name="more_ram">RAM detail</string>
+    <string name="more_ram_sub_fallback">Process memory</string>
+    <string name="more_storage">Storage</string>
+    <string name="more_storage_sub_fallback">Volumes and apps</string>
+    <string name="more_storage_free">%1$.1f GB free</string>
+    <string name="more_network">Network</string>
+    <string name="more_network_sub">%1$s · addresses, DNS, latency</string>
+    <string name="more_network_sub_fallback">Addresses, DNS, latency</string>
+    <string name="more_history">History</string>
+    <string name="more_history_samples">%1$d samples · battery, temp, RAM</string>
+    <string name="more_history_fallback">Battery, temperature and RAM trends</string>
+    <string name="more_tools">Tools</string>
+    <string name="more_tools_sub">Load test, display, vibrate, log</string>
+    <string name="more_settings">Settings</string>
+    <string name="more_settings_sub">Theme, monitor, network probe</string>
+    <string name="more_about">About</string>
+    <string name="more_about_sub">v%1$s · privacy-first</string>
+
+    <!-- Tools screen -->
+    <string name="tools_title">Tools</string>
+    <string name="tools_share_log_cd">Share log</string>
+    <string name="tools_refresh_log_cd">Refresh log</string>
+    <string name="tools_clear_log_cd">Clear log</string>
+    <string name="tools_load_test_title">Load test</string>
+    <string name="tools_load_test_body">CPU stress test. Phone may warm up and drain battery. Live stats update while running.</string>
+    <string name="tools_duration_min">%1$d min</string>
+    <string name="tools_thermal_title">Thermal mode (heavier)</string>
+    <string name="tools_thermal_desc">Adds transcendental math and memory thrashing on top of the FPU loop, to push more heat. Not comparable to the standard score.</string>
+    <string name="tools_last_result">Last result</string>
+    <string name="tools_score_line">%1$sk ops/s across %2$d threads</string>
+    <string name="tools_hardware_title">Hardware checks</string>
+    <string name="tools_hardware_body">Quick on-device tests. No data leaves the phone.</string>
+    <string name="tools_vibrate">Vibrate</string>
+    <string name="tools_tone">Tone</string>
+    <string name="tools_display">Display</string>
+    <string name="tools_multitouch_label">Multi-touch: put fingers on the pad below</string>
+    <string name="tools_touch_here">Touch here</string>
+    <string name="tools_live_fingers">Fingers down: %1$d</string>
+    <string name="tools_max_fingers">Max: %1$d</string>
+    <string name="tools_display_hint">%1$s\nTap to cycle · Back to exit</string>
+    <string name="color_red">Red</string>
+    <string name="color_green">Green</string>
+    <string name="color_blue">Blue</string>
+    <string name="color_white">White</string>
+    <string name="color_black">Black</string>
+    <string name="color_cyan">Cyan</string>
+    <string name="color_magenta">Magenta</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="tools_log_title">Rotating log</string>
+    <string name="tools_log_count">%1$d / %2$d</string>
+    <string name="tools_log_body">Max ~0.5–1 MB when full. Oldest lines drop. Background monitor adds a line every 30s.</string>
+    <string name="tools_log_empty">Log is empty. Enable background monitor in Settings or run a load test.</string>
+    <string name="tools_live_stats">Live stats</string>
+    <string name="tools_metric_ram">RAM used</string>
+    <string name="tools_metric_battery">Battery</string>
+    <string name="tools_metric_temp">Temperature</string>
+    <string name="tools_metric_ops">CPU ops</string>
+    <string name="tools_metric_ops_sec">Ops / sec</string>
+    <string name="tools_metric_threads">Threads</string>
+    <string name="tools_threads_active">%1$d active</string>
+    <string name="tools_load_hint">Keep this screen open. UI may feel slower under full CPU load.</string>
+
+    <!-- Network screen -->
+    <string name="network_title">Network</string>
+    <string name="network_section_connection">Connection</string>
+    <string name="label_state">State</string>
+    <string name="label_transport">Transport</string>
+    <string name="label_interface">Interface</string>
+    <string name="network_section_wifi">Wi-Fi</string>
+    <string name="label_network_name">Network</string>
+    <string name="label_band">Band</string>
+    <string name="label_frequency">Frequency</string>
+    <string name="label_link_speed">Link speed</string>
+    <string name="label_tx_rate">Tx rate</string>
+    <string name="label_rx_rate">Rx rate</string>
+    <string name="label_signal">Signal</string>
+    <string name="network_section_cellular">Cellular</string>
+    <string name="label_carrier">Carrier</string>
+    <string name="label_sim_operator">SIM operator</string>
+    <string name="label_country">Country</string>
+    <string name="label_roaming">Roaming</string>
+    <string name="network_section_latency">Latency</string>
+    <string name="network_latency_off">The latency check is switched off in Settings. Nothing on this screen contacts the network while it is off.</string>
+    <string name="label_samples">Samples</string>
+    <string name="label_min">Min</string>
+    <string name="label_average">Average</string>
+    <string name="label_max">Max</string>
+    <string name="label_jitter">Jitter</string>
+    <string name="label_loss">Loss</string>
+    <string name="label_error">Error</string>
+    <string name="label_last_single_probe">Last single probe</string>
+    <string name="network_latency_burst_hint">Run a burst of probes to see spread and packet loss.</string>
+    <string name="network_run_probes">Run 5 probes</string>
+    <string name="network_measuring">Measuring…</string>
+    <string name="network_section_dns">DNS</string>
+    <string name="network_no_dns">No DNS servers reported for the active network.</string>
+    <string name="label_server_n">Server %1$d</string>
+    <string name="label_private_dns">Private DNS</string>
+    <string name="private_dns_on_named">On - %1$s</string>
+    <string name="private_dns_on_auto">On - automatic</string>
+    <string name="private_dns_off">Off</string>
+    <string name="label_search_domains">Search domains</string>
+    <string name="network_section_capabilities">Capabilities</string>
+    <string name="network_interfaces_header">Interfaces (%1$d)</string>
+    <string name="interface_fallback">Interface</string>
+    <string name="label_description">Description</string>
+    <string name="state_up">Up</string>
+    <string name="state_down">Down</string>
+    <string name="label_mtu">MTU</string>
+    <string name="label_address">Address</string>
+    <string name="network_privacy_note">Addresses are read from this device interfaces. Nothing here is uploaded. MAC addresses are not shown — Android randomises them per network anyway.</string>
+
+    <!-- Battery screen -->
+    <string name="battery_title">Battery</string>
+    <string name="battery_live_status">Live · every 3s</string>
+    <string name="battery_collecting">Collecting battery info…</string>
+    <string name="battery_section_charge">Charge</string>
+    <string name="label_level">Level</string>
+    <string name="label_power_source">Power source</string>
+    <string name="label_health">Health</string>
+    <string name="label_technology">Technology</string>
+    <string name="battery_section_electrical">Electrical</string>
+    <string name="label_temperature">Temperature</string>
+    <string name="label_voltage">Voltage</string>
+    <string name="label_current_now">Current (now)</string>
+    <string name="label_current_avg">Current (avg)</string>
+    <string name="label_design_capacity">Design capacity</string>
+    <string name="label_charge_counter">Charge counter</string>
+    <string name="battery_trends_body">Charge level and temperature over time.</string>
+    <string name="battery_section_thermals">Thermals</string>
+    <string name="thermals_all_zones">All zones ›</string>
+    <string name="label_zones">Zones</string>
+    <string name="thermals_none">No readable zones on this device</string>
+    <string name="thermals_tap_all">Tap for all %1$d zones</string>
+
+    <!-- CPU screen -->
+    <string name="cpu_title">CPU / SoC</string>
+    <string name="cpu_live_status">Live · freqs every 3s</string>
+    <string name="cpu_collecting">Collecting CPU info…</string>
+    <string name="cpu_section_processor">Processor</string>
+    <string name="label_processor">Processor</string>
+    <string name="label_board_platform">Board / Platform</string>
+    <string name="label_architecture">Architecture</string>
+    <string name="label_cores">Cores</string>
+    <string name="label_abis">ABIs</string>
+    <string name="cpu_section_freq_range">Frequency range</string>
+    <string name="label_min_max">Min – Max</string>
+    <string name="label_average_online">Average (online)</string>
+    <string name="cpu_section_live_clocks">Live core clocks</string>
+    <string name="cpu_freqs_unavailable">Current frequencies not exposed via /sys on this device.</string>
+    <string name="cpu_core_n">Core %1$d</string>
+
+    <!-- Sensors screen -->
+    <string name="sensors_title">Sensors and cameras</string>
+    <string name="sensors_summary">%1$d sensors · %2$d cameras</string>
+    <string name="sensors_hint">Tap a sensor to stream it live. No extra permissions required.</string>
+    <string name="sensors_section_cameras">Cameras</string>
+    <string name="sensors_section_sensors">Sensors</string>
+    <string name="sensors_empty">No sensors reported by SensorManager.</string>
+    <string name="label_power">Power</string>
+    <string name="label_max_range">Max range</string>
+    <string name="label_min_delay">Min delay</string>
+    <string name="sensors_live_prefix">Live: %1$s</string>
+    <string name="camera_title">Camera %1$s · %2$s</string>
+    <string name="label_hardware_level">Hardware level</string>
+    <string name="label_pixel_array">Pixel array</string>
+    <string name="label_orientation">Orientation</string>
+    <string name="label_focal_lengths">Focal lengths</string>
+    <string name="label_aperture">Aperture</string>
+
+    <!-- RAM detail -->
+    <string name="ram_title">RAM usage</string>
+    <string name="ram_system_memory">System memory</string>
+    <string name="ram_available_threshold">Available %1$d MB · Threshold %2$d MB</string>
+    <string name="ram_processes_heading">Processes (limited by Android privacy)</string>
+    <string name="ram_processes_heading_all">Processes (all, system-wide)</string>
+    <string name="ram_all_processes">Every running process, sorted by memory (PSS), with CPU load where reported.</string>
+    <string name="ram_privacy_blocked">Android blocks other apps process memory on modern versions. Dashboard totals are still accurate.</string>
+    <string name="ram_only_this_app">Usually only this app appears — not a full task manager.</string>
+    <string name="ram_sorted_pss">Sorted by memory (PSS).</string>
+    <string name="ram_idle_high">~%1$d%% RAM while idle is usually fine</string>
+    <string name="ram_how_android">How Android uses RAM</string>
+    <string name="ram_explainer">Android keeps recently used apps in RAM so they reopen fast. That counts as used even when you are not actively using them. Watch Available and whether Pressure says Yes — not just the %% bar.</string>
+
+    <!-- History -->
+    <string name="history_title">History</string>
+    <string name="history_clear_title">Clear history?</string>
+    <string name="history_clear_body">Removes all %1$d stored samples. This cannot be undone.</string>
+    <string name="history_clear_confirm">Clear</string>
+    <string name="history_refresh_cd">Refresh history</string>
+    <string name="history_clear_cd">Clear history</string>
+    <string name="history_chart_battery">Battery</string>
+    <string name="history_chart_temp">Battery temperature</string>
+    <string name="history_chart_ram">RAM in use</string>
+    <string name="history_range_pct">%1$s - low %2$d%% / high %3$d%%</string>
+    <string name="history_range_temp">%1$s - low %2$.1f C / high %3$.1f C</string>
+    <string name="history_section_samples">Samples</string>
+    <string name="label_stored">Stored</string>
+    <string name="label_oldest">Oldest</string>
+    <string name="label_newest">Newest</string>
+    <string name="label_covers">Covers</string>
+    <string name="label_charging_now">Charging now</string>
+    <string name="label_background_monitor">Background monitor</string>
+    <string name="history_monitor_on">On - samples every 30s</string>
+    <string name="history_monitor_off">Off</string>
+    <string name="history_note">Samples are recorded while the app is open, and every 30s when the background monitor is on. Kept on this device only.</string>
+    <string name="history_empty_title">No samples yet</string>
+    <string name="history_empty_monitor_on">The background monitor is on. Trends appear after a few samples.</string>
+    <string name="history_empty_monitor_off">Keep the app open for a minute, or turn on the background monitor in Settings to collect samples while it is closed.</string>
+    <string name="history_span_single">single sample</string>
+    <string name="history_span_under_minute">under a minute</string>
+    <string name="history_span_minutes">%1$d min</string>
+    <string name="history_span_hours">%1$dh</string>
+    <string name="history_span_hours_minutes">%1$dh %2$dm</string>
+
+    <!-- Thermals detail -->
+    <string name="thermals_title">Thermals</string>
+    <string name="thermals_live_status">Live · updating every 3s</string>
+    <string name="thermals_zones_count">%1$d thermal zones from /sys/class/thermal</string>
+    <string name="thermals_sorted_hint">Sorted hottest first. Values depend on vendor sysfs (no root).</string>
+    <string name="thermals_range">Range: %1$.1f – %2$.1f °C</string>
+    <string name="thermals_empty">No readable thermal zones. Some devices restrict /sys/class/thermal without root.</string>
+
+    <!-- Sensor detail -->
+    <string name="sensor_detail_fallback">Sensor</string>
+    <string name="sensor_streaming">Streaming live</string>
+    <string name="sensor_pause_cd">Pause stream</string>
+    <string name="sensor_resume_cd">Resume stream</string>
+    <string name="sensor_unavailable">That sensor is no longer available on this device.</string>
+    <string name="sensor_current_reading">Current reading</string>
+    <string name="sensor_waiting">Waiting for the first event. Some sensors only report when the value actually changes.</string>
+    <string name="sensor_paused">Paused.</string>
+    <string name="label_events">Events</string>
+    <string name="label_accuracy">Accuracy</string>
+    <string name="sensor_last_samples">Last %1$d samples</string>
+    <string name="sensor_min_max">min %1$.3f   max %2$.3f</string>
+    <string name="sensor_section_meta">Sensor</string>
+    <string name="sensor_on_change">On change</string>
+    <string name="sensor_min_delay_us">%1$d us</string>
+    <string name="sensor_power_ma">%1$.2f mA</string>
+    <string name="sensor_stop_note">Sampling stops as soon as you leave this screen.</string>
+    <string name="accuracy_high">High</string>
+    <string name="accuracy_medium">Medium</string>
+    <string name="accuracy_low">Low</string>
+    <string name="accuracy_unreliable">Unreliable</string>
+    <string name="accuracy_no_contact">No contact</string>
+    <string name="accuracy_not_reported">Not reported</string>
+    <string name="label_value_n">Value %1$d</string>
+
+    <!-- Storage detail -->
+    <string name="storage_title">Storage</string>
+    <string name="storage_other_volumes">Other volumes</string>
+    <string name="storage_loading">Loading storage…</string>
+    <string name="storage_apps">Apps</string>
+    <string name="storage_uninstall">Uninstall…</string>
+    <string name="storage_uninstall_title">Uninstall %1$s?</string>
+    <string name="storage_uninstall_body">Removes the app and its data (%1$s data + %2$s cache).</string>
+    <string name="storage_uninstall_hint">If unsure, cancel and clear cache instead.</string>
+    <string name="storage_uninstall_confirm">Uninstall</string>
+    <string name="storage_usage_access_title">Usage access for per-app sizes</string>
+    <string name="storage_usage_access_body">Overall storage works without this. Grant access to see which apps use space.</string>
+    <string name="storage_open_usage_access">Open Usage Access</string>
+    <string name="storage_restricted_setting_title">Toggle blocked? (\"App was denied access\")</string>
+    <string name="storage_restricted_setting_body">Android blocks this permission for apps installed outside the Play Store until you unblock it: App info → ⋮ (top right) → Allow restricted settings, then come back and turn on Usage Access.</string>
+    <string name="storage_no_app_data">No per-app storage data.</string>
+    <string name="storage_try_again">Try again</string>
+    <string name="storage_measured">Measured across apps</string>
+    <string name="storage_totals">%1$s total · %2$s cache</string>
+    <string name="storage_safe_caches">~%1$s in large caches (safe to clear)</string>
+    <string name="storage_search">Search apps</string>
+    <string name="storage_search_hint">Name or package</string>
+    <string name="storage_nothing_matches">Nothing matches.</string>
+    <string name="storage_internal">Internal storage</string>
+    <string name="storage_state">State: %1$s</string>
+    <string name="storage_filter_safe">Safe cache</string>
+    <string name="storage_filter_mine">My apps</string>
+    <string name="storage_filter_large">Large</string>
+    <string name="storage_filter_all">All</string>
+    <string name="storage_filter_hint_safe">Large cache (≥50 MB). Clear cache is usually safe.</string>
+    <string name="storage_filter_hint_mine">Apps you installed.</string>
+    <string name="storage_filter_hint_large">≥500 MB total.</string>
+    <string name="storage_filter_hint_all">All apps. Prefer clear cache over uninstall.</string>
+    <string name="storage_clear_cache">Clear cache in App info (recommended)</string>
+    <string name="storage_open_app_info">Open App info</string>
+    <string name="storage_risk_safe">Safe: large cache</string>
+    <string name="storage_risk_review">Review before uninstall</string>
+    <string name="storage_risk_system">System app</string>
+    <string name="storage_app_breakdown">App %1$s · Data %2$s · Cache %3$s</string>
+    <string name="storage_gb_used">%1$.1f / %2$.1f GB</string>
+    <string name="storage_gb_free">%1$.1f GB free</string>
+</resources>

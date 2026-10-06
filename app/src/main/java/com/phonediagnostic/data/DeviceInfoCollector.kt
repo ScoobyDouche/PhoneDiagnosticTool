@@ -1,15 +1,21 @@
 package com.phonediagnostic.data
 
 import android.app.ActivityManager
+import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import android.nfc.NfcAdapter
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
@@ -21,6 +27,7 @@ import android.os.Environment
 import android.os.StatFs
 import android.os.SystemClock
 import android.os.storage.StorageManager
+import android.provider.Settings
 import android.hardware.display.DisplayManager
 import android.view.Display
 import com.phonediagnostic.data.elevated.AccessTier
@@ -124,7 +131,11 @@ class DeviceInfoCollector(private val context: Context) {
             network = collectNetwork(networkProbe),
             sensors = collectSensors(live = sampleSensors),
             cameras = collectCameras(),
-            thermals = collectThermals()
+            thermals = collectThermals(),
+            nfc = collectNfc(),
+            bluetooth = collectBluetooth(),
+            audio = collectAudio(),
+            security = collectSecurity()
         )
     }
 
@@ -146,7 +157,11 @@ class DeviceInfoCollector(private val context: Context) {
             },
             // Keep the previously captured readings when we are not re-sampling.
             sensors = if (sampleSensors) collectSensors(live = true) else previous.sensors,
-            thermals = collectThermals()
+            thermals = collectThermals(),
+            // Cheap, and the user may toggle a radio or plug in headphones mid-session.
+            nfc = collectNfc(),
+            bluetooth = collectBluetooth(),
+            audio = collectAudio()
         )
     }
 
@@ -610,6 +625,7 @@ class DeviceInfoCollector(private val context: Context) {
      * whatever the current window happens to occupy, which is what a
      * diagnostics readout should show.
      */
+    @Suppress("DEPRECATION") // HdrCapabilities.supportedHdrTypes; see below.
     private fun collectDisplay(): DisplayInfo {
         val metrics = context.resources.displayMetrics
         val display = try {
@@ -632,13 +648,146 @@ class DeviceInfoCollector(private val context: Context) {
         val wIn = widthPx / xdpi.toDouble()
         val hIn = heightPx / ydpi.toDouble()
 
+        // Modes at other resolutions would list rates the user cannot get
+        // without also changing resolution, so keep only the current one's.
+        val rates = try {
+            display?.supportedModes.orEmpty()
+                .filter { mode == null || (it.physicalWidth == mode.physicalWidth && it.physicalHeight == mode.physicalHeight) }
+                .map { it.refreshRate }
+                .distinctBy { Math.round(it) }
+                .sorted()
+        } catch (_: Exception) {
+            emptyList()
+        }
+        // supportedHdrTypes moved to Display.Mode in API 34, but the old
+        // accessor still answers for the current mode and covers API 26-33.
+        val hdr = try {
+            display?.hdrCapabilities?.supportedHdrTypes?.toList().orEmpty()
+                .mapNotNull { hdrTypeName(it) }
+                .distinct()
+        } catch (_: Exception) {
+            emptyList()
+        }
+        val wideGamut = try { display?.isWideColorGamut == true } catch (_: Exception) { false }
+        val orientation = when (context.resources.configuration.orientation) {
+            Configuration.ORIENTATION_PORTRAIT -> "Portrait"
+            Configuration.ORIENTATION_LANDSCAPE -> "Landscape"
+            else -> ""
+        }
+
         return DisplayInfo(
             widthPx = widthPx,
             heightPx = heightPx,
             densityDpi = metrics.densityDpi,
             density = metrics.density,
             refreshRate = refresh,
-            screenSizeInches = sqrt(wIn * wIn + hIn * hIn)
+            screenSizeInches = sqrt(wIn * wIn + hIn * hIn),
+            supportedRefreshRatesHz = rates,
+            hdrFormats = hdr,
+            wideColorGamut = wideGamut,
+            orientation = orientation
+        )
+    }
+
+    private fun hdrTypeName(type: Int): String? = when (type) {
+        Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION -> "Dolby Vision"
+        Display.HdrCapabilities.HDR_TYPE_HDR10 -> "HDR10"
+        Display.HdrCapabilities.HDR_TYPE_HLG -> "HLG"
+        Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS -> "HDR10+"
+        else -> null
+    }
+
+    private fun collectNfc(): NfcInfo {
+        if (!context.packageManager.hasSystemFeature(PackageManager.FEATURE_NFC)) return NfcInfo()
+        val enabled = try {
+            NfcAdapter.getDefaultAdapter(context)?.isEnabled == true
+        } catch (_: Exception) {
+            false
+        }
+        return NfcInfo(present = true, enabled = enabled)
+    }
+
+    private fun collectBluetooth(): BluetoothInfo {
+        val pm = context.packageManager
+        if (!pm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) return BluetoothInfo()
+        // The global setting rather than BluetoothAdapter.isEnabled: the adapter
+        // call needs the BLUETOOTH permission up to Android 11, this needs none.
+        // 1 is on, 2 is on-despite-airplane-mode.
+        val enabled = try {
+            Settings.Global.getInt(context.contentResolver, Settings.Global.BLUETOOTH_ON, 0) != 0
+        } catch (_: Exception) {
+            false
+        }
+        return BluetoothInfo(
+            present = true,
+            enabled = enabled,
+            bleSupported = pm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)
+        )
+    }
+
+    private fun collectAudio(): AudioInfo {
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return AudioInfo()
+        fun kinds(flag: Int): List<String> = try {
+            am.getDevices(flag).mapNotNull { audioDeviceName(it.type) }.distinct()
+        } catch (_: Exception) {
+            emptyList()
+        }
+        return AudioInfo(
+            outputDevices = kinds(AudioManager.GET_DEVICES_OUTPUTS),
+            inputDevices = kinds(AudioManager.GET_DEVICES_INPUTS)
+        )
+    }
+
+    /** Null for internal routes (telephony, remote submix, echo reference) users never think of as devices. */
+    private fun audioDeviceName(type: Int): String? = when (type) {
+        AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "Earpiece"
+        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Speaker"
+        AudioDeviceInfo.TYPE_BUILTIN_MIC -> "Built-in mic"
+        AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Wired headset"
+        AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Wired headphones"
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth (calls)"
+        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth (media)"
+        AudioDeviceInfo.TYPE_BLE_HEADSET -> "Bluetooth LE headset"
+        AudioDeviceInfo.TYPE_BLE_SPEAKER -> "Bluetooth LE speaker"
+        AudioDeviceInfo.TYPE_HEARING_AID -> "Hearing aid"
+        AudioDeviceInfo.TYPE_USB_HEADSET -> "USB headset"
+        AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_ACCESSORY -> "USB audio"
+        AudioDeviceInfo.TYPE_HDMI, AudioDeviceInfo.TYPE_HDMI_ARC -> "HDMI"
+        AudioDeviceInfo.TYPE_LINE_ANALOG, AudioDeviceInfo.TYPE_LINE_DIGITAL -> "Line"
+        AudioDeviceInfo.TYPE_DOCK -> "Dock"
+        AudioDeviceInfo.TYPE_FM_TUNER -> "FM tuner"
+        else -> null
+    }
+
+    private fun collectSecurity(): SecurityInfo {
+        val locked = when (readSystemProperty("ro.boot.flash.locked")) {
+            "1" -> true
+            "0" -> false
+            else -> when (readSystemProperty("ro.boot.vbmeta.device_state")) {
+                "locked" -> true
+                "unlocked" -> false
+                else -> null
+            }
+        }
+        // DevicePolicyManager is public API and needs no permission, unlike
+        // ro.crypto.* which some builds hide from apps.
+        val encryption = try {
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
+            when (dpm?.storageEncryptionStatus) {
+                DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE_PER_USER -> "Encrypted (file-based)"
+                DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE,
+                DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE_DEFAULT_KEY -> "Encrypted"
+                DevicePolicyManager.ENCRYPTION_STATUS_INACTIVE -> "Not encrypted"
+                DevicePolicyManager.ENCRYPTION_STATUS_UNSUPPORTED -> "Unsupported"
+                else -> ""
+            }
+        } catch (_: Exception) {
+            ""
+        }
+        return SecurityInfo(
+            verifiedBootState = readSystemProperty("ro.boot.verifiedbootstate"),
+            bootloaderLocked = locked,
+            encryption = encryption
         )
     }
 

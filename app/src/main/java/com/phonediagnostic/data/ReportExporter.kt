@@ -126,6 +126,29 @@ object ReportExporter {
             appendLine("  Density: ${d.densityDpi} dpi")
             appendLine("  Refresh Rate: ${String.format(Locale.US, "%.1f", d.refreshRate)} Hz")
             appendLine("  Approx. Size: ${String.format(Locale.US, "%.2f", d.screenSizeInches)}\"")
+            if (d.supportedRefreshRatesHz.size > 1) {
+                appendLine("  Supported rates: ${d.supportedRefreshRatesHz.joinToString(", ") { String.format(Locale.US, "%.0f", it) }} Hz")
+            }
+            appendLine("  HDR: ${d.hdrFormats.joinToString(", ").ifBlank { "None" }}")
+            appendLine("  Wide colour gamut: ${if (d.wideColorGamut) "Yes" else "No"}")
+            if (d.orientation.isNotBlank()) appendLine("  Orientation: ${d.orientation}")
+            appendLine()
+            appendLine("CONNECTIVITY & AUDIO")
+            appendLine("  NFC: ${radioState(report.nfc.present, report.nfc.enabled)}")
+            appendLine("  Bluetooth: ${radioState(report.bluetooth.present, report.bluetooth.enabled)}")
+            appendLine("  Audio out: ${report.audio.outputDevices.joinToString(", ").ifBlank { "—" }}")
+            appendLine("  Audio in: ${report.audio.inputDevices.joinToString(", ").ifBlank { "—" }}")
+            appendLine()
+            val sec = report.security
+            appendLine("SECURITY")
+            appendLine("  Verified boot: ${sec.verifiedBootState.ifBlank { "Unavailable" }}")
+            val bootloader = when (sec.bootloaderLocked) {
+                true -> "Locked"
+                false -> "Unlocked"
+                null -> "Unavailable"
+            }
+            appendLine("  Bootloader lock: $bootloader")
+            appendLine("  Encryption: ${sec.encryption.ifBlank { "Unavailable" }}")
             appendLine()
             if (report.thermals.isNotEmpty()) {
                 appendLine("THERMALS (${report.thermals.size})")
@@ -266,6 +289,31 @@ object ReportExporter {
             put("density", d.density)
             put("refreshRate", d.refreshRate)
             put("screenSizeInches", d.screenSizeInches)
+            put("supportedRefreshRatesHz", JSONArray().apply {
+                d.supportedRefreshRatesHz.forEach { put(it.toDouble()) }
+            })
+            put("hdrFormats", JSONArray(d.hdrFormats))
+            put("wideColorGamut", d.wideColorGamut)
+            put("orientation", d.orientation)
+        })
+        root.put("nfc", JSONObject().apply {
+            put("present", report.nfc.present)
+            put("enabled", report.nfc.enabled)
+        })
+        root.put("bluetooth", JSONObject().apply {
+            put("present", report.bluetooth.present)
+            put("enabled", report.bluetooth.enabled)
+            put("bleSupported", report.bluetooth.bleSupported)
+        })
+        root.put("audio", JSONObject().apply {
+            put("outputDevices", JSONArray(report.audio.outputDevices))
+            put("inputDevices", JSONArray(report.audio.inputDevices))
+        })
+        root.put("security", JSONObject().apply {
+            // Unreadable stays null, so a reader cannot mistake it for "unlocked".
+            put("verifiedBootState", report.security.verifiedBootState.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+            put("bootloaderLocked", report.security.bootloaderLocked ?: JSONObject.NULL)
+            put("encryption", report.security.encryption.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
         })
         root.put("thermals", JSONArray().apply {
             report.thermals.forEach { z ->
@@ -304,5 +352,11 @@ object ReportExporter {
             }
         })
         return root.toString(2)
+    }
+
+    private fun radioState(present: Boolean, enabled: Boolean): String = when {
+        !present -> "Not present"
+        enabled -> "On"
+        else -> "Off"
     }
 }

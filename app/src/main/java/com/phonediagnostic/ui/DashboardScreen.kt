@@ -357,6 +357,71 @@ private fun ReportList(
                         stringResource(R.string.label_approx_size),
                         String.format(Locale.US, "%.2f\"", data.display.screenSizeInches)
                     )
+                    // A single rate is just the current one again; only a choice is news.
+                    if (data.display.supportedRefreshRatesHz.size > 1) {
+                        InfoRow(
+                            stringResource(R.string.label_supported_rates),
+                            data.display.supportedRefreshRatesHz.joinToString(" / ") {
+                                String.format(Locale.US, "%.0f", it)
+                            } + " Hz"
+                        )
+                    }
+                    InfoRow(
+                        stringResource(R.string.label_hdr),
+                        data.display.hdrFormats.joinToString(", ")
+                            .ifBlank { stringResource(R.string.none) }
+                    )
+                    InfoRow(
+                        stringResource(R.string.label_wide_gamut),
+                        if (data.display.wideColorGamut) stringResource(R.string.yes) else stringResource(R.string.no)
+                    )
+                }
+            }
+        }
+
+        item(key = "connectivity") {
+            InfoCard(title = stringResource(R.string.section_connectivity)) {
+                Column {
+                    InfoRow(
+                        stringResource(R.string.label_nfc),
+                        radioLabel(data.nfc.present, data.nfc.enabled)
+                    )
+                    InfoRow(
+                        stringResource(R.string.label_bluetooth),
+                        radioLabel(data.bluetooth.present, data.bluetooth.enabled)
+                    )
+                    InfoRow(
+                        stringResource(R.string.label_audio_out),
+                        data.audio.outputDevices.joinToString(", ").ifBlank { "—" }
+                    )
+                    InfoRow(
+                        stringResource(R.string.label_audio_in),
+                        data.audio.inputDevices.joinToString(", ").ifBlank { "—" }
+                    )
+                }
+            }
+        }
+
+        item(key = "security") {
+            val sec = data.security
+            InfoCard(title = stringResource(R.string.section_security)) {
+                Column {
+                    InfoRow(
+                        stringResource(R.string.label_verified_boot),
+                        sec.verifiedBootState.ifBlank { stringResource(R.string.unavailable) }
+                    )
+                    InfoRow(
+                        stringResource(R.string.label_bootloader_lock),
+                        when (sec.bootloaderLocked) {
+                            true -> stringResource(R.string.bootloader_locked)
+                            false -> stringResource(R.string.bootloader_unlocked)
+                            null -> stringResource(R.string.unavailable)
+                        }
+                    )
+                    InfoRow(
+                        stringResource(R.string.label_encryption),
+                        sec.encryption.ifBlank { stringResource(R.string.unavailable) }
+                    )
                 }
             }
         }
@@ -373,6 +438,13 @@ private fun ReportList(
             )
         }
     }
+}
+
+@Composable
+private fun radioLabel(present: Boolean, enabled: Boolean): String = when {
+    !present -> stringResource(R.string.radio_absent)
+    enabled -> stringResource(R.string.radio_on)
+    else -> stringResource(R.string.radio_off)
 }
 
 @Composable

@@ -106,6 +106,43 @@ class ReportExporterTest {
     }
 
     @Test
+    fun `json export carries connectivity, audio and security sections`() {
+        val full = report().copy(
+            nfc = NfcInfo(present = true, enabled = true),
+            bluetooth = BluetoothInfo(present = true, enabled = false, bleSupported = true),
+            audio = AudioInfo(outputDevices = listOf("Speaker", "Earpiece"), inputDevices = listOf("Built-in mic")),
+            security = SecurityInfo(verifiedBootState = "green", bootloaderLocked = true, encryption = "Encrypted (file-based)")
+        )
+        val json = JSONObject(ReportExporter.toJson(full))
+        assertTrue(json.getJSONObject("nfc").getBoolean("enabled"))
+        assertFalse(json.getJSONObject("bluetooth").getBoolean("enabled"))
+        assertEquals(2, json.getJSONObject("audio").getJSONArray("outputDevices").length())
+        assertEquals("green", json.getJSONObject("security").getString("verifiedBootState"))
+        assertTrue(json.getJSONObject("security").getBoolean("bootloaderLocked"))
+    }
+
+    @Test
+    fun `unreadable security state exports as null and Unavailable, never as unlocked`() {
+        val json = JSONObject(ReportExporter.toJson(report())).getJSONObject("security")
+        assertTrue(json.isNull("verifiedBootState"))
+        assertTrue(json.isNull("bootloaderLocked"))
+        assertTrue(json.isNull("encryption"))
+        val text = ReportExporter.toShareText(report())
+        assertTrue(text.contains("Bootloader lock: Unavailable"))
+        assertFalse(text.contains("Unlocked"))
+    }
+
+    @Test
+    fun `text export lists supported refresh rates only when there is a choice`() {
+        val single = report().copy(display = report().display.copy(supportedRefreshRatesHz = listOf(60f)))
+        assertFalse(ReportExporter.toShareText(single).contains("Supported rates"))
+        val multi = report().copy(
+            display = report().display.copy(supportedRefreshRatesHz = listOf(60f, 90f, 120f))
+        )
+        assertTrue(ReportExporter.toShareText(multi).contains("Supported rates: 60, 90, 120 Hz"))
+    }
+
+    @Test
     fun `suggested filename is filesystem safe and carries the extension`() {
         val name = ReportExporter.suggestedFileName(report(model = "Pixel 7 Pro"), "txt")
         assertTrue(name.startsWith("phone-diagnostic-Pixel_7_Pro-"))

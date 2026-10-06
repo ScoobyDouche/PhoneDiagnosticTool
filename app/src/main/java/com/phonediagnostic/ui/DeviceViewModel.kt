@@ -150,6 +150,13 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val _latencyRunning = MutableStateFlow(false)
     val latencyRunning: StateFlow<Boolean> = _latencyRunning.asStateFlow()
 
+    /**
+     * Whether the activity is started. viewModelScope outlives onStop, so
+     * without this the live loop kept probing the network and waking sensors
+     * every few seconds with the app in the background.
+     */
+    private val _inForeground = MutableStateFlow(true)
+
     /** Name of the sensor opened in the live detail view, if any. */
     private val _selectedSensor = MutableStateFlow<String?>(null)
     val selectedSensor: StateFlow<String?> = _selectedSensor.asStateFlow()
@@ -162,7 +169,9 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.Default) {
             while (isActive) {
                 delay(LIVE_INTERVAL_MS)
-                if (_isLive.value && !_isRefreshing.value && !_loadTesting.value) {
+                if (_isLive.value && _inForeground.value &&
+                    !_isRefreshing.value && !_loadTesting.value
+                ) {
                     runCollection(full = _report.value == null)
                 }
             }
@@ -185,6 +194,10 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         }
+    }
+
+    fun setInForeground(inForeground: Boolean) {
+        _inForeground.value = inForeground
     }
 
     fun toggleLive() {

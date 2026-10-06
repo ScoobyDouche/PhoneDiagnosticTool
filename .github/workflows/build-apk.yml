@@ -2,8 +2,11 @@ name: Build APK
 
 on:
   workflow_dispatch:
+  # Every branch, not just main: a commit that broke the build on a feature
+  # branch (placeholder files uploaded in place of real sources) went
+  # unnoticed because nothing built it until a PR was opened.
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
     branches: [main]
 

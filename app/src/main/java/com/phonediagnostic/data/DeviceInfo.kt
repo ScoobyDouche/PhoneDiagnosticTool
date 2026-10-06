@@ -157,16 +157,14 @@ data class DisplayInfo(
     val density: Float,
     val refreshRate: Float,
     val screenSizeInches: Double,
-    /** Supported refresh rates in Hz when the panel reports them (API 23+). */
+    /** Refresh rates the panel offers at its current resolution, ascending. */
     val supportedRefreshRatesHz: List<Float> = emptyList(),
-    /** True when the display reports HDR capability. */
-    val hdrSupported: Boolean = false,
-    /** Current HDR mode name when available, otherwise empty. */
-    val hdrType: String = "",
-    /** Human-readable orientation (portrait / landscape / ...). */
-    val orientation: String = "",
-    /** Approximate physical diagonal in inches already computed; kept for clarity. */
-    val name: String = "Primary"
+    /** HDR formats the panel supports (HDR10, HLG, ...); empty when none. */
+    val hdrFormats: List<String> = emptyList(),
+    /** Whether the panel reports wide colour gamut support. */
+    val wideColorGamut: Boolean = false,
+    /** Portrait / Landscape at collection time. */
+    val orientation: String = ""
 )
 
 data class NetworkInfo(
@@ -268,47 +266,44 @@ data class ThermalZone(
 )
 
 /**
- * Passive NFC status. Uses NfcAdapter when present; never requests extra
- * permissions and never starts discovery.
+ * NFC presence and on/off state. Read-only; never starts discovery.
  */
 data class NfcInfo(
     val present: Boolean = false,
-    val enabled: Boolean = false,
-    val summary: String = "Not available"
+    val enabled: Boolean = false
 )
 
 /**
- * Passive Bluetooth status. Best-effort; may be limited without the
- * BLUETOOTH_CONNECT permission on newer Android versions.
+ * Bluetooth presence and on/off state. Deliberately carries no adapter name or
+ * address: PRIVACY.md promises MAC addresses are never shown, and the name is
+ * often the owner's own.
  */
 data class BluetoothInfo(
     val present: Boolean = false,
     val enabled: Boolean = false,
-    val name: String = "",
-    val address: String = "",
-    val summary: String = "Not available"
+    val bleSupported: Boolean = false
 )
 
 /**
- * Basic audio routing / device presence. No recording or playback is performed
- * during collection.
+ * Connected audio routes, by kind (Speaker, Wired headset, Bluetooth A2DP...).
+ * Nothing is recorded or played during collection.
  */
 data class AudioInfo(
     val outputDevices: List<String> = emptyList(),
-    val inputDevices: List<String> = emptyList(),
-    val summary: String = ""
+    val inputDevices: List<String> = emptyList()
 )
 
 /**
- * Read-only security / boot surface. All values are best-effort from public
- * properties or Settings; nothing is written and no identifiers are collected.
+ * Boot and encryption state from read-only system properties. A blank string
+ * or null means the property was not readable, which is common: several are
+ * hidden from apps on recent Android builds.
  */
 data class SecurityInfo(
+    /** green / yellow / orange / red, as the bootloader reports it. */
     val verifiedBootState: String = "",
-    val selinuxStatus: String = "",
-    val encryptionStatus: String = "",
-    val bootloaderUnlocked: String = "",
-    val summary: String = ""
+    val bootloaderLocked: Boolean? = null,
+    /** encrypted / unencrypted, plus file or block when known. */
+    val encryption: String = ""
 )
 
 data class FullDeviceReport(
