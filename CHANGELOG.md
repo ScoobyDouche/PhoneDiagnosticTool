@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows a practical semantic versioning scheme for a single-app
 Android project (`MAJOR.MINOR.PATCH`).
 
+## [1.3.0] — 2026-10-06
+
+### Added
+- **Connectivity & audio card** on the Overview: whether NFC and Bluetooth are
+  present and switched on, and which kinds of audio device are connected
+  (speaker, wired, Bluetooth, USB…). No new permissions; the Bluetooth name and
+  address are never read.
+- **Security card**: verified-boot state, bootloader lock and storage
+  encryption. Values Android hides from apps show as *Unavailable* (and `null`
+  in JSON), never as "unlocked".
+- **Display card** now lists the refresh rates the panel supports, its HDR
+  formats and wide colour gamut support.
+- All of the above in the text and JSON exports.
+
+### Fixed
+- **Battery drain in the background.** The 3-second live refresh kept running
+  after the app was left, probing the network and, from the Sensors screen,
+  waking sensors. It now pauses when the app is in the background.
+- **Storage read speed overstated.** The read figure is now labelled
+  *may be cached*: the test file has only just been written, and an app cannot
+  drop the system's file cache.
+- `main` failed to build after placeholder text replaced `MainActivity.kt` and
+  `strings.xml`; both restored. CI now builds every branch push so this is
+  caught earlier.
+
 ## [1.2.1] — 2026-09-14
 
 ### Fixed

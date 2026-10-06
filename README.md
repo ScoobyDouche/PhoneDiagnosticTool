@@ -24,6 +24,9 @@ Captured on a Galaxy Z Flip4 running Android 16.
 - Sensors list + brief live samples (accelerometer, gyro, light, proximity, etc.)
 - Tap any sensor to stream it live with per-axis charts
 - Camera characteristics (facing, pixel array, focal lengths, hardware level)
+- Display refresh rates, HDR formats and wide colour gamut
+- NFC and Bluetooth state, connected audio devices
+- Verified boot, bootloader lock and encryption status
 - Optional TCP latency check to `8.8.8.8:53` (can be disabled in Settings)
 - Network detail: IP addresses, DNS & private DNS, Wi‑Fi link speed / band / signal, carrier, plus a 5-probe latency burst with min / avg / max / jitter / loss
 - Storage volumes + per-app breakdown (with Usage Access)
@@ -128,7 +131,7 @@ Camera and sensors use system APIs without requesting CAMERA permission (charact
 - Kotlin, Jetpack Compose, Material 3
 - ViewModel + StateFlow
 - Min SDK 26 · Target / compile SDK 35
-- Version **1.2.0**
+- Version **1.3.0**
 
 Diagnostics are stored only on the device: a rotating log and a 24 h metric
 history live in internal storage, and the app opts out of Android cloud backup
