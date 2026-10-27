@@ -1,6 +1,7 @@
 package com.phonediagnostic.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -87,5 +88,53 @@ class ModelsTest {
     fun `load test durations are the ones the UI offers`() {
         assertEquals(listOf(60, 300, 600), LoadTester.ALLOWED_DURATIONS_SEC)
         assertTrue(LoadTester.ALLOWED_DURATIONS_SEC.all { it % 60 == 0 })
+    }
+
+    // --- BatteryInfo.powerWatts ---
+
+    private fun battery(
+        voltage: Int = 4100,
+        currentNowMa: Int? = -300
+    ) = BatteryInfo(
+        level = 80,
+        status = "Discharging",
+        health = "Good",
+        temperature = 30f,
+        voltage = voltage,
+        technology = "Li-ion",
+        isCharging = currentNowMa != null && currentNowMa > 0,
+        powerSource = "Battery",
+        currentNowMa = currentNowMa,
+        currentAvgMa = currentNowMa
+    )
+
+    @Test
+    fun `powerWatts is null when current is unavailable`() {
+        assertNull(battery(currentNowMa = null).powerWatts)
+    }
+
+    @Test
+    fun `powerWatts is null when voltage is non-positive`() {
+        assertNull(battery(voltage = 0, currentNowMa = -200).powerWatts)
+        assertNull(battery(voltage = -1, currentNowMa = 500).powerWatts)
+    }
+
+    @Test
+    fun `powerWatts is negative while discharging`() {
+        // 4.1 V * -0.3 A = -1.23 W
+        val watts = battery(voltage = 4100, currentNowMa = -300).powerWatts!!
+        assertEquals(-1.23f, watts, 0.001f)
+    }
+
+    @Test
+    fun `powerWatts is positive while charging`() {
+        // 4.2 V * 1.5 A = 6.3 W
+        val watts = battery(voltage = 4200, currentNowMa = 1500).powerWatts!!
+        assertEquals(6.3f, watts, 0.001f)
+    }
+
+    @Test
+    fun `powerWatts is zero when current is zero`() {
+        assertEquals(0f, battery(voltage = 4000, currentNowMa = 0).powerWatts!!, 0.001f)
     }
 }
