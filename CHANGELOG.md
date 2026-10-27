@@ -45,17 +45,14 @@ Android project (`MAJOR.MINOR.PATCH`).
 ## [1.3.0] — 2026-10-06
 
 ### Added
-- **Connectivity & audio card** on the Overview: whether NFC and Bluetooth are
-  present and switched on, and which kinds of audio device are connected
-  (speaker, wired, Bluetooth, USB…). No new permissions; the Bluetooth name and
-  address are never read.
-- **Security card**: verified-boot state, bootloader lock, and encryption where
-  the platform exposes them.
-- Network detail and latency burst improvements.
+- **Connectivity & audio** on Overview: NFC and Bluetooth present/on, connected
+  audio device kinds (no Bluetooth name/address).
+- **Security**: verified-boot, bootloader lock, encryption where exposed.
+- Network detail and latency burst (min/avg/max/jitter/loss).
 
 ### Changed
-- Background monitor samples only battery and memory (cheaper).
-- Storage speed test read figure labelled *may be cached*.
+- Background monitor samples only battery and memory.
+- Storage speed read figure labelled *may be cached*.
 
 ## [1.2.1] — 2026-09
 
@@ -67,6 +64,6 @@ Android project (`MAJOR.MINOR.PATCH`).
 ### Added
 - Optional elevated access via Shizuku or root for gated sysfs diagnostics.
 
-## [1.1.2] and earlier
+## Earlier
 
-See git history for prior release notes.
+See git tags and prior release notes on GitHub Releases for 1.1.x and 1.0.0.
