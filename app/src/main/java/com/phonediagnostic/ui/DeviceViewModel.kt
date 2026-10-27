@@ -30,6 +30,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 enum class AppScreen {
@@ -67,6 +69,14 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val log = DiagnosticLog.get(appContext)
     private val history = MetricHistory.get(appContext)
     private val elevatedManager = ElevatedAccessManager(appContext)
+
+    /**
+     * Serialises full and live collects. A full pass (EGL GPU probe + optional
+     * sensor sampling) can exceed [LIVE_INTERVAL_MS], so without this the live
+     * loop, refreshNow and the elevated-shell observer could overlap and race
+     * on [_report] and the collector's elevated shell reference.
+     */
+    private val collectionMutex = Mutex()
 
     /** Live view of what elevated access is available and active, for Settings. */
     val elevatedStatus: StateFlow<ElevatedStatus> = elevatedManager.status
@@ -198,6 +208,13 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setInForeground(inForeground: Boolean) {
         _inForeground.value = inForeground
+        if (inForeground) {
+            // Notification stop writes prefs directly; re-sync the toggle state.
+            val enabled = prefs.backgroundMonitorEnabled
+            if (_backgroundMonitorEnabled.value != enabled) {
+                _backgroundMonitorEnabled.value = enabled
+            }
+        }
     }
 
     fun toggleLive() {
