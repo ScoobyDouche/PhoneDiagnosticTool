@@ -8,8 +8,29 @@ Android project (`MAJOR.MINOR.PATCH`).
 
 ## [1.3.1] — 2026-10-26
 
+### Security
+- **Private release key now in use.** GitHub Releases from this version onward
+  are signed with the private release keystore (the four `RELEASE_*` secrets).
+  The workflow continues to refuse a public-key fallback unless
+  `allow_public_key_signing` is explicitly ticked on a dispatch. Existing users
+  on public-key builds must uninstall once before installing a private-key
+  build.
+
 ### Changed
-- Version bump for release testing with private key signing (if secrets are configured).
+- Dependency refresh:
+  - Compose BOM **2024.10.01 → 2026.09.00**
+  - Kotlin **2.0.21 → 2.1.21**
+  - `core-ktx` 1.15.0 → 1.19.1
+  - Lifecycle 2.8.7 → 2.11.0
+  - `activity-compose` 1.9.3 → 1.12.2
+  - Coroutines 1.9.0 → 1.10.2
+  - Test libraries bumped in lockstep
+- README tightened and updated for private-key signing and 1.3.1.
+- Security audit doc updated: finding 1b marked resolved.
+
+### Fixed / Internal
+- Unit tests expanded: `BatteryInfo.powerWatts` edge cases (null current,
+  non-positive voltage, charging vs discharging polarity, zero current).
 
 ## [1.3.0] — 2026-10-06
 
