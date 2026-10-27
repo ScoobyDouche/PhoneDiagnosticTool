@@ -17,14 +17,13 @@ Android project (`MAJOR.MINOR.PATCH`).
   build.
 
 ### Changed
-- Dependency refresh:
-  - Compose BOM **2024.10.01 → 2026.09.00**
+- Dependency refresh (kept compatible with AGP 8.7.2 + compileSdk 35):
+  - Compose BOM **2024.10.01 → 2025.10.01**
   - Kotlin **2.0.21 → 2.1.21**
-  - `core-ktx` 1.15.0 → 1.19.1
-  - Lifecycle 2.8.7 → 2.11.0
-  - `activity-compose` 1.9.3 → 1.12.2
+  - `core-ktx` 1.15.0 → 1.16.0
+  - Lifecycle 2.8.7 → 2.9.4
+  - `activity-compose` 1.9.3 → 1.10.1
   - Coroutines 1.9.0 → 1.10.2
-  - Test libraries bumped in lockstep
 - README tightened and updated for private-key signing and 1.3.1.
 - Security audit doc updated: finding 1b marked resolved.
 
