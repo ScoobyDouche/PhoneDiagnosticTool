@@ -1,0 +1,180 @@
+--- a/app/src/main/java/com/phonediagnostic/ui/DeviceViewModel.kt
++++ b/app/src/main/java/com/phonediagnostic/ui/DeviceViewModel.kt
+@@ -30,6 +30,8 @@
+ import kotlinx.coroutines.flow.asStateFlow
+ import kotlinx.coroutines.isActive
+ import kotlinx.coroutines.launch
++import kotlinx.coroutines.sync.Mutex
++import kotlinx.coroutines.sync.withLock
+ import kotlinx.coroutines.withContext
+ 
+ enum class AppScreen {
+@@ -68,6 +70,14 @@
+     private val history = MetricHistory.get(appContext)
+     private val elevatedManager = ElevatedAccessManager(appContext)
+ 
++    /**
++     * Serialises full and live collects. A full pass (EGL GPU probe + optional
++     * sensor sampling) can exceed [LIVE_INTERVAL_MS], so without this the live
++     * loop, refreshNow and the elevated-shell observer could overlap and race
++     * on [_report] and the collector's elevated shell reference.
++     */
++    private val collectionMutex = Mutex()
++
+     /** Live view of what elevated access is available and active, for Settings. */
+     val elevatedStatus: StateFlow<ElevatedStatus> = elevatedManager.status
+ 
+@@ -198,6 +208,13 @@
+ 
+     fun setInForeground(inForeground: Boolean) {
+         _inForeground.value = inForeground
++        if (inForeground) {
++            // Notification stop writes prefs directly; re-sync the toggle state.
++            val enabled = prefs.backgroundMonitorEnabled
++            if (_backgroundMonitorEnabled.value != enabled) {
++                _backgroundMonitorEnabled.value = enabled
++            }
++        }
+     }
+ 
+     fun toggleLive() {
+@@ -472,25 +489,27 @@
+ 
+     // ---------------------------------------------------------------- collection
+ 
+-    private fun runCollection(full: Boolean) {
+-        try {
+-            val probe = _networkProbeEnabled.value
+-            val current = _report.value
+-            // Sampling sensors wakes them, so only do it where readings are shown.
+-            val sampleSensors = _screen.value == AppScreen.SENSORS ||
+-                _screen.value == AppScreen.SENSOR_DETAIL
+-            val next = if (full || current == null) {
+-                collector.collect(networkProbe = probe, sampleSensors = sampleSensors)
+-            } else {
+-                collector.collectLive(current, networkProbe = probe, sampleSensors = sampleSensors)
+-            }
+-            _report.value = next
+-            _lastUpdated.value = currentTimeLabel()
+-            _errorMessage.value = null
+-            recordHistory(next)
+-        } catch (e: Exception) {
+-            if (_report.value == null) {
+-                _errorMessage.value = e.message ?: e.javaClass.simpleName
+-            }
+-        }
+-    }
++    private suspend fun runCollection(full: Boolean) {
++        collectionMutex.withLock {
++            try {
++                val probe = _networkProbeEnabled.value
++                val current = _report.value
++                // Sampling sensors wakes them, so only do it where readings are shown.
++                val sampleSensors = _screen.value == AppScreen.SENSORS ||
++                    _screen.value == AppScreen.SENSOR_DETAIL
++                val next = if (full || current == null) {
++                    collector.collect(networkProbe = probe, sampleSensors = sampleSensors)
++                } else {
++                    collector.collectLive(current, networkProbe = probe, sampleSensors = sampleSensors)
++                }
++                _report.value = next
++                _lastUpdated.value = currentTimeLabel()
++                _errorMessage.value = null
++                recordHistory(next)
++            } catch (e: Exception) {
++                if (_report.value == null) {
++                    _errorMessage.value = e.message ?: e.javaClass.simpleName
++                }
++            }
++        }
++    }
+ 
+     /**
+      * Feeds foreground samples into the same history the background monitor
+--- a/app/src/main/java/com/phonediagnostic/data/DeviceInfoCollector.kt
++++ b/app/src/main/java/com/phonediagnostic/data/DeviceInfoCollector.kt
+@@ -536,9 +536,21 @@
+     private fun firstProp(props: Map<String, String>, vararg keys: String): Long? =
+         keys.firstNotNullOfOrNull { props[it]?.toLongOrNull()?.takeIf { v -> v > 0L } }
+ 
++    /**
++     * Converts the platform's microamp reading to milliamps.
++     *
++     * Sign is preserved so the UI can show direction: the common Linux
++     * power-supply convention is positive while charging and negative while
++     * discharging. [BatteryManager.BATTERY_PROPERTY_CURRENT_NOW] follows that
++     * on most devices; a few vendors invert it, which is why the Battery
++     * screen also shows the charging status from the sticky broadcast.
++     *
++     * Returns null for unknown (Int.MIN_VALUE), exactly zero, or sub-mA noise.
++     */
+     private fun normalizeBatteryCurrentMa(rawUa: Int): Int? {
+         if (rawUa == Int.MIN_VALUE || rawUa == 0) return null
+         val ma = rawUa / 1000
++        // Keep the sign; drop only the pure sub-mA band around zero.
+         return if (ma == 0 && abs(rawUa) < 1000) null else ma
+     }
+ 
+@@ -851,15 +863,24 @@
+                     val values = event.values?.take(3)
+                         ?.joinToString(", ") { String.format(Locale.US, "%.3f", it) } ?: return
+                     synchronized(results) {
+-                        if (!results.containsKey(sensor)) { results[sensor] = values; latch.countDown() }
++                        if (!results.containsKey(sensor)) {
++                            results[sensor] = values
++                            latch.countDown()
++                        }
+                     }
+                     try { sm.unregisterListener(this) } catch (_: Exception) {}
+                 }
+                 override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+             }
+-            listeners.add(listener)
+-            try { sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL) }
+-            catch (_: Exception) { latch.countDown() }
++            try {
++                if (sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL)) {
++                    listeners.add(listener)
++                } else {
++                    latch.countDown()
++                }
++            } catch (_: Exception) {
++                latch.countDown()
++            }
+         }
+         try { latch.await(SENSOR_SAMPLE_MS, TimeUnit.MILLISECONDS) } catch (_: Exception) {}
+         listeners.forEach { try { sm.unregisterListener(it) } catch (_: Exception) {} }
+--- a/app/src/main/java/com/phonediagnostic/ui/BatteryScreen.kt
++++ b/app/src/main/java/com/phonediagnostic/ui/BatteryScreen.kt
+@@ -118,12 +118,12 @@
+                         InfoRow(stringResource(R.string.label_voltage), "${battery.voltage} mV")
+                         InfoRow(
+                             stringResource(R.string.label_current_now),
+-                            battery.currentNowMa?.let { "$it mA" }
++                            battery.currentNowMa?.let { formatCurrentMa(it) }
+                                 ?: stringResource(R.string.unavailable)
+                         )
+                         InfoRow(
+                             stringResource(R.string.label_current_avg),
+-                            battery.currentAvgMa?.let { "$it mA" }
++                            battery.currentAvgMa?.let { formatCurrentMa(it) }
+                                 ?: stringResource(R.string.unavailable)
+                         )
+                         // Volts x amps, which is the number people actually want
+@@ -263,3 +263,16 @@
+         }
+     }
+ }
++
++
++/** Formats a signed mA reading with direction for the electrical section. */
++private fun formatCurrentMa(ma: Int): String {
++    // Sign follows the Linux power-supply convention used by most devices:
++    // positive while charging, negative while discharging.
++    val direction = when {
++        ma > 0 -> "charging"
++        ma < 0 -> "discharging"
++        else -> ""
++    }
++    return if (direction.isEmpty()) "$ma mA" else "$ma mA ($direction)"
++}
