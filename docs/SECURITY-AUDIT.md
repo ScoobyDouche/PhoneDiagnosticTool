@@ -1,7 +1,6 @@
-# Security audit — 2026-09-05
+# Security audit — 2026-09-05 (updated 2026-10-26)
 
-> **Status:** findings 1a and 1c are fixed in 1.1.3, which ships the release
-> variant. Finding **1b — the signing key is public — remains open.**
+> **Status:** All three findings are resolved. Releases from 1.3.1 onward are signed with a private release key.
 
 Audit of Phone Diagnostic Tool at commit `24c529e` (v1.1.2 shipped).
 
@@ -118,10 +117,11 @@ must uninstall before installing — Android will not accept it as an update.
 - **1a (debuggable) — fixed in 1.1.3.** The release workflow now publishes
   `app-release.apk`, and the build fails loudly rather than falling back to the
   debug variant if that artifact is missing or unsigned.
-- **1c (debug tooling, 16.9 MB) — fixed in 1.1.3**, same change. 1.2 MB.
-- **1b (public signing key) — fixed in 1.1.3**, once the four release secrets
-  are set. The release workflow now fails rather than falling back to the CI
-  debug key, so a release cannot be published under the public certificate by
-  accident, and each run prints the signing certificate for the record.
-  The committed `keystore/debug.keystore.b64` stays for debug-variant builds,
-  which are no longer published.
+- **1c (debug tooling, 16.9 MB) — fixed in 1.1.3**, same change. ~1.2 MB.
+- **1b (public signing key) — fixed in 1.3.1.** The four release secrets are set;
+  the workflow refuses to publish under the public CI key by default. From 1.3.1
+  onward, GitHub Releases are signed with the private release key. Existing users
+  on older (public-key) builds must uninstall once before installing a private-key
+  build, as Android does not accept a certificate change as an update.
+
+The committed `keystore/debug.keystore.b64` remains for local / CI debug builds only.
