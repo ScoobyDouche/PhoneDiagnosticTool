@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows a practical semantic versioning scheme for a single-app
 Android project (`MAJOR.MINOR.PATCH`).
 
+## [1.3.1] — 2026-10-26
+
+### Changed
+- Version bump for release testing with private key signing (if secrets are configured).
+
 ## [1.3.0] — 2026-10-06
 
 ### Added
