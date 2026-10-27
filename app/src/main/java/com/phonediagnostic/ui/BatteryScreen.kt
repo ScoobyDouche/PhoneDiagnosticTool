@@ -118,12 +118,12 @@ fun BatteryScreen(
                         InfoRow(stringResource(R.string.label_voltage), "${battery.voltage} mV")
                         InfoRow(
                             stringResource(R.string.label_current_now),
-                            battery.currentNowMa?.let { "$it mA" }
+                            battery.currentNowMa?.let { formatCurrentMa(it) }
                                 ?: stringResource(R.string.unavailable)
                         )
                         InfoRow(
                             stringResource(R.string.label_current_avg),
-                            battery.currentAvgMa?.let { "$it mA" }
+                            battery.currentAvgMa?.let { formatCurrentMa(it) }
                                 ?: stringResource(R.string.unavailable)
                         )
                         // Volts x amps, which is the number people actually want
@@ -262,4 +262,17 @@ fun BatteryScreen(
             }
         }
     }
+}
+
+
+/** Formats a signed mA reading with direction for the electrical section. */
+private fun formatCurrentMa(ma: Int): String {
+    // Sign follows the Linux power-supply convention used by most devices:
+    // positive while charging, negative while discharging.
+    val direction = when {
+        ma > 0 -> "charging"
+        ma < 0 -> "discharging"
+        else -> ""
+    }
+    return if (direction.isEmpty()) "$ma mA" else "$ma mA ($direction)"
 }

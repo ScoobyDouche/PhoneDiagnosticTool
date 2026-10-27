@@ -536,9 +536,21 @@ class DeviceInfoCollector(private val context: Context) {
     private fun firstProp(props: Map<String, String>, vararg keys: String): Long? =
         keys.firstNotNullOfOrNull { props[it]?.toLongOrNull()?.takeIf { v -> v > 0L } }
 
+    /**
+     * Converts the platform's microamp reading to milliamps.
+     *
+     * Sign is preserved so the UI can show direction: the common Linux
+     * power-supply convention is positive while charging and negative while
+     * discharging. [BatteryManager.BATTERY_PROPERTY_CURRENT_NOW] follows that
+     * on most devices; a few vendors invert it, which is why the Battery
+     * screen also shows the charging status from the sticky broadcast.
+     *
+     * Returns null for unknown (Int.MIN_VALUE), exactly zero, or sub-mA noise.
+     */
     private fun normalizeBatteryCurrentMa(rawUa: Int): Int? {
         if (rawUa == Int.MIN_VALUE || rawUa == 0) return null
         val ma = rawUa / 1000
+        // Keep the sign; drop only the pure sub-mA band around zero.
         return if (ma == 0 && abs(rawUa) < 1000) null else ma
     }
 
@@ -851,15 +863,24 @@ class DeviceInfoCollector(private val context: Context) {
                     val values = event.values?.take(3)
                         ?.joinToString(", ") { String.format(Locale.US, "%.3f", it) } ?: return
                     synchronized(results) {
-                        if (!results.containsKey(sensor)) { results[sensor] = values; latch.countDown() }
+                        if (!results.containsKey(sensor)) {
+                            results[sensor] = values
+                            latch.countDown()
+                        }
                     }
                     try { sm.unregisterListener(this) } catch (_: Exception) {}
                 }
                 override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
             }
-            listeners.add(listener)
-            try { sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL) }
-            catch (_: Exception) { latch.countDown() }
+            try {
+                if (sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL)) {
+                    listeners.add(listener)
+                } else {
+                    latch.countDown()
+                }
+            } catch (_: Exception) {
+                latch.countDown()
+            }
         }
         try { latch.await(SENSOR_SAMPLE_MS, TimeUnit.MILLISECONDS) } catch (_: Exception) {}
         listeners.forEach { try { sm.unregisterListener(it) } catch (_: Exception) {} }
