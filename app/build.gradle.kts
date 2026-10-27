@@ -31,8 +31,8 @@ android {
                 keyPassword = "android"
             }
         }
-        // Release signing is optional and driven entirely by environment variables
-        // (set in CI from GitHub Actions secrets). Never commit the real keystore.
+        // Release signing is driven by environment variables (set in CI from
+        // GitHub Actions secrets). Never commit the real keystore.
         val releaseStorePath = System.getenv("RELEASE_STORE_FILE")
         if (!releaseStorePath.isNullOrBlank()) {
             create("release") {
@@ -58,13 +58,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Prefer a real release key when CI/local env provides one. Failing
-            // that, fall back to the committed CI keystore rather than producing
-            // an unsigned APK: GitHub Releases ship this variant, and shipping
-            // the release build under the old key is what lets existing installs
-            // upgrade in place while dropping debuggable, the Compose tooling
-            // and ~15 MB. The key being public is tracked separately in
-            // docs/SECURITY-AUDIT.md; this does not make that worse.
+            // Prefer the private release key when CI provides it. Fall back to
+            // the committed CI keystore only for local unsigned experiments;
+            // the Release workflow refuses to publish under the public key
+            // unless allow_public_key_signing is explicitly ticked.
             signingConfig = when {
                 signingConfigs.findByName("release") != null ->
                     signingConfigs.getByName("release")
@@ -99,23 +96,23 @@ android {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
+    val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
-    implementation("androidx.core:core-ktx:1.15.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
-    implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.core:core-ktx:1.19.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
+    implementation("androidx.activity:activity-compose:1.12.2")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     // Optional, opt-in elevated access. The app runs fine with neither the
     // Shizuku manager app installed nor root; these only add the client API and
@@ -126,9 +123,9 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // The android.jar stub throws on every org.json call, so unit tests need the
     // real implementation to exercise the JSON export.
-    testImplementation("org.json:json:20231013")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    testImplementation("org.json:json:20250517")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
