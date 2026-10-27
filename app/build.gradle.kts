@@ -93,6 +93,13 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    // lifecycle-lint's NonNullableMutableLiveDataDetector crashes under Kotlin
+    // 2.1's analysis API (IncompatibleClassChangeError on KaCallableMemberCall).
+    // Safe to disable: this app uses StateFlow, not MutableLiveData.
+    lint {
+        disable += "NullSafeMutableLiveData"
+    }
 }
 
 dependencies {
