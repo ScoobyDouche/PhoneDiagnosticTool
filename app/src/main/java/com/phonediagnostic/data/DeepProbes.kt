@@ -3,85 +3,92 @@ package com.phonediagnostic.data
 import android.hardware.Sensor
 import android.hardware.camera2.CameraCharacteristics
 import android.os.Build
-import java.io.File
 import java.util.Locale
 
 /**
- * Extra sysfs / API probes used to deepen the diagnostic report.
- * Kept separate so DeviceInfoCollector stays focused on orchestration.
+ * Deep diagnostic probes that expand beyond the base collector.
+ * All reads go through the supplied [readNode] so Shizuku/root
+ * elevated access is shared with DeviceInfoCollector.
  */
-internal object DeepProbes {
+object DeepProbes {
+
+    data class MemExtras(
+        val cachedMb: Long?,
+        val buffersMb: Long?,
+        val swapTotalMb: Long?,
+        val swapFreeMb: Long?,
+        val zramMb: Long?,
+        val activeMb: Long?
+    )
+
+    data class CameraDeep(
+        val physicalIds: String,
+        val capabilities: String,
+        val activeArraySize: String,
+        val isoRange: String,
+        val exposureRange: String,
+        val hasFlash: Boolean?
+    )
 
     fun cpuGovernors(readNode: (String) -> String?): List<String> {
-        val found = LinkedHashSet<String>()
+        val result = ArrayList<String>()
         for (i in 0 until 16) {
-            for (p in listOf(
-                "/sys/devices/system/cpu/cpu$i/cpufreq/scaling_governor",
-                "/sys/devices/system/cpu/cpufreq/policy$i/scaling_governor"
-            )) {
-                val v = readNode(p)?.trim().orEmpty()
-                if (v.isNotEmpty()) found.add(v)
-            }
+            val g = readNode("/sys/devices/system/cpu/cpu$i/cpufreq/scaling_governor")
+            if (!g.isNullOrBlank()) result.add(g.trim())
+            else break
         }
-        return found.toList()
+        if (result.isEmpty()) {
+            val g = readNode("/sys/devices/system/cpu/cpufreq/policy0/scaling_governor")
+            if (!g.isNullOrBlank()) result.add(g.trim())
+        }
+        return result
     }
 
     fun availableFreqMhz(readNode: (String) -> String?): List<Int> {
-        for (p in listOf(
+        val paths = listOf(
             "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies",
             "/sys/devices/system/cpu/cpufreq/policy0/scaling_available_frequencies"
-        )) {
-            val raw = readNode(p)?.trim().orEmpty()
-            if (raw.isEmpty()) continue
+        )
+        for (p in paths) {
+            val raw = readNode(p)?.trim() ?: continue
             val mhz = raw.split(Regex("\\s+"))
-                .mapNotNull { it.toLongOrNull()?.div(1000L)?.toInt() }
+                .mapNotNull { it.toLongOrNull()?.div(1000)?.toInt() }
                 .filter { it > 0 }
-                .distinct()
-                .sorted()
-            if (mhz.isNotEmpty()) return mhz
+            if (mhz.isNotEmpty()) return mhz.distinct().sorted()
         }
         return emptyList()
     }
 
     fun onlineCores(readNode: (String) -> String?): List<Int> {
-        val online = readNode("/sys/devices/system/cpu/online")?.trim().orEmpty()
-        if (online.isEmpty()) return emptyList()
-        val out = ArrayList<Int>()
-        for (part in online.split(',')) {
+        val online = readNode("/sys/devices/system/cpu/online")?.trim() ?: return emptyList()
+        val cores = ArrayList<Int>()
+        for (part in online.split(",")) {
             val p = part.trim()
-            if ('-' in p) {
-                val ends = p.split('-')
-                val a = ends.getOrNull(0)?.toIntOrNull() ?: continue
-                val b = ends.getOrNull(1)?.toIntOrNull() ?: continue
-                for (i in a..b) out.add(i)
+            if ("-" in p) {
+                val (a, b) = p.split("-", limit = 2)
+                val start = a.toIntOrNull() ?: continue
+                val end = b.toIntOrNull() ?: continue
+                for (i in start..end) cores.add(i)
             } else {
-                p.toIntOrNull()?.let { out.add(it) }
+                p.toIntOrNull()?.let { cores.add(it) }
             }
         }
-        return out
+        return cores
     }
 
     fun topologyHint(online: List<Int>, freqs: List<Int>, maxF: Int?): String {
         if (online.isEmpty() && freqs.isEmpty()) return ""
-        val n = online.size.takeIf { it > 0 } ?: freqs.size
-        val distinct = freqs.filter { it > 0 }.distinct().sorted()
-        return when {
-            distinct.size >= 3 -> "$n cores · multi-cluster (${distinct.joinToString("/") { "${it}MHz" }})"
-            distinct.size == 2 -> "$n cores · dual-cluster (${distinct[0]}/${distinct[1]} MHz peak)"
-            maxF != null && n > 0 -> "$n cores · up to ${maxF} MHz"
-            n > 0 -> "$n cores online"
-            else -> ""
+        val n = maxOf(online.size, freqs.size).coerceAtLeast(1)
+        if (freqs.size >= 2) {
+            val sorted = freqs.sorted()
+            val low = sorted.first()
+            val high = sorted.last()
+            if (high > low * 1.3) {
+                return "$n cores · mixed freqs ${low}–${high} MHz"
+            }
         }
+        return if (maxF != null) "$n cores · up to $maxF MHz" else "$n cores"
     }
-
-    data class MemExtras(
-        val cachedMb: Long? = null,
-        val buffersMb: Long? = null,
-        val swapTotalMb: Long? = null,
-        val swapFreeMb: Long? = null,
-        val zramMb: Long? = null,
-        val activeMb: Long? = null
-    )
 
     fun meminfoExtras(readNode: (String) -> String?): MemExtras {
         fun kbToMb(kb: Long?) = kb?.div(1024)
@@ -90,26 +97,25 @@ internal object DeepProbes {
         var swapTotal: Long? = null
         var swapFree: Long? = null
         var active: Long? = null
-        try {
-            File("/proc/meminfo").forEachLine { line ->
-                val parts = line.split(Regex("\\s+"))
-                if (parts.size < 2) return@forEachLine
-                val key = parts[0].trimEnd(':')
-                val kb = parts[1].toLongOrNull() ?: return@forEachLine
-                when (key) {
-                    "Cached" -> cached = kb
-                    "Buffers" -> buffers = kb
-                    "SwapTotal" -> swapTotal = kb
-                    "SwapFree" -> swapFree = kb
-                    "Active" -> active = kb
-                }
+        val text = readNode("/proc/meminfo") ?: return MemExtras(null, null, null, null, null, null)
+        for (line in text.lineSequence()) {
+            val parts = line.split(Regex("\\s+"))
+            if (parts.size < 2) continue
+            val key = parts[0].trimEnd(':')
+            val kb = parts[1].toLongOrNull() ?: continue
+            when (key) {
+                "Cached" -> cached = kb
+                "Buffers" -> buffers = kb
+                "SwapTotal" -> swapTotal = kb
+                "SwapFree" -> swapFree = kb
+                "Active" -> active = kb
             }
-        } catch (_: Exception) {}
-        var zram: Long? = null
-        for (i in 0 until 4) {
-            val raw = readNode("/sys/block/zram$i/disksize")?.trim()?.toLongOrNull()
-            if (raw != null && raw > 0) zram = (zram ?: 0L) + raw / (1024 * 1024)
         }
+        var zram: Long? = null
+        try {
+            val z = readNode("/sys/block/zram0/disksize")?.toLongOrNull()
+            if (z != null && z > 0) zram = z / (1024 * 1024)
+        } catch (_: Exception) {}
         return MemExtras(
             cachedMb = kbToMb(cached),
             buffersMb = kbToMb(buffers),
@@ -121,34 +127,27 @@ internal object DeepProbes {
     }
 
     fun selinuxMode(readNode: (String) -> String?): String {
-        when (readNode("/sys/fs/selinux/enforce")?.trim()) {
-            "1" -> return "Enforcing"
-            "0" -> return "Permissive"
-        }
-        val getenforce = try {
-            val p = Runtime.getRuntime().exec(arrayOf("getenforce"))
-            p.inputStream.bufferedReader().readLine()?.trim().orEmpty().also { p.destroy() }
-        } catch (_: Exception) { "" }
-        return when {
-            getenforce.equals("Enforcing", true) -> "Enforcing"
-            getenforce.equals("Permissive", true) -> "Permissive"
-            getenforce.equals("Disabled", true) -> "Disabled"
-            else -> ""
+        val enforce = readNode("/sys/fs/selinux/enforce")?.trim()
+        return when (enforce) {
+            "1" -> "Enforcing"
+            "0" -> "Permissive"
+            else -> {
+                val status = readNode("/sys/fs/selinux/status")?.trim().orEmpty()
+                if (status.isNotBlank()) status else "Unknown"
+            }
         }
     }
 
     fun thermalTypeLabel(type: String): String {
         val t = type.lowercase(Locale.US)
         return when {
-            "cpu" in t || "soc" in t -> "CPU / SoC"
+            "cpu" in t -> "CPU"
             "gpu" in t -> "GPU"
-            "battery" in t || "batt" in t -> "Battery"
-            "skin" in t || "shell" in t || "surface" in t -> "Skin"
-            "pmic" in t -> "PMIC"
-            "modem" in t || "pa_" in t || "wifi" in t -> "Radio"
+            "bat" in t -> "Battery"
+            "skin" in t || "surface" in t -> "Skin"
+            "xo" in t || "modem" in t || "pa" in t -> "Modem/RF"
+            "npu" in t || "dsp" in t -> "NPU/DSP"
             "charger" in t || "usb" in t -> "Charger"
-            "npu" in t || "dsp" in t || "tpu" in t -> "Accelerator"
-            type.isBlank() -> ""
             else -> type
         }
     }
@@ -164,12 +163,13 @@ internal object DeepProbes {
     fun cameraExtras(chars: CameraCharacteristics): CameraDeep {
         val physical = try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                @Suppress("NewApi")
                 chars.physicalCameraIds.joinToString(", ")
             } else ""
         } catch (_: Exception) { "" }
         val caps = try {
             val arr = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: intArrayOf()
-            arr.mapNotNull { cap ->
+            arr.map { cap ->
                 when (cap) {
                     CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE -> "COMPAT"
                     CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR -> "MANUAL_SENSOR"
@@ -182,7 +182,7 @@ internal object DeepProbes {
                     CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME -> "MONO"
                     else -> null
                 }
-            }.joinToString(", ")
+            }.filterNotNull().joinToString(", ")
         } catch (_: Exception) { "" }
         val active = try {
             val r = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
@@ -190,28 +190,26 @@ internal object DeepProbes {
         } catch (_: Exception) { "" }
         val iso = try {
             val range = chars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
-            if (range != null) "${range.lower}-${range.upper}" else ""
+            if (range != null) "${range.lower}–${range.upper}" else ""
         } catch (_: Exception) { "" }
         val exposure = try {
             val range = chars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
             if (range != null) {
                 val lo = range.lower / 1_000_000.0
                 val hi = range.upper / 1_000_000.0
-                String.format(Locale.US, "%.3f–%.1f ms", lo, hi)
+                String.format(Locale.US, "%.2f–%.0f ms", lo, hi)
             } else ""
         } catch (_: Exception) { "" }
         val flash = try {
-            chars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
-        } catch (_: Exception) { false }
-        return CameraDeep(physical, caps, active, iso, exposure, flash)
+            chars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE)
+        } catch (_: Exception) { null }
+        return CameraDeep(
+            physicalIds = physical,
+            capabilities = caps,
+            activeArraySize = active,
+            isoRange = iso,
+            exposureRange = exposure,
+            hasFlash = flash
+        )
     }
-
-    data class CameraDeep(
-        val physicalIds: String,
-        val capabilities: String,
-        val activeArraySize: String,
-        val isoRange: String,
-        val exposureRange: String,
-        val hasFlash: Boolean
-    )
 }
