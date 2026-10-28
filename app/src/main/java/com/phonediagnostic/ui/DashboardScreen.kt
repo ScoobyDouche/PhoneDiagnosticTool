@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -404,10 +405,25 @@ private fun ReportList(
                         data.display.hdrFormats.joinToString(", ")
                             .ifBlank { stringResource(R.string.none) }
                     )
+                    data.display.hdrMaxNits?.let {
+                        InfoRow(stringResource(R.string.label_hdr_peak), stringResource(R.string.value_nits, it.toInt()))
+                    }
                     InfoRow(
                         stringResource(R.string.label_wide_gamut),
                         if (data.display.wideColorGamut) stringResource(R.string.yes) else stringResource(R.string.no)
                     )
+                    // Only worth a row each when the panel can switch resolution.
+                    if (data.display.modes.size > 1) {
+                        Text(
+                            text = stringResource(R.string.label_display_modes),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                        data.display.modes.forEach { mode ->
+                            Text(text = mode, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                 }
             }
         }
@@ -467,6 +483,19 @@ private fun ReportList(
                     if (sec.buildTags.isNotBlank()) {
                         InfoRow(stringResource(R.string.label_build_tags), sec.buildTags)
                     }
+                    sec.patchAgeDays?.let { days ->
+                        InfoRow(
+                            stringResource(R.string.label_patch_age),
+                            pluralStringResource(R.plurals.value_days_old, days, days)
+                        )
+                    }
+                    val keystore = when {
+                        sec.strongBox == true -> stringResource(R.string.keystore_strongbox)
+                        sec.hardwareKeystore == true -> stringResource(R.string.keystore_tee)
+                        sec.hardwareKeystore == false -> stringResource(R.string.keystore_software)
+                        else -> null
+                    }
+                    keystore?.let { InfoRow(stringResource(R.string.label_keystore), it) }
                 }
             }
         }

@@ -143,6 +143,9 @@ fun NetworkScreen(
                         Column {
                             InfoRow(stringResource(R.string.label_network_name), wifi.ssid)
                             InfoRow(stringResource(R.string.label_band), wifi.band)
+                            if (wifi.standard.isNotBlank()) {
+                                InfoRow(stringResource(R.string.label_wifi_standard), wifi.standard)
+                            }
                             wifi.frequencyMhz?.let {
                                 InfoRow(stringResource(R.string.label_frequency), "$it MHz")
                             }
@@ -184,6 +187,15 @@ fun NetworkScreen(
                                 )
                             }
                             InfoRow(stringResource(R.string.label_radio), cell.phoneType)
+                            if (cell.generation.isNotBlank()) {
+                                InfoRow(stringResource(R.string.label_generation), cell.generation)
+                            }
+                            cell.signalDbm?.let { dbm ->
+                                InfoRow(
+                                    stringResource(R.string.label_signal),
+                                    "$dbm dBm (${cell.signalLevel ?: 0}/4)"
+                                )
+                            }
                             InfoRow(
                                 stringResource(R.string.label_roaming),
                                 if (cell.roaming) {

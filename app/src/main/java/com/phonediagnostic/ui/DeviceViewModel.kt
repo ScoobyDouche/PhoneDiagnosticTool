@@ -52,7 +52,8 @@ enum class AppScreen {
     HISTORY,
     NETWORK,
     SENSOR_DETAIL,
-    PRIVACY
+    PRIVACY,
+    CODECS
 }
 
 fun AppScreen.isMainTab(): Boolean = when (this) {
@@ -296,6 +297,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     fun openSettings() = navigateTo(AppScreen.SETTINGS)
     fun openAbout() = navigateTo(AppScreen.ABOUT)
     fun openThermals() = navigateTo(AppScreen.THERMALS)
+    fun openCodecs() = navigateTo(AppScreen.CODECS)
 
     fun openTools() {
         refreshLog()

@@ -160,4 +160,21 @@ class DeepProbesTest {
         assertEquals(60, DeepProbes.sustainedPercent(throttled))
         assertNull(DeepProbes.sustainedPercent(List(5) { 100L }))
     }
+
+    @Test
+    fun wifiStandardNamesIncludeSixE() {
+        assertEquals("Wi-Fi 6E (802.11ax)", DeepProbes.wifiStandardName(6, "6 GHz"))
+        assertEquals("Wi-Fi 6 (802.11ax)", DeepProbes.wifiStandardName(6, "5 GHz"))
+        assertEquals("Wi-Fi 7 (802.11be)", DeepProbes.wifiStandardName(8, "6 GHz"))
+        assertEquals("", DeepProbes.wifiStandardName(0, "5 GHz"))
+    }
+
+    @Test
+    fun patchAgeCountsWholeDays() {
+        // 2026-10-28T00:00Z
+        val now = 1_793_145_600_000L
+        assertEquals(27, DeepProbes.patchAgeDays("2026-10-01", now))
+        assertNull(DeepProbes.patchAgeDays("unknown", now))
+        assertNull(DeepProbes.patchAgeDays("2027-01-01", now))
+    }
 }

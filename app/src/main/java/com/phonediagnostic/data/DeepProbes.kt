@@ -334,4 +334,29 @@ object DeepProbes {
         val end = perSecond.takeLast(window).average()
         return ((end * 100) / peak).toInt().coerceIn(0, 100)
     }
+
+    /** ScanResult.WIFI_STANDARD_* to the Wi-Fi Alliance names; 6E is 11ax on 6 GHz. */
+    fun wifiStandardName(standard: Int, band: String): String = when (standard) {
+        1 -> "Legacy (802.11a/b/g)"
+        4 -> "Wi-Fi 4 (802.11n)"
+        5 -> "Wi-Fi 5 (802.11ac)"
+        6 -> if (band == "6 GHz") "Wi-Fi 6E (802.11ax)" else "Wi-Fi 6 (802.11ax)"
+        7 -> "WiGig (802.11ad)"
+        8 -> "Wi-Fi 7 (802.11be)"
+        else -> ""
+    }
+
+    /** Days between a "YYYY-MM-DD" patch level and [nowMs]; null if unparseable. */
+    fun patchAgeDays(securityPatch: String?, nowMs: Long): Int? {
+        val parts = securityPatch?.trim()?.split('-') ?: return null
+        if (parts.size != 3) return null
+        val (y, m, d) = parts.map { it.toIntOrNull() ?: return null }
+        if (m !in 1..12 || d !in 1..31) return null
+        val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(y, m - 1, d)
+        }
+        val days = (nowMs - cal.timeInMillis) / 86_400_000L
+        return days.toInt().takeIf { it >= 0 }
+    }
 }

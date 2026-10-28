@@ -186,6 +186,8 @@ object ReportExporter {
                 appendLine("  Supported rates: ${d.supportedRefreshRatesHz.joinToString(", ") { String.format(Locale.US, "%.0f", it) }} Hz")
             }
             appendLine("  HDR: ${d.hdrFormats.joinToString(", ").ifBlank { "None" }}")
+            d.hdrMaxNits?.let { appendLine("  HDR peak: ${it.toInt()} nits") }
+            if (d.modes.size > 1) appendLine("  Modes: ${d.modes.joinToString("; ")}")
             appendLine("  Wide colour gamut: ${if (d.wideColorGamut) "Yes" else "No"}")
             if (d.orientation.isNotBlank()) appendLine("  Orientation: ${d.orientation}")
             appendLine()
@@ -208,6 +210,19 @@ object ReportExporter {
             if (sec.selinux.isNotBlank()) appendLine("  SELinux: ${sec.selinux}")
             if (sec.buildTags.isNotBlank()) appendLine("  Build tags: ${sec.buildTags}")
             sec.isDebuggableBuild?.let { appendLine("  Debuggable build: ${if (it) "Yes" else "No"}") }
+            sec.patchAgeDays?.let { appendLine("  Patch age: $it days") }
+            sec.strongBox?.let { appendLine("  StrongBox keystore: ${if (it) "Yes" else "No"}") }
+            sec.hardwareKeystore?.let { appendLine("  Hardware keystore: ${if (it) "Yes" else "No"}") }
+            val hwVideo = report.mediaCodecs.filter { it.isVideo && it.hardwareDecode }
+            if (hwVideo.isNotEmpty()) {
+                appendLine()
+                appendLine("MEDIA CODECS")
+                appendLine("  Hardware video decode: ${hwVideo.joinToString(", ") { it.name }}")
+                val hwEncode = report.mediaCodecs.filter { it.isVideo && it.hardwareEncode }
+                if (hwEncode.isNotEmpty()) {
+                    appendLine("  Hardware video encode: ${hwEncode.joinToString(", ") { it.name }}")
+                }
+            }
             appendLine()
             val sys = report.system
             appendLine("SYSTEM")
@@ -392,6 +407,8 @@ object ReportExporter {
                 d.supportedRefreshRatesHz.forEach { put(it.toDouble()) }
             })
             put("hdrFormats", JSONArray(d.hdrFormats))
+            put("hdrMaxNits", d.hdrMaxNits?.toDouble() ?: JSONObject.NULL)
+            put("modes", JSONArray(d.modes))
             put("wideColorGamut", d.wideColorGamut)
             put("orientation", d.orientation)
         })
@@ -416,6 +433,9 @@ object ReportExporter {
             put("selinux", report.security.selinux.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
             put("buildTags", report.security.buildTags.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
             put("isDebuggableBuild", report.security.isDebuggableBuild ?: JSONObject.NULL)
+            put("patchAgeDays", report.security.patchAgeDays ?: JSONObject.NULL)
+            put("strongBox", report.security.strongBox ?: JSONObject.NULL)
+            put("hardwareKeystore", report.security.hardwareKeystore ?: JSONObject.NULL)
         })
         root.put("system", JSONObject().apply {
             put("sinceBootMs", report.system.sinceBootMs)
@@ -430,6 +450,20 @@ object ReportExporter {
                     })
                 }
             })
+        })
+        root.put("mediaCodecs", JSONArray().apply {
+            report.mediaCodecs.forEach { codec ->
+                put(JSONObject().apply {
+                    put("mimeType", codec.mimeType)
+                    put("name", codec.name)
+                    put("hardwareDecode", codec.hardwareDecode)
+                    put("softwareDecode", codec.softwareDecode)
+                    put("hardwareEncode", codec.hardwareEncode)
+                    put("softwareEncode", codec.softwareEncode)
+                    put("maxDecodeSize", codec.maxDecodeSize)
+                    put("maxDecodeFps", codec.maxDecodeFps ?: JSONObject.NULL)
+                })
+            }
         })
         root.put("thermalState", JSONObject().apply {
             put("status", report.thermalState.status.takeIf { it.isNotBlank() } ?: JSONObject.NULL)

@@ -197,7 +197,11 @@ data class DisplayInfo(
     /** Whether the panel reports wide colour gamut support. */
     val wideColorGamut: Boolean = false,
     /** Portrait / Landscape at collection time. */
-    val orientation: String = ""
+    val orientation: String = "",
+    /** Peak brightness the panel targets for HDR content, in nits; null when unreported. */
+    val hdrMaxNits: Float? = null,
+    /** Every resolution the panel offers with its refresh rates, e.g. "1080×2400 @ 60/90/120 Hz". */
+    val modes: List<String> = emptyList()
 )
 
 data class NetworkInfo(
@@ -246,7 +250,9 @@ data class WifiDetail(
     /** 0..4, derived from RSSI. */
     val signalLevel: Int,
     val frequencyMhz: Int?,
-    val band: String
+    val band: String,
+    /** "Wi-Fi 6E", "Wi-Fi 7" ... from the negotiated standard; blank below API 30. */
+    val standard: String = ""
 )
 
 data class CellularDetail(
@@ -254,7 +260,12 @@ data class CellularDetail(
     val simOperator: String,
     val countryIso: String,
     val phoneType: String,
-    val roaming: Boolean
+    val roaming: Boolean,
+    /** "5G (standalone)", "5G (with LTE anchor)", "4G LTE" ... from signal strength, not cell IDs. */
+    val generation: String = "",
+    val signalDbm: Int? = null,
+    /** 0..4 bars. */
+    val signalLevel: Int? = null
 )
 
 /** On-demand companion to [NetworkInfo] for the Network detail screen. */
@@ -364,7 +375,13 @@ data class SecurityInfo(
     /** Whether the device reports being a userdebug/eng build. */
     val isDebuggableBuild: Boolean? = null,
     /** Selected safe build tags (user / userdebug / eng). */
-    val buildTags: String = ""
+    val buildTags: String = "",
+    /** Days since the security patch level; null when the date cannot be parsed. */
+    val patchAgeDays: Int? = null,
+    /** Keys can live in a dedicated security chip (StrongBox); null below API 28. */
+    val strongBox: Boolean? = null,
+    /** Hardware-backed keystore (TEE) reported by the platform; null below API 31. */
+    val hardwareKeystore: Boolean? = null
 )
 
 data class WakeSource(val name: String, val activeMs: Long)
@@ -411,5 +428,6 @@ data class FullDeviceReport(
     val audio: AudioInfo = AudioInfo(),
     val security: SecurityInfo = SecurityInfo(),
     val system: SystemState = SystemState(),
+    val mediaCodecs: List<CodecSupport> = emptyList(),
     val thermalState: ThermalState = ThermalState()
 )

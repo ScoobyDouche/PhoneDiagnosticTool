@@ -72,6 +72,7 @@ import com.phonediagnostic.data.ThemeMode
 import com.phonediagnostic.ui.AboutScreen
 import com.phonediagnostic.ui.AppScreen
 import com.phonediagnostic.ui.BatteryScreen
+import com.phonediagnostic.ui.CodecsScreen
 import com.phonediagnostic.ui.CpuScreen
 import com.phonediagnostic.ui.DashboardScreen
 import com.phonediagnostic.ui.DeviceViewModel
@@ -295,6 +296,7 @@ class MainActivity : ComponentActivity() {
                                             onOpenHistory = { viewModel.openHistory() },
                                             onOpenThermals = { viewModel.openThermals() },
                                             onOpenPrivacy = { viewModel.openPrivacy() },
+                                            onOpenCodecs = { viewModel.openCodecs() },
                                             onOpenTools = { viewModel.openTools() },
                                             onOpenSettings = { viewModel.openSettings() },
                                             onOpenAbout = { viewModel.openAbout() },
@@ -421,6 +423,12 @@ class MainActivity : ComponentActivity() {
                                             onBack = { viewModel.navigateBack() },
                                             onRefresh = { viewModel.loadNetworkDetail() },
                                             onRunLatency = { viewModel.runLatencyTest() }
+                                        )
+                                    }
+                                    AppScreen.CODECS -> {
+                                        CodecsScreen(
+                                            codecs = report?.mediaCodecs.orEmpty(),
+                                            onBack = { viewModel.navigateBack() }
                                         )
                                     }
                                     AppScreen.PRIVACY -> {

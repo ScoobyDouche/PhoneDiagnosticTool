@@ -635,4 +635,34 @@
     <string name="system_wake_sources">Kept the phone awake longest</string>
     <string name="thermals_status">Android thermal status: %1$s</string>
     <string name="thermals_headroom">%1$d%% of the throttling limit expected in 10 s</string>
+
+    <!-- Display / radio / security / codecs -->
+    <string name="label_hdr_peak">HDR peak brightness</string>
+    <string name="value_nits">%1$d nits</string>
+    <string name="label_display_modes">Display modes</string>
+    <string name="label_patch_age">Patch age</string>
+    <plurals name="value_days_old">
+        <item quantity="one">%1$d day old</item>
+        <item quantity="other">%1$d days old</item>
+    </plurals>
+    <string name="label_keystore">Key storage</string>
+    <string name="keystore_strongbox">StrongBox security chip</string>
+    <string name="keystore_tee">Hardware (TEE)</string>
+    <string name="keystore_software">Software only</string>
+    <string name="label_wifi_standard">Standard</string>
+    <string name="label_generation">Network</string>
+    <string name="more_codecs">Media codecs</string>
+    <string name="more_codecs_sub">Video and audio formats, hardware vs software</string>
+    <string name="codecs_title">Media codecs</string>
+    <string name="codecs_intro">Formats this phone can play and record. Hardware codecs are faster and use far less battery than software ones.</string>
+    <string name="codecs_video">Video</string>
+    <string name="codecs_audio">Audio</string>
+    <string name="codecs_decode">Play</string>
+    <string name="codecs_encode">Record</string>
+    <string name="codecs_hardware">Hardware</string>
+    <string name="codecs_software">Software</string>
+    <string name="codecs_none">No</string>
+    <string name="codecs_max">Up to %1$s</string>
+    <string name="codecs_max_fps">Up to %1$s at %2$d fps</string>
+    <string name="codecs_empty">No codecs reported.</string>
 </resources>

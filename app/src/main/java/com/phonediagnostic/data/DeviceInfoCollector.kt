@@ -19,6 +19,12 @@ import android.nfc.NfcAdapter
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
+import android.telephony.CellSignalStrengthCdma
+import android.telephony.CellSignalStrengthGsm
+import android.telephony.CellSignalStrengthLte
+import android.telephony.CellSignalStrengthNr
+import android.telephony.CellSignalStrengthTdscdma
+import android.telephony.CellSignalStrengthWcdma
 import android.telephony.TelephonyManager
 import android.opengl.GLES20
 import android.os.BatteryManager
@@ -154,6 +160,7 @@ class DeviceInfoCollector(private val context: Context) {
             audio = collectAudio(),
             security = collectSecurity(),
             system = collectSystemState(),
+            mediaCodecs = MediaCodecs.collect(),
             thermalState = collectThermalState()
         )
     }
@@ -863,6 +870,23 @@ class DeviceInfoCollector(private val context: Context) {
             emptyList()
         }
         val wideGamut = try { display?.isWideColorGamut == true } catch (_: Exception) { false }
+        val hdrNits = try {
+            display?.hdrCapabilities?.desiredMaxLuminance?.takeIf { it > 0f && it < 20_000f }
+        } catch (_: Exception) {
+            null
+        }
+        val modes = try {
+            display?.supportedModes.orEmpty()
+                .groupBy { it.physicalWidth to it.physicalHeight }
+                .entries
+                .sortedByDescending { (size, _) -> size.first.toLong() * size.second }
+                .map { (size, sameSize) ->
+                    val hz = sameSize.map { Math.round(it.refreshRate) }.distinct().sorted()
+                    "${size.first}×${size.second} @ ${hz.joinToString("/")} Hz"
+                }
+        } catch (_: Exception) {
+            emptyList()
+        }
         val orientation = when (context.resources.configuration.orientation) {
             Configuration.ORIENTATION_PORTRAIT -> "Portrait"
             Configuration.ORIENTATION_LANDSCAPE -> "Landscape"
@@ -879,7 +903,9 @@ class DeviceInfoCollector(private val context: Context) {
             supportedRefreshRatesHz = rates,
             hdrFormats = hdr,
             wideColorGamut = wideGamut,
-            orientation = orientation
+            orientation = orientation,
+            hdrMaxNits = hdrNits,
+            modes = modes
         )
     }
 
@@ -953,6 +979,37 @@ class DeviceInfoCollector(private val context: Context) {
         else -> null
     }
 
+    /**
+     * Radio generation and signal from getSignalStrength(), which needs no
+     * permission and carries no cell or location identifiers.
+     */
+    private fun CellularDetail.withSignal(tm: TelephonyManager): CellularDetail {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return this
+        return try {
+            val strengths = tm.signalStrength?.cellSignalStrengths.orEmpty()
+            val hasNr = strengths.any { it is CellSignalStrengthNr }
+            val hasLte = strengths.any { it is CellSignalStrengthLte }
+            val generation = when {
+                hasNr && hasLte -> "5G (with LTE anchor)"
+                hasNr -> "5G (standalone)"
+                hasLte -> "4G LTE"
+                strengths.any { it is CellSignalStrengthWcdma || it is CellSignalStrengthTdscdma } -> "3G"
+                strengths.any { it is CellSignalStrengthGsm } -> "2G"
+                strengths.any { it is CellSignalStrengthCdma } -> "CDMA"
+                else -> ""
+            }
+            // The strongest reading stands for the connection.
+            val primary = strengths.maxByOrNull { it.level }
+            copy(
+                generation = generation,
+                signalDbm = primary?.dbm?.takeIf { it in -150..-20 },
+                signalLevel = primary?.level
+            )
+        } catch (_: Exception) {
+            this
+        }
+    }
+
     private fun collectSecurity(): SecurityInfo {
         val locked = when (readSystemProperty("ro.boot.flash.locked")) {
             "1" -> true
@@ -990,7 +1047,14 @@ class DeviceInfoCollector(private val context: Context) {
             encryption = encryption,
             selinux = DeepProbes.selinuxMode(::readNode),
             isDebuggableBuild = debuggable,
-            buildTags = tags
+            buildTags = tags,
+            patchAgeDays = DeepProbes.patchAgeDays(Build.VERSION.SECURITY_PATCH, System.currentTimeMillis()),
+            strongBox = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                context.packageManager.hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE)
+            } else null,
+            hardwareKeystore = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                context.packageManager.hasSystemFeature(PackageManager.FEATURE_HARDWARE_KEYSTORE)
+            } else null
         )
     }
 
@@ -1437,7 +1501,12 @@ class DeviceInfoCollector(private val context: Context) {
             rssiDbm = rssi,
             signalLevel = rssi?.let { WifiManager.calculateSignalLevel(it, 5) } ?: 0,
             frequencyMhz = frequency,
-            band = band
+            band = band,
+            standard = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                DeepProbes.wifiStandardName(info.wifiStandard, band)
+            } else {
+                ""
+            }
         )
     }
 
@@ -1457,7 +1526,7 @@ class DeviceInfoCollector(private val context: Context) {
                     else -> "None"
                 },
                 roaming = try { tm.isNetworkRoaming } catch (_: Exception) { false }
-            )
+            ).withSignal(tm)
         } catch (_: Exception) {
             null
         }
