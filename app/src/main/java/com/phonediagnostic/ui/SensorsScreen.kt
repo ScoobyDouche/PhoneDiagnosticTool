@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -44,6 +45,7 @@ fun SensorsScreen(
     sensors: List<SensorEntry>,
     cameras: List<CameraEntry>,
     isRefreshing: Boolean,
+    listState: LazyListState,
     onBack: (() -> Unit)? = null,
     onRefresh: () -> Unit,
     onOpenSensor: (String) -> Unit = {}
@@ -75,6 +77,7 @@ fun SensorsScreen(
         }
     ) { padding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
@@ -88,56 +91,24 @@ fun SensorsScreen(
                         sensors.size,
                         cameras.size
                     ),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = stringResource(R.string.sensors_hint),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
+            items(sensors, key = { it.name + it.type }) { sensor ->
+                SensorCard(sensor = sensor, onClick = { onOpenSensor(sensor.name) })
+            }
             if (cameras.isNotEmpty()) {
                 item {
                     Text(
-                        text = stringResource(R.string.sensors_section_cameras),
+                        text = stringResource(R.string.section_cameras),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
-                items(cameras, key = { "cam-${it.id}" }) { cam ->
-                    CameraCard(cam)
-                }
-            }
-
-            item {
-                Text(
-                    text = stringResource(R.string.sensors_section_sensors),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-
-            if (sensors.isEmpty()) {
-                item {
-                    Text(
-                        text = stringResource(R.string.sensors_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else {
-                itemsIndexed(
-                    items = sensors,
-                    // Vendors sometimes expose two sensors with the same type and
-                    // name (wakeup / non-wakeup); the index keeps keys unique so
-                    // LazyColumn does not reject the list.
-                    key = { index, sensor -> "sensor-$index-${sensor.type}-${sensor.name}" }
-                ) { _, sensor ->
-                    SensorCard(sensor = sensor, onClick = { onOpenSensor(sensor.name) })
+                items(cameras, key = { it.id }) { cam ->
+                    CameraCard(camera = cam)
                 }
             }
         }
@@ -150,98 +121,36 @@ private fun SensorCard(sensor: SensorEntry, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text(
-                text = sensor.name,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = sensor.type,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(6.dp))
+        Column(Modifier = Modifier.padding(14.dp)) {
+            Text(sensor.name, fontWeight = FontWeight.SemiBold)
+            Text(sensor.type, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             if (sensor.vendor.isNotBlank()) {
-                MetaRow(stringResource(R.string.label_vendor), sensor.vendor)
+                Text(sensor.vendor, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            MetaRow(
-                stringResource(R.string.label_power),
-                String.format(Locale.US, "%.2f mA", sensor.powerMa)
-            )
-            MetaRow(
-                stringResource(R.string.label_resolution),
-                String.format(Locale.US, "%.4f", sensor.resolution)
-            )
-            MetaRow(
-                stringResource(R.string.label_max_range),
-                String.format(Locale.US, "%.2f", sensor.maxRange)
-            )
-            if (sensor.minDelayUs > 0) {
-                MetaRow(
-                    stringResource(R.string.label_min_delay),
-                    "${sensor.minDelayUs} µs"
-                )
-            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(String.format(Locale.US, "%.2f mA · res %.4f · max %.1f", sensor.powerMa, sensor.resolution, sensor.maxRange), style = MaterialTheme.typography.bodySmall)
             if (sensor.liveValues.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.sensors_live_prefix, sensor.liveValues),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Text("Live: ${sensor.liveValues}", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
             }
         }
     }
 }
 
 @Composable
-private fun CameraCard(cam: CameraEntry) {
+private fun CameraCard(camera: CameraEntry) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            Text(
-                text = stringResource(R.string.camera_title, cam.id, cam.facing),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            MetaRow(stringResource(R.string.label_hardware_level), cam.hardwareLevel)
-            MetaRow(stringResource(R.string.label_pixel_array), cam.pixelArraySize)
-            MetaRow(stringResource(R.string.label_orientation), "${cam.sensorOrientation}°")
-            MetaRow(stringResource(R.string.label_focal_lengths), cam.focalLengths)
-            MetaRow(stringResource(R.string.label_aperture), cam.aperture)
+            Text("${camera.facing} · ${camera.id}", fontWeight = FontWeight.SemiBold)
+            Text("${camera.pixelArraySize} · ${camera.hardwareLevel}", style = MaterialTheme.typography.bodySmall)
+            Text("Focal: ${camera.focalLengths} · ${camera.aperture}", style = MaterialTheme.typography.bodySmall)
+            if (camera.capabilities.isNotBlank()) {
+                Text(camera.capabilities, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
-    }
-}
-
-@Composable
-private fun MetaRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            fontFamily = FontFamily.Monospace
-        )
     }
 }
