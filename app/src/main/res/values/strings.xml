@@ -572,4 +572,50 @@
     <string name="label_exposure_range">Exposure</string>
     <string name="label_flash">Flash</string>
     <string name="label_physical_cameras">Physical cameras</string>
+
+    <!-- Privacy audit -->
+    <string name="more_privacy">Privacy audit</string>
+    <string name="more_privacy_sub">Which apps can use your camera, mic, location and more</string>
+    <string name="privacy_title">Privacy audit</string>
+    <string name="privacy_intro">Permissions other apps currently hold, read on your device. This shows what an app is allowed to do, not when it last did it. Tap an app to review or revoke its access.</string>
+    <string name="privacy_unavailable">Could not read installed apps.</string>
+    <string name="privacy_show_system">Include system apps</string>
+    <string name="privacy_special_heading">Special access</string>
+    <string name="privacy_permissions_heading">Permissions</string>
+    <string name="privacy_this_app_heading">This app</string>
+    <string name="privacy_this_app_intro">Everything Phone Diagnostic Tool asks for, and why. It has no camera, microphone, location, contacts or phone permissions.</string>
+    <string name="privacy_no_grants">No apps hold sensitive permissions.</string>
+    <string name="privacy_none">No apps</string>
+    <plurals name="privacy_app_count">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+    <string name="privacy_granted">Granted</string>
+    <string name="privacy_not_granted">Not granted</string>
+    <string name="privacy_cat_camera">Camera</string>
+    <string name="privacy_cat_microphone">Microphone</string>
+    <string name="privacy_cat_location">Location</string>
+    <string name="privacy_cat_background_location">Location all the time</string>
+    <string name="privacy_cat_contacts">Contacts and accounts</string>
+    <string name="privacy_cat_sms">SMS</string>
+    <string name="privacy_cat_call_log">Call log</string>
+    <string name="privacy_cat_phone">Phone</string>
+    <string name="privacy_cat_calendar">Calendar</string>
+    <string name="privacy_cat_body">Body sensors and activity</string>
+    <string name="privacy_cat_nearby">Nearby devices</string>
+    <string name="privacy_cat_media">Photos and videos</string>
+    <string name="privacy_cat_accessibility">Accessibility services — can read and control the screen</string>
+    <string name="privacy_cat_notifications">Notification access — can read every notification</string>
+    <string name="privacy_cat_admin">Device admin — can lock or wipe the phone</string>
+    <string name="purpose_internet">Only for the optional latency check.</string>
+    <string name="purpose_network_state">Shows connection type, IP addresses and DNS.</string>
+    <string name="purpose_wifi_state">Shows Wi-Fi speed, band and signal. Not the network name.</string>
+    <string name="purpose_vibrate">Vibration test in Tools.</string>
+    <string name="purpose_usage_stats">Per-app storage sizes. You grant it in system settings.</string>
+    <string name="purpose_query_packages">Lists installed apps for storage and this audit.</string>
+    <string name="purpose_delete_packages">Lets you uninstall an app from the storage screen. Android always asks first.</string>
+    <string name="purpose_foreground_service">Runs the optional background monitor.</string>
+    <string name="purpose_notifications">Shows the background monitor\'s notification.</string>
+    <string name="purpose_shizuku">Talks to Shizuku if you opt into elevated access.</string>
+    <string name="purpose_other">Added by a library for internal use; gives no access to your data.</string>
 </resources>

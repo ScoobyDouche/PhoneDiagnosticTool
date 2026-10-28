@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Wifi
@@ -60,6 +61,7 @@ fun MoreScreen(
     onOpenNetwork: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenThermals: () -> Unit,
+    onOpenPrivacy: () -> Unit,
     onOpenTools: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAbout: () -> Unit,
@@ -135,6 +137,13 @@ fun MoreScreen(
                             stringResource(R.string.more_history_fallback)
                         },
                         onClick = onOpenHistory
+                    )
+                    GroupDivider()
+                    MoreLink(
+                        icon = Icons.Filled.Shield,
+                        title = stringResource(R.string.more_privacy),
+                        subtitle = stringResource(R.string.more_privacy_sub),
+                        onClick = onOpenPrivacy
                     )
                 }
             }

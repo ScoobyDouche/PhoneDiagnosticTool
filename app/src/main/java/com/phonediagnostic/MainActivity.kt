@@ -76,6 +76,7 @@ import com.phonediagnostic.ui.DeviceViewModel
 import com.phonediagnostic.ui.HistoryScreen
 import com.phonediagnostic.ui.MoreScreen
 import com.phonediagnostic.ui.NetworkScreen
+import com.phonediagnostic.ui.PrivacyScreen
 import com.phonediagnostic.ui.RamDetailScreen
 import com.phonediagnostic.ui.SensorDetailScreen
 import com.phonediagnostic.ui.SensorsScreen
@@ -166,6 +167,8 @@ class MainActivity : ComponentActivity() {
                     val latencyRunning by viewModel.latencyRunning.collectAsStateWithLifecycle()
                     val selectedSensor by viewModel.selectedSensor.collectAsStateWithLifecycle()
                     val screenStates = rememberSaveableStateHolder()
+                    val privacyAudit by viewModel.privacyAudit.collectAsStateWithLifecycle()
+                    val privacyLoading by viewModel.privacyLoading.collectAsStateWithLifecycle()
                     // A detail screen popped off the back stack reopens at the top
                     // rather than where it was last left.
                     var shownScreen by remember { mutableStateOf(screen) }
@@ -288,6 +291,7 @@ class MainActivity : ComponentActivity() {
                                             onOpenNetwork = { viewModel.openNetwork() },
                                             onOpenHistory = { viewModel.openHistory() },
                                             onOpenThermals = { viewModel.openThermals() },
+                                            onOpenPrivacy = { viewModel.openPrivacy() },
                                             onOpenTools = { viewModel.openTools() },
                                             onOpenSettings = { viewModel.openSettings() },
                                             onOpenAbout = { viewModel.openAbout() },
@@ -413,6 +417,15 @@ class MainActivity : ComponentActivity() {
                                             onBack = { viewModel.navigateBack() },
                                             onRefresh = { viewModel.loadNetworkDetail() },
                                             onRunLatency = { viewModel.runLatencyTest() }
+                                        )
+                                    }
+                                    AppScreen.PRIVACY -> {
+                                        PrivacyScreen(
+                                            audit = privacyAudit,
+                                            isLoading = privacyLoading,
+                                            onBack = { viewModel.navigateBack() },
+                                            onRefresh = { viewModel.loadPrivacyAudit() },
+                                            onOpenAppInfo = { openAppInfo(it) }
                                         )
                                     }
                                     AppScreen.SENSOR_DETAIL -> {

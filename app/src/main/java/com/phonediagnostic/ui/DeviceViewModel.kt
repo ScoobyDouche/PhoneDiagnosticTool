@@ -17,6 +17,8 @@ import com.phonediagnostic.data.LoadTester
 import com.phonediagnostic.data.MetricHistory
 import com.phonediagnostic.data.MetricSample
 import com.phonediagnostic.data.NetworkDetail
+import com.phonediagnostic.data.PrivacyAudit
+import com.phonediagnostic.data.PrivacyAuditor
 import com.phonediagnostic.data.ProcessRamEntry
 import com.phonediagnostic.data.ThemeMode
 import com.phonediagnostic.data.UsageCollector
@@ -49,7 +51,8 @@ enum class AppScreen {
     THERMALS,
     HISTORY,
     NETWORK,
-    SENSOR_DETAIL
+    SENSOR_DETAIL,
+    PRIVACY
 }
 
 fun AppScreen.isMainTab(): Boolean = when (this) {
@@ -106,6 +109,14 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _themeMode = MutableStateFlow(prefs.themeMode)
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    private val privacyAuditor = PrivacyAuditor(appContext)
+
+    private val _privacyAudit = MutableStateFlow<PrivacyAudit?>(null)
+    val privacyAudit: StateFlow<PrivacyAudit?> = _privacyAudit.asStateFlow()
+
+    private val _privacyLoading = MutableStateFlow(false)
+    val privacyLoading: StateFlow<Boolean> = _privacyLoading.asStateFlow()
 
     private val _latencyTarget = MutableStateFlow(prefs.latencyTarget)
     val latencyTarget: StateFlow<LatencyTarget> = _latencyTarget.asStateFlow()
@@ -344,6 +355,24 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                 }
             } finally {
                 _appStorageLoading.value = false
+            }
+        }
+    }
+
+    fun openPrivacy() {
+        navigateTo(AppScreen.PRIVACY)
+        loadPrivacyAudit()
+    }
+
+    fun loadPrivacyAudit() {
+        viewModelScope.launch(Dispatchers.Default) {
+            _privacyLoading.value = true
+            try {
+                _privacyAudit.value = privacyAuditor.collect()
+            } catch (_: Exception) {
+                _privacyAudit.value = null
+            } finally {
+                _privacyLoading.value = false
             }
         }
     }
