@@ -9,6 +9,7 @@ import com.phonediagnostic.data.DeviceInfoCollector
 import com.phonediagnostic.data.DiagnosticLog
 import com.phonediagnostic.data.FullDeviceReport
 import com.phonediagnostic.data.LatencyStats
+import com.phonediagnostic.data.LatencyTarget
 import com.phonediagnostic.data.LoadTestProgress
 import com.phonediagnostic.data.LoadTestResult
 import com.phonediagnostic.data.LoadMode
@@ -106,6 +107,15 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val _themeMode = MutableStateFlow(prefs.themeMode)
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
+    private val _latencyTarget = MutableStateFlow(prefs.latencyTarget)
+    val latencyTarget: StateFlow<LatencyTarget> = _latencyTarget.asStateFlow()
+
+    private val _redactReports = MutableStateFlow(prefs.redactReports)
+    val redactReports: StateFlow<Boolean> = _redactReports.asStateFlow()
+
+    private val _secureScreens = MutableStateFlow(prefs.secureScreens)
+    val secureScreens: StateFlow<Boolean> = _secureScreens.asStateFlow()
+
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
@@ -172,6 +182,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     val selectedSensor: StateFlow<String?> = _selectedSensor.asStateFlow()
 
     init {
+        collector.latencyTarget = prefs.latencyTarget
         viewModelScope.launch(Dispatchers.Default) {
             runCollection(full = true)
         }
@@ -410,6 +421,24 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     fun setThemeMode(mode: ThemeMode) {
         prefs.themeMode = mode
         _themeMode.value = mode
+    }
+
+    fun setLatencyTarget(target: LatencyTarget) {
+        prefs.latencyTarget = target
+        _latencyTarget.value = target
+        collector.latencyTarget = target
+        _latencyStats.value = null
+        refreshNow()
+    }
+
+    fun setRedactReports(enabled: Boolean) {
+        prefs.redactReports = enabled
+        _redactReports.value = enabled
+    }
+
+    fun setSecureScreens(enabled: Boolean) {
+        prefs.secureScreens = enabled
+        _secureScreens.value = enabled
     }
 
     // ------------------------------------------------------------ elevated access

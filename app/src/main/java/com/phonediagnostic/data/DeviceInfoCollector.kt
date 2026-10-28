@@ -62,6 +62,10 @@ class DeviceInfoCollector(private val context: Context) {
     @Volatile
     var elevated: ElevatedShell? = null
 
+    /** Where the latency probe connects; set from the user's preference. */
+    @Volatile
+    var latencyTarget: LatencyTarget = LatencyTarget.CLOUDFLARE
+
     /** A sysfs read plus where it came from: null source means a direct read. */
     private data class NodeRead(val value: String?, val source: AccessTier?)
 
@@ -88,7 +92,6 @@ class DeviceInfoCollector(private val context: Context) {
     private fun readNode(path: String): String? = readNodeSourced(path).value
 
     companion object {
-        private const val LATENCY_HOST = "8.8.8.8"
 
         /** Power-supply nodes vary by vendor; the fuel gauge is not always "battery". */
         private val BATTERY_SUPPLY_DIRS = listOf(
@@ -1057,7 +1060,7 @@ class DeviceInfoCollector(private val context: Context) {
             else -> "Unknown"
         }
         val (down, up, flags) = networkMeta(capabilities)
-        val target = "$LATENCY_HOST:$LATENCY_PORT"
+        val target = latencyTargetLabel(latencyHost())
         if (!networkProbe) {
             return NetworkInfo(isConnected, networkType, null, target, "Disabled in Settings", down, up, flags.first, flags.second)
         }
@@ -1074,8 +1077,9 @@ class DeviceInfoCollector(private val context: Context) {
         validated: Boolean,
         metered: Boolean
     ): NetworkInfo {
-        val target = "$LATENCY_HOST:$LATENCY_PORT"
-        return when (val probe = singleLatency()) {
+        val host = latencyHost()
+        val target = latencyTargetLabel(host)
+        return when (val probe = singleLatency(host)) {
             is LatencyProbe.Ok ->
                 NetworkInfo(true, networkType, probe.millis, target, "OK", down, up, validated, metered)
             is LatencyProbe.Failed ->
@@ -1088,14 +1092,36 @@ class DeviceInfoCollector(private val context: Context) {
         data class Failed(val reason: String) : LatencyProbe
     }
 
+    /** The address to probe, or null when the router's address is not known. */
+    private fun latencyHost(): String? {
+        latencyTarget.host?.let { return it }
+        return try {
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            val routes = cm?.getLinkProperties(cm.activeNetwork)?.routes.orEmpty()
+            val gateways = routes.filter { it.isDefaultRoute }.mapNotNull { it.gateway }
+            (gateways.firstOrNull { it is Inet4Address } ?: gateways.firstOrNull())
+                ?.takeUnless { it.isAnyLocalAddress }
+                ?.hostAddress
+                ?.substringBefore('%')
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun latencyTargetLabel(host: String?): String = when (latencyTarget) {
+        LatencyTarget.GATEWAY -> "Router ${host ?: "(unknown)"}:$LATENCY_PORT"
+        else -> "$host:$LATENCY_PORT"
+    }
+
     /** One TCP connect to the latency target. The socket is always closed. */
-    private fun singleLatency(): LatencyProbe {
+    private fun singleLatency(host: String?): LatencyProbe {
+        if (host == null) return LatencyProbe.Failed("No router address")
         return try {
             // `use` matters here: on a failed connect the socket was previously
             // left open, leaking a descriptor on every probe.
             Socket().use { socket ->
                 val startNs = System.nanoTime()
-                socket.connect(InetSocketAddress(LATENCY_HOST, LATENCY_PORT), LATENCY_TIMEOUT_MS)
+                socket.connect(InetSocketAddress(host, LATENCY_PORT), LATENCY_TIMEOUT_MS)
                 LatencyProbe.Ok((System.nanoTime() - startNs) / 1_000_000)
             }
         } catch (_: java.net.SocketTimeoutException) {
@@ -1111,10 +1137,11 @@ class DeviceInfoCollector(private val context: Context) {
      */
     fun measureLatencyStats(count: Int = 5): LatencyStats {
         val attempts = count.coerceIn(1, 20)
+        val host = latencyHost()
         val samples = ArrayList<Long>(attempts)
         var lastError: String? = null
         repeat(attempts) { index ->
-            when (val probe = singleLatency()) {
+            when (val probe = singleLatency(host)) {
                 is LatencyProbe.Ok -> samples.add(probe.millis)
                 is LatencyProbe.Failed -> lastError = probe.reason
             }
@@ -1136,7 +1163,7 @@ class DeviceInfoCollector(private val context: Context) {
             samples.sumOf { kotlin.math.abs(it - avg) } / samples.size
         }
         return LatencyStats(
-            target = "$LATENCY_HOST:$LATENCY_PORT",
+            target = latencyTargetLabel(host),
             samplesMs = samples,
             attempts = attempts,
             minMs = samples.minOrNull(),

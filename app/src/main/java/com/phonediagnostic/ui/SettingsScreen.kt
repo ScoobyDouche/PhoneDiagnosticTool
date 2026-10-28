@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.OutlinedButton
 import com.phonediagnostic.R
 import com.phonediagnostic.data.DiagnosticLog
+import com.phonediagnostic.data.LatencyTarget
 import com.phonediagnostic.data.ThemeMode
 import com.phonediagnostic.data.elevated.AccessTier
 import com.phonediagnostic.data.elevated.ElevatedStatus
@@ -44,8 +45,14 @@ fun SettingsScreen(
     networkProbeEnabled: Boolean,
     backgroundMonitorEnabled: Boolean,
     themeMode: ThemeMode,
+    latencyTarget: LatencyTarget,
+    redactReports: Boolean,
+    secureScreens: Boolean,
     elevatedStatus: ElevatedStatus,
     onNetworkProbeChange: (Boolean) -> Unit,
+    onLatencyTargetChange: (LatencyTarget) -> Unit,
+    onRedactReportsChange: (Boolean) -> Unit,
+    onSecureScreensChange: (Boolean) -> Unit,
     onBackgroundMonitorChange: (Boolean) -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
     onAccessTierChange: (AccessTier) -> Unit,
@@ -84,26 +91,63 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.titleMedium
             )
             Box(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_latency_title),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_latency_description),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = networkProbeEnabled,
-                    onCheckedChange = onNetworkProbeChange
+            SettingSwitch(
+                title = stringResource(R.string.settings_latency_title),
+                description = stringResource(R.string.settings_latency_description),
+                checked = networkProbeEnabled,
+                onCheckedChange = onNetworkProbeChange
+            )
+            if (networkProbeEnabled) {
+                Text(
+                    text = stringResource(R.string.settings_latency_target),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(top = 8.dp)
                 )
+                LatencyTarget.entries.forEach { target ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = latencyTarget == target,
+                                onClick = { onLatencyTargetChange(target) },
+                                role = Role.RadioButton
+                            )
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = latencyTarget == target,
+                            onClick = { onLatencyTargetChange(target) }
+                        )
+                        Text(
+                            text = stringResource(
+                                when (target) {
+                                    LatencyTarget.CLOUDFLARE -> R.string.latency_target_cloudflare
+                                    LatencyTarget.QUAD9 -> R.string.latency_target_quad9
+                                    LatencyTarget.GOOGLE -> R.string.latency_target_google
+                                    LatencyTarget.GATEWAY -> R.string.latency_target_gateway
+                                }
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                }
             }
+            Box(modifier = Modifier.height(12.dp))
+            SettingSwitch(
+                title = stringResource(R.string.settings_redact_title),
+                description = stringResource(R.string.settings_redact_description),
+                checked = redactReports,
+                onCheckedChange = onRedactReportsChange
+            )
+            Box(modifier = Modifier.height(12.dp))
+            SettingSwitch(
+                title = stringResource(R.string.settings_secure_title),
+                description = stringResource(R.string.settings_secure_description),
+                checked = secureScreens,
+                onCheckedChange = onSecureScreensChange
+            )
 
             Box(modifier = Modifier.height(24.dp))
             HorizontalDivider()
@@ -248,6 +292,29 @@ fun SettingsScreen(
                     .padding(vertical = 12.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun SettingSwitch(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

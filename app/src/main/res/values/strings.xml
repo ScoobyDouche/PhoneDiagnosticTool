@@ -61,7 +61,7 @@
     <string name="about_version">Version %1$s</string>
     <string name="about_summary">On-device hardware and system diagnostics for Android. No accounts. No analytics SDKs.</string>
     <string name="about_privacy_heading">Privacy</string>
-    <string name="about_privacy_body">Diagnostics run on your device. The optional network latency check opens a short TCP connection to 8.8.8.8:53 and does not upload reports. You can turn it off in Settings. Full policy: PRIVACY.md in the repository.</string>
+    <string name="about_privacy_body">Diagnostics run on your device. The optional network latency check opens a short TCP connection to a DNS server you choose (Cloudflare by default) or your router, and never uploads reports. You can turn it off in Settings. Full policy: PRIVACY.md in the repository.</string>
     <string name="about_license_heading">License</string>
     <string name="about_license_body">MIT License. See LICENSE in the project repository.</string>
     <string name="about_source_heading">Source</string>
@@ -80,7 +80,16 @@
     <string name="settings_title">Settings</string>
     <string name="settings_privacy_heading">Privacy and network</string>
     <string name="settings_latency_title">Network latency check</string>
-    <string name="settings_latency_description">When on, measures TCP connect time to 8.8.8.8:53. No report is uploaded.</string>
+    <string name="settings_latency_description">When on, times a TCP connection to the server below. No data or report is sent.</string>
+    <string name="settings_latency_target">Latency target</string>
+    <string name="latency_target_cloudflare">Cloudflare (1.1.1.1)</string>
+    <string name="latency_target_quad9">Quad9 (9.9.9.9)</string>
+    <string name="latency_target_google">Google (8.8.8.8)</string>
+    <string name="latency_target_gateway">Your router only — stays on your network</string>
+    <string name="settings_redact_title">Remove device identifiers from reports</string>
+    <string name="settings_redact_description">Leaves out build fingerprint, bootloader, baseband and build host when you share, save or copy a report.</string>
+    <string name="settings_secure_title">Block screenshots</string>
+    <string name="settings_secure_description">Stops screenshots and screen recording, and hides the app\'s preview in Recents.</string>
     <string name="settings_background_heading">Background</string>
     <string name="settings_monitor_title">Keep monitoring</string>
     <string name="settings_monitor_description">Samples battery and RAM every 30s with a persistent notification. Log is capped at %1$d lines (oldest drop; ~0.5–1 MB full).</string>

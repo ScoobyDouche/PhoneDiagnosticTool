@@ -2,6 +2,7 @@ package com.phonediagnostic
 
 import android.Manifest
 import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -12,7 +13,9 @@ import android.content.ComponentName
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
+import android.os.PersistableBundle
 import android.provider.Settings
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -60,6 +63,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import com.phonediagnostic.data.FullDeviceReport
 import com.phonediagnostic.data.ReportExporter
 import com.phonediagnostic.data.ThemeMode
@@ -82,6 +86,8 @@ import com.phonediagnostic.ui.ToolsScreen
 import com.phonediagnostic.ui.isMainTab
 import com.phonediagnostic.ui.theme.PhoneDiagnosticTheme
 import java.io.File
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.phonediagnostic.service.QuickTileService
 
 class MainActivity : ComponentActivity() {
@@ -117,9 +123,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        applySecureFlag(viewModel.secureScreens.value)
 
         setContent {
             val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+            val secureScreens by viewModel.secureScreens.collectAsStateWithLifecycle()
+            LaunchedEffect(secureScreens) { applySecureFlag(secureScreens) }
+            val latencyTarget by viewModel.latencyTarget.collectAsStateWithLifecycle()
+            val redactReports by viewModel.redactReports.collectAsStateWithLifecycle()
             val darkTheme = when (themeMode) {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
@@ -296,8 +307,14 @@ class MainActivity : ComponentActivity() {
                                             networkProbeEnabled = networkProbe,
                                             backgroundMonitorEnabled = bgMonitor,
                                             themeMode = themeMode,
+                                            latencyTarget = latencyTarget,
+                                            redactReports = redactReports,
+                                            secureScreens = secureScreens,
                                             elevatedStatus = elevatedStatus,
                                             onNetworkProbeChange = { viewModel.setNetworkProbeEnabled(it) },
+                                            onLatencyTargetChange = { viewModel.setLatencyTarget(it) },
+                                            onRedactReportsChange = { viewModel.setRedactReports(it) },
+                                            onSecureScreensChange = { viewModel.setSecureScreens(it) },
                                             onBackgroundMonitorChange = { enabled ->
                                                 if (enabled) {
                                                     requestNotificationThenStartMonitor()
@@ -514,6 +531,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * FLAG_SECURE blocks screenshots and screen recording and blanks the app's
+     * thumbnail in Recents, for people who show their phone to others.
+     */
+    private fun applySecureFlag(secure: Boolean) {
+        if (secure) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    private fun redactExports(): Boolean = viewModel.redactReports.value
+
     private fun currentReport(): FullDeviceReport? {
         val report = viewModel.report.value
         if (report == null) {
@@ -527,7 +558,7 @@ class MainActivity : ComponentActivity() {
     private fun shareText() {
         val report = currentReport() ?: return
         startChooser(
-            text = ReportExporter.toShareText(report),
+            text = ReportExporter.toShareText(report, redactExports()),
             mimeType = MIME_TEXT,
             subject = getString(R.string.report_subject),
             title = getString(R.string.chooser_share_report)
@@ -537,7 +568,7 @@ class MainActivity : ComponentActivity() {
     private fun shareJson() {
         val report = currentReport() ?: return
         startChooser(
-            text = ReportExporter.toJson(report),
+            text = ReportExporter.toJson(report, redactExports()),
             mimeType = MIME_JSON,
             subject = getString(R.string.report_subject_json),
             title = getString(R.string.chooser_share_json)
@@ -588,7 +619,7 @@ class MainActivity : ComponentActivity() {
             // One file per share keeps this from growing without bound.
             dir.listFiles()?.forEach { it.delete() }
             val file = File(dir, name)
-            file.writeText(ReportExporter.toShareText(report))
+            file.writeText(ReportExporter.toShareText(report, redactExports()))
             FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         } catch (e: Exception) {
             Toast.makeText(
@@ -623,13 +654,13 @@ class MainActivity : ComponentActivity() {
 
     private fun saveText() {
         val report = currentReport() ?: return
-        pendingExport = ReportExporter.toShareText(report)
+        pendingExport = ReportExporter.toShareText(report, redactExports())
         launchSave(saveTextLauncher, ReportExporter.suggestedFileName(report, "txt"))
     }
 
     private fun saveJson() {
         val report = currentReport() ?: return
-        pendingExport = ReportExporter.toJson(report)
+        pendingExport = ReportExporter.toJson(report, redactExports())
         launchSave(saveJsonLauncher, ReportExporter.suggestedFileName(report, "json"))
     }
 
@@ -665,18 +696,44 @@ class MainActivity : ComponentActivity() {
 
     private fun copyText() {
         val report = currentReport() ?: return
-        val text = ReportExporter.toShareText(report)
+        val text = ReportExporter.toShareText(report, redactExports())
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         if (clipboard == null) {
             Toast.makeText(this, R.string.toast_clipboard_unavailable, Toast.LENGTH_SHORT).show()
             return
         }
-        clipboard.setPrimaryClip(
-            ClipData.newPlainText(getString(R.string.report_subject), text)
-        )
+        val clip = ClipData.newPlainText(CLIP_LABEL, text).apply {
+            // Android 13+ hides sensitive clips from the copy preview and keyboard suggestions.
+            description.extras = PersistableBundle().apply {
+                putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+            }
+        }
+        clipboard.setPrimaryClip(clip)
+        scheduleClipboardClear(clipboard)
         // Android 13+ shows its own copy confirmation; a toast would duplicate it.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             Toast.makeText(this, R.string.toast_report_copied, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Clears the copied report after [CLIPBOARD_CLEAR_MS] if it is still on the
+     * clipboard. Only our own clip is touched; anything copied since is left alone.
+     */
+    private fun scheduleClipboardClear(clipboard: ClipboardManager) {
+        lifecycleScope.launch {
+            delay(CLIPBOARD_CLEAR_MS)
+            try {
+                if (clipboard.primaryClipDescription?.label == CLIP_LABEL) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        clipboard.clearPrimaryClip()
+                    } else {
+                        clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
+                    }
+                }
+            } catch (_: Exception) {
+                // Reading the clipboard can be refused once we are in the background.
+            }
         }
     }
 
@@ -684,6 +741,8 @@ class MainActivity : ComponentActivity() {
         const val MIME_TEXT = "text/plain"
         const val MIME_JSON = "application/json"
         const val SHARE_DIR = "reports"
+        const val CLIP_LABEL = "Phone diagnostic report"
+        const val CLIPBOARD_CLEAR_MS = 60_000L
     }
 }
 

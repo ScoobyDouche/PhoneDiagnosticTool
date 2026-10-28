@@ -159,4 +159,45 @@ class ReportExporterTest {
         // A leading or doubled separator would come from an untrimmed placeholder.
         assertFalse(name.contains("--"))
     }
+
+    private fun identifying() = report().let {
+        it.copy(
+            overview = it.overview.copy(
+                fingerprint = "google/panther/panther:15/AP4A/12345:user/release-keys",
+                bootloader = "slider-1.3-1234567",
+                host = "abfarm-01234",
+                radioVersion = "g5300g-230927-B-1234567",
+                kernelVersion = "Linux version 5.10.198-android13-4-gabc123 (build-user@build-host) #1 SMP PREEMPT"
+            )
+        )
+    }
+
+    @Test
+    fun redactedTextDropsBuildIdentifiers() {
+        val text = ReportExporter.toShareText(identifying(), redact = true)
+        listOf("panther:15/AP4A", "slider-1.3", "abfarm", "g5300g", "build-host").forEach {
+            assertFalse("leaked $it", text.contains(it))
+        }
+        assertTrue(text.contains("Device identifiers removed"))
+        assertTrue(text.contains("5.10.198-android13-4-gabc123"))
+        assertTrue(text.contains("Pixel 7"))
+    }
+
+    @Test
+    fun redactedJsonIsMarkedAndBlank() {
+        val json = JSONObject(ReportExporter.toJson(identifying(), redact = true))
+        assertTrue(json.getBoolean("redacted"))
+        val overview = json.getJSONObject("overview")
+        assertEquals("", overview.getString("fingerprint"))
+        assertEquals("", overview.getString("bootloader"))
+        assertEquals("5.10.198-android13-4-gabc123", overview.getString("kernelVersion"))
+    }
+
+    @Test
+    fun unredactedExportKeepsIdentifiers() {
+        val text = ReportExporter.toShareText(identifying())
+        assertTrue(text.contains("slider-1.3-1234567"))
+        assertFalse(text.contains("Device identifiers removed"))
+        assertFalse(JSONObject(ReportExporter.toJson(identifying())).getBoolean("redacted"))
+    }
 }

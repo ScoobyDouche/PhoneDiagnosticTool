@@ -21,7 +21,40 @@ object ReportExporter {
         return "phone-diagnostic-$model-$stamp.$extension"
     }
 
-    fun toShareText(report: FullDeviceReport): String {
+    /**
+     * Copy of [report] without the fields that pin down one exact device build:
+     * fingerprint, bootloader and baseband versions, build host, and the kernel
+     * build line (which names the builder). Model, Android version and patch
+     * level stay, since a report is useless without them.
+     */
+    fun redact(report: FullDeviceReport): FullDeviceReport = report.copy(
+        overview = report.overview.copy(
+            fingerprint = "",
+            bootloader = "",
+            host = "",
+            radioVersion = "",
+            kernelVersion = kernelRelease(report.overview.kernelVersion)
+        )
+    )
+
+    /** "Linux version 5.15.104-android14 (builder@host) ..." → "5.15.104-android14". */
+    internal fun kernelRelease(procVersion: String): String =
+        Regex("Linux version (\\S+)").find(procVersion)?.groupValues?.get(1)
+            ?: procVersion.substringBefore(' ')
+
+    fun toShareText(report: FullDeviceReport, redact: Boolean = false): String {
+        val shown = if (redact) redact(report) else report
+        return buildString {
+            appendLine("Phone Diagnostic Report")
+            appendLine("========================")
+            if (redact) {
+                appendLine("Device identifiers removed (fingerprint, bootloader, baseband, build host).")
+            }
+            append(reportBody(shown))
+        }
+    }
+
+    private fun reportBody(report: FullDeviceReport): String {
         val o = report.overview
         val c = report.cpu
         val g = report.gpu
@@ -32,8 +65,6 @@ object ReportExporter {
         val d = report.display
 
         return buildString {
-            appendLine("Phone Diagnostic Report")
-            appendLine("========================")
             appendLine()
             appendLine("DEVICE")
             appendLine("  Manufacturer: ${o.manufacturer}")
@@ -208,7 +239,9 @@ object ReportExporter {
         }
     }
 
-    fun toJson(report: FullDeviceReport): String {
+    fun toJson(report: FullDeviceReport, redact: Boolean = false): String {
+        @Suppress("NAME_SHADOWING")
+        val report = if (redact) redact(report) else report
         val o = report.overview
         val c = report.cpu
         val g = report.gpu
@@ -220,6 +253,7 @@ object ReportExporter {
 
         val root = JSONObject()
         root.put("app", "Phone Diagnostic Tool")
+        root.put("redacted", redact)
         root.put("overview", JSONObject().apply {
             put("manufacturer", o.manufacturer)
             put("model", o.model)
