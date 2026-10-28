@@ -34,7 +34,7 @@ fun InfoCard(
 ) {
     val modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 16.dp, vertical = 5.dp)
+        .padding(horizontal = 16.dp, vertical = 4.dp)
         .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
 
     Card(
@@ -45,7 +45,7 @@ fun InfoCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -65,7 +65,7 @@ fun InfoCard(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             content()
         }
     }
@@ -76,7 +76,7 @@ fun InfoRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 3.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -122,12 +122,12 @@ fun UsageBar(label: String, percent: Int, detail: String) {
                 fontWeight = FontWeight.SemiBold
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         LinearProgressIndicator(
             progress = { p / 100f },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(10.dp),
+                .height(8.dp),
             color = barColor,
             trackColor = MaterialTheme.colorScheme.surfaceVariant,
             strokeCap = StrokeCap.Round

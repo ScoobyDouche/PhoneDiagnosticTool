@@ -103,9 +103,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val _networkProbeEnabled = MutableStateFlow(prefs.networkProbeEnabled)
     val networkProbeEnabled: StateFlow<Boolean> = _networkProbeEnabled.asStateFlow()
 
-    private val _backgroundMonitorEnabled = MutableStateFlow(prefs.backgroundMonitorEnabled)
-    val backgroundMonitorEnabled: StateFlow<Boolean> = _backgroundMonitorEnabled.asStateFlow()
-
     private val _themeMode = MutableStateFlow(prefs.themeMode)
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
@@ -160,6 +157,9 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val _latencyRunning = MutableStateFlow(false)
     val latencyRunning: StateFlow<Boolean> = _latencyRunning.asStateFlow()
 
+    private val _backgroundMonitorEnabled = MutableStateFlow(prefs.backgroundMonitorEnabled)
+    val backgroundMonitorEnabled: StateFlow<Boolean> = _backgroundMonitorEnabled.asStateFlow()
+
     /**
      * Whether the activity is started. viewModelScope outlives onStop, so
      * without this the live loop kept probing the network and waking sensors
@@ -209,7 +209,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     fun setInForeground(inForeground: Boolean) {
         _inForeground.value = inForeground
         if (inForeground) {
-            // Notification stop writes prefs directly; re-sync the toggle state.
             val enabled = prefs.backgroundMonitorEnabled
             if (_backgroundMonitorEnabled.value != enabled) {
                 _backgroundMonitorEnabled.value = enabled
@@ -245,11 +244,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         _canNavigateBack.value = true
     }
 
-    /**
-     * Bottom-tab destinations are roots. Selecting one clears the stack, but a
-     * non-Overview tab still returns to Overview on back, matching how the
-     * bottom bar reads.
-     */
     fun selectMainTab(tab: AppScreen) {
         if (!tab.isMainTab()) return
         backStack.clear()
@@ -259,24 +253,15 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         _screen.value = tab
         _canNavigateBack.value = backStack.isNotEmpty()
         if (tab == AppScreen.MORE) {
-            // The More screen shows a sample count next to History.
             refreshHistory()
         }
     }
 
-    /**
-     * Pops one entry.
-     *
-     * @return false when nothing was left to pop, so the caller can let the
-     *   system handle back and leave the app.
-     */
     fun navigateBack(): Boolean {
         if (backStack.isEmpty()) {
             _canNavigateBack.value = false
             return false
         }
-        // removeAt rather than removeLast: the latter collides with the JDK 21
-        // SequencedCollection method, which does not exist below API 35.
         val previous = backStack.removeAt(backStack.size - 1)
         _screen.value = previous
         _canNavigateBack.value = backStack.isNotEmpty()
@@ -284,9 +269,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun openSettings() = navigateTo(AppScreen.SETTINGS)
-
     fun openAbout() = navigateTo(AppScreen.ABOUT)
-
     fun openThermals() = navigateTo(AppScreen.THERMALS)
 
     fun openTools() {
@@ -370,8 +353,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             _latencyRunning.value = true
             try {
-                // Blocking socket work belongs on IO, not on the small
-                // Default pool that also serves collection.
                 _latencyStats.value = withContext(Dispatchers.IO) {
                     collector.measureLatencyStats(samples)
                 }
@@ -438,7 +419,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         elevatedManager.requestShizukuPermission()
     }
 
-    /** Re-check Shizuku/root state — e.g. after returning from the Shizuku app. */
     fun refreshElevatedStatus() {
         elevatedManager.refresh()
     }
@@ -466,8 +446,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                 val result = LoadTester.run(
                     context = appContext,
                     durationSec = durationSec,
-                    // One worker per core, so the test actually saturates the
-                    // whole CPU instead of a hardcoded half of it.
                     threads = Runtime.getRuntime().availableProcessors().coerceAtLeast(1),
                     mode = if (thermal) LoadMode.THERMAL else LoadMode.STANDARD,
                     onProgress = { progress ->
@@ -489,34 +467,35 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     // ---------------------------------------------------------------- collection
 
-    private fun runCollection(full: Boolean) {
-        try {
-            val probe = _networkProbeEnabled.value
-            val current = _report.value
-            // Sampling sensors wakes them, so only do it where readings are shown.
-            val sampleSensors = _screen.value == AppScreen.SENSORS ||
-                _screen.value == AppScreen.SENSOR_DETAIL
-            val next = if (full || current == null) {
-                collector.collect(networkProbe = probe, sampleSensors = sampleSensors)
-            } else {
-                collector.collectLive(current, networkProbe = probe, sampleSensors = sampleSensors)
-            }
-            _report.value = next
-            _lastUpdated.value = currentTimeLabel()
-            _errorMessage.value = null
-            recordHistory(next)
-        } catch (e: Exception) {
-            if (_report.value == null) {
-                _errorMessage.value = e.message ?: e.javaClass.simpleName
+    /**
+     * Serialised full / live collect. The mutex prevents the live loop, pull-to-refresh,
+     * elevated-shell observer and load-test completion from overlapping on the collector
+     * and on [_report].
+     */
+    private suspend fun runCollection(full: Boolean) {
+        collectionMutex.withLock {
+            try {
+                val probe = _networkProbeEnabled.value
+                val current = _report.value
+                val sampleSensors = _screen.value == AppScreen.SENSORS ||
+                    _screen.value == AppScreen.SENSOR_DETAIL
+                val next = if (full || current == null) {
+                    collector.collect(networkProbe = probe, sampleSensors = sampleSensors)
+                } else {
+                    collector.collectLive(current, networkProbe = probe, sampleSensors = sampleSensors)
+                }
+                _report.value = next
+                _lastUpdated.value = currentTimeLabel()
+                _errorMessage.value = null
+                recordHistory(next)
+            } catch (e: Exception) {
+                if (_report.value == null) {
+                    _errorMessage.value = e.message ?: e.javaClass.simpleName
+                }
             }
         }
     }
 
-    /**
-     * Feeds foreground samples into the same history the background monitor
-     * writes, so trends exist even with the monitor switched off.
-     * [MetricHistory] rate-limits, so offering every tick is fine.
-     */
     private fun recordHistory(report: FullDeviceReport) {
         val stored = history.record(
             MetricSample(

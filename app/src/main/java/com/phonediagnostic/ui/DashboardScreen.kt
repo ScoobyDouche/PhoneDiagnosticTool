@@ -155,8 +155,8 @@ private fun ReportList(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         item(key = "live_badge") { LiveBadge(isLive = isLive) }
 
@@ -357,7 +357,6 @@ private fun ReportList(
                         stringResource(R.string.label_approx_size),
                         String.format(Locale.US, "%.2f\"", data.display.screenSizeInches)
                     )
-                    // A single rate is just the current one again; only a choice is news.
                     if (data.display.supportedRefreshRatesHz.size > 1) {
                         InfoRow(
                             stringResource(R.string.label_supported_rates),
@@ -434,17 +433,40 @@ private fun ReportList(
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
             )
         }
     }
 }
 
 @Composable
-private fun radioLabel(present: Boolean, enabled: Boolean): String = when {
-    !present -> stringResource(R.string.radio_absent)
-    enabled -> stringResource(R.string.radio_on)
-    else -> stringResource(R.string.radio_off)
+private fun LiveBadge(isLive: Boolean) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        color = if (isLive)
+            Color(0xFF4CAF50).copy(alpha = 0.14f)
+        else
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isLive) {
+                    stringResource(R.string.dashboard_live_badge)
+                } else {
+                    stringResource(R.string.dashboard_paused_badge)
+                },
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isLive) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 @Composable
@@ -478,7 +500,7 @@ private fun ErrorState(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
         Button(onClick = onRetry) {
             Text(stringResource(R.string.dashboard_try_again))
         }
@@ -486,41 +508,10 @@ private fun ErrorState(
 }
 
 @Composable
-private fun LiveBadge(isLive: Boolean) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        color = if (isLive)
-            Color(0xFF4CAF50).copy(alpha = 0.12f)
-        else
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = MaterialTheme.shapes.medium
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (isLive) {
-                    stringResource(R.string.dashboard_live_badge)
-                } else {
-                    stringResource(R.string.dashboard_paused_badge)
-                },
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = if (isLive) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = if (isLive) {
-                    stringResource(R.string.dashboard_live_hint)
-                } else {
-                    stringResource(R.string.dashboard_paused_hint)
-                },
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+private fun radioLabel(present: Boolean, enabled: Boolean): String {
+    return when {
+        !present -> stringResource(R.string.radio_absent)
+        enabled -> stringResource(R.string.radio_on)
+        else -> stringResource(R.string.radio_off)
     }
 }
