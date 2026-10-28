@@ -466,7 +466,7 @@ class DeviceInfoCollector(private val context: Context) {
                         activeArraySize = deep.activeArraySize,
                         isoRange = deep.isoRange,
                         exposureRange = deep.exposureRange,
-                        hasFlash = deep.hasFlash
+                        hasFlash = deep.hasFlash ?: false
                     )
                 )
             } catch (_: Exception) {}
