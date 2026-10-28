@@ -1,1 +1,373 @@
-PLACEHOLDER
+package com.phonediagnostic.data
+
+data class DeviceOverview(
+    val manufacturer: String,
+    val model: String,
+    val brand: String,
+    val device: String,
+    val product: String,
+    val androidVersion: String,
+    val apiLevel: Int,
+    val buildId: String,
+    val securityPatch: String,
+    val uptime: String,
+    val fingerprint: String = "",
+    val board: String = "",
+    val bootloader: String = "",
+    val hardware: String = "",
+    val host: String = "",
+    val tags: String = "",
+    val type: String = "",
+    val kernelVersion: String = "",
+    val radioVersion: String = ""
+)
+
+data class CpuInfo(
+    val cores: Int,
+    val architecture: String,
+    val supportedAbis: List<String>,
+    val hardware: String,
+    val processor: String,
+    val boardPlatform: String,
+    /** Best-effort current frequencies in MHz (one per online core when readable). */
+    val currentFreqMhz: List<Int> = emptyList(),
+    /** Best-effort min/max from cpufreq policy when readable. */
+    val minFreqMhz: Int? = null,
+    val maxFreqMhz: Int? = null,
+    /**
+     * Name of the elevated tier (SHIZUKU / ROOT) that supplied the clock
+     * readings, or null when they came from a direct read. Lets the UI mark
+     * values only visible thanks to elevated access.
+     */
+    val clockSource: String? = null,
+    /** Current CPU frequency governors (one per policy when readable). */
+    val governors: List<String> = emptyList(),
+    /** Available frequencies (MHz) from the first readable policy, ascending. */
+    val availableFreqMhz: List<Int> = emptyList(),
+    /** Online core indices when /sys topology is readable. */
+    val onlineCores: List<Int> = emptyList(),
+    /** Brief cluster / topology note when detectable (e.g. "4+4 big.LITTLE"). */
+    val topologyHint: String = ""
+)
+
+data class GpuInfo(
+    val renderer: String,
+    val vendor: String,
+    val version: String
+)
+
+data class BatteryInfo(
+    val level: Int,
+    val status: String,
+    val health: String,
+    val temperature: Float,
+    val voltage: Int,
+    val technology: String,
+    val isCharging: Boolean,
+    val powerSource: String,
+    /** Instantaneous current in mA; null if unavailable. Negative often means discharging. */
+    val currentNowMa: Int?,
+    /** Average current in mA; null if unavailable. */
+    val currentAvgMa: Int?,
+    /** Design / reported capacity in mAh when exposed. */
+    val capacityMah: Int? = null,
+    /** Charge counter (µAh) when exposed. */
+    val chargeCounterUah: Long? = null,
+    /** Present full-charge capacity in mAh, from the fuel gauge. Null if not exposed. */
+    val fullChargeMah: Int? = null,
+    /** Factory design capacity in mAh, from the fuel gauge. Null if not exposed. */
+    val designChargeMah: Int? = null,
+    /**
+     * Remaining capacity as a percentage of design, i.e. wear. Only produced
+     * when both gauge figures are readable and plausible — never estimated,
+     * because a made-up battery-health number is worse than none.
+     */
+    val capacityHealthPercent: Int? = null,
+    /**
+     * Charge cycles the battery has been through. Android 14 (API 34) exposes
+     * this on the battery-changed broadcast; nothing below that reports it, and
+     * not every vendor populates it even then.
+     */
+    val cycleCount: Int? = null,
+    /**
+     * Name of the elevated tier (SHIZUKU / ROOT) that made the capacity-health
+     * figure readable, or null when it came from a direct read. Null health with
+     * a non-null source never happens — this is only set when a value exists.
+     */
+    val healthSource: String? = null,
+    /** As [healthSource], for the charge-cycle count. */
+    val cycleSource: String? = null
+) {
+    /**
+     * Instantaneous power in watts: positive charging, negative discharging.
+     * Null unless both voltage and current are available.
+     */
+    val powerWatts: Float?
+        get() {
+            val ma = currentNowMa ?: return null
+            if (voltage <= 0) return null
+            return (voltage / 1000f) * (ma / 1000f)
+        }
+}
+
+data class MemoryInfo(
+    val totalRamMb: Long,
+    val availableRamMb: Long,
+    val usedRamMb: Long,
+    val usagePercent: Int,
+    /** Android low-memory threshold (MB). Below this, system starts killing caches. */
+    val thresholdMb: Long = 0,
+    /** True only when system is under real memory pressure. */
+    val isLowMemory: Boolean = false,
+    /** Short human status for UI. */
+    val statusHint: String = "",
+    /** Kernel-reported Cached (MB) from /proc/meminfo when readable. */
+    val cachedMb: Long? = null,
+    /** Kernel-reported Buffers (MB). */
+    val buffersMb: Long? = null,
+    /** Swap total (MB); 0 or null when no swap. */
+    val swapTotalMb: Long? = null,
+    /** Swap free (MB). */
+    val swapFreeMb: Long? = null,
+    /** ZRAM compressed block size when a zram device is present (MB). */
+    val zramMb: Long? = null,
+    /** Kernel Active summary when readable. */
+    val kernelActiveMb: Long? = null
+)
+
+data class StorageVolumeInfo(
+    val name: String,
+    val path: String,
+    val description: String,
+    val totalBytes: Long,
+    val freeBytes: Long,
+    val usedBytes: Long,
+    val isRemovable: Boolean,
+    val isPrimary: Boolean,
+    val state: String
+) {
+    val totalGb: Double get() = totalBytes / (1024.0 * 1024 * 1024)
+    val freeGb: Double get() = freeBytes / (1024.0 * 1024 * 1024)
+    val usedGb: Double get() = usedBytes / (1024.0 * 1024 * 1024)
+    val usagePercent: Int
+        get() = if (totalBytes > 0) ((usedBytes * 100) / totalBytes).toInt() else 0
+}
+
+data class StorageInfo(
+    val totalInternalGb: Double,
+    val freeInternalGb: Double,
+    val usedInternalGb: Double,
+    val usagePercent: Int,
+    val volumes: List<StorageVolumeInfo> = emptyList(),
+    val dataDirectory: String = "",
+    val cacheDirectory: String = "",
+    val filesDirectory: String = "",
+    val externalStorageState: String = "",
+    val emulatedExternal: Boolean = false
+)
+
+/**
+ * Display panel characteristics. All fields are best-effort from public APIs;
+ * missing values stay at sensible defaults so older call sites remain valid.
+ */
+data class DisplayInfo(
+    val widthPx: Int,
+    val heightPx: Int,
+    val densityDpi: Int,
+    val density: Float,
+    val refreshRate: Float,
+    val screenSizeInches: Double,
+    /** Refresh rates the panel offers at its current resolution, ascending. */
+    val supportedRefreshRatesHz: List<Float> = emptyList(),
+    /** HDR formats the panel supports (HDR10, HLG, ...); empty when none. */
+    val hdrFormats: List<String> = emptyList(),
+    /** Whether the panel reports wide colour gamut support. */
+    val wideColorGamut: Boolean = false,
+    /** Portrait / Landscape at collection time. */
+    val orientation: String = ""
+)
+
+data class NetworkInfo(
+    val isConnected: Boolean,
+    val networkType: String,
+    val latencyMs: Long?,
+    val latencyTarget: String,
+    val latencyStatus: String,
+    /** Downstream link bandwidth in Mbps when reported by the system. */
+    val downstreamMbps: Int? = null,
+    /** Upstream link bandwidth in Mbps when reported. */
+    val upstreamMbps: Int? = null,
+    val validated: Boolean = false,
+    val metered: Boolean = false
+)
+
+/** Result of repeating the latency probe, so spread and loss are visible. */
+data class LatencyStats(
+    val target: String,
+    val samplesMs: List<Long>,
+    val attempts: Int,
+    val minMs: Long?,
+    val avgMs: Long?,
+    val maxMs: Long?,
+    /** Mean absolute deviation from the average. */
+    val jitterMs: Long?,
+    val lossPercent: Int,
+    /** Set only when every attempt failed. */
+    val lastError: String? = null
+)
+
+data class NetworkInterfaceInfo(
+    val name: String,
+    val displayName: String,
+    val addresses: List<String>,
+    val isUp: Boolean,
+    val mtu: Int
+)
+
+data class WifiDetail(
+    val ssid: String,
+    val linkSpeedMbps: Int?,
+    val rxLinkSpeedMbps: Int?,
+    val txLinkSpeedMbps: Int?,
+    val rssiDbm: Int?,
+    /** 0..4, derived from RSSI. */
+    val signalLevel: Int,
+    val frequencyMhz: Int?,
+    val band: String
+)
+
+data class CellularDetail(
+    val carrier: String,
+    val simOperator: String,
+    val countryIso: String,
+    val phoneType: String,
+    val roaming: Boolean
+)
+
+/** On-demand companion to [NetworkInfo] for the Network detail screen. */
+data class NetworkDetail(
+    val interfaces: List<NetworkInterfaceInfo> = emptyList(),
+    val dnsServers: List<String> = emptyList(),
+    val privateDnsServer: String? = null,
+    val privateDnsActive: Boolean = false,
+    val interfaceName: String = "",
+    val domains: String = "",
+    val wifi: WifiDetail? = null,
+    val cellular: CellularDetail? = null,
+    val capabilities: List<String> = emptyList()
+)
+
+data class SensorEntry(
+    val name: String,
+    val type: String,
+    val vendor: String,
+    val powerMa: Float,
+    val resolution: Float,
+    val maxRange: Float,
+    val minDelayUs: Int,
+    /** Live reading when available (joined values). */
+    val liveValues: String = "",
+    /** Maximum reporting latency in µs (0 = continuous). */
+    val maxDelayUs: Int = 0,
+    /** Whether this is a wake-up sensor. */
+    val isWakeUp: Boolean = false,
+    /** FIFO max event count when the sensor supports batching. */
+    val fifoMaxEventCount: Int = 0,
+    /** Reporting mode string (continuous / on-change / one-shot / special). */
+    val reportingMode: String = ""
+)
+
+data class CameraEntry(
+    val id: String,
+    val facing: String,
+    val sensorOrientation: Int,
+    val hardwareLevel: String,
+    val pixelArraySize: String,
+    val focalLengths: String,
+    val aperture: String,
+    /** Physical camera IDs when this is a logical multi-camera. */
+    val physicalIds: String = "",
+    /** Supported capabilities summary (RAW, MANUAL_SENSOR, ...). */
+    val capabilities: String = "",
+    /** Sensor active array size when different from pixel array. */
+    val activeArraySize: String = "",
+    /** ISO range (min-max) when exposed. */
+    val isoRange: String = "",
+    /** Exposure time range (shortest–longest) when exposed. */
+    val exposureRange: String = "",
+    /** Whether the camera reports flash unit. */
+    val hasFlash: Boolean = false
+)
+
+data class ThermalZone(
+    val name: String,
+    val tempC: Float,
+    val type: String = "",
+    /** Human-friendly type when the kernel type can be mapped. */
+    val typeLabel: String = ""
+)
+
+/**
+ * NFC presence and on/off state. Read-only; never starts discovery.
+ */
+data class NfcInfo(
+    val present: Boolean = false,
+    val enabled: Boolean = false
+)
+
+/**
+ * Bluetooth presence and on/off state. Deliberately carries no adapter name or
+ * address: PRIVACY.md promises MAC addresses are never shown, and the name is
+ * often the owner's own.
+ */
+data class BluetoothInfo(
+    val present: Boolean = false,
+    val enabled: Boolean = false,
+    val bleSupported: Boolean = false
+)
+
+/**
+ * Connected audio routes, by kind (Speaker, Wired headset, Bluetooth A2DP...).
+ * Nothing is recorded or played during collection.
+ */
+data class AudioInfo(
+    val outputDevices: List<String> = emptyList(),
+    val inputDevices: List<String> = emptyList()
+)
+
+/**
+ * Boot and encryption state from read-only system properties. A blank string
+ * or null means the property was not readable, which is common: several are
+ * hidden from apps on recent Android builds.
+ */
+data class SecurityInfo(
+    /** green / yellow / orange / red, as the bootloader reports it. */
+    val verifiedBootState: String = "",
+    val bootloaderLocked: Boolean? = null,
+    /** encrypted / unencrypted, plus file or block when known. */
+    val encryption: String = "",
+    /** SELinux mode: Enforcing / Permissive / Disabled / unknown. */
+    val selinux: String = "",
+    /** Whether the device reports being a userdebug/eng build. */
+    val isDebuggableBuild: Boolean? = null,
+    /** Selected safe build tags (user / userdebug / eng). */
+    val buildTags: String = ""
+)
+
+data class FullDeviceReport(
+    val overview: DeviceOverview,
+    val cpu: CpuInfo,
+    val gpu: GpuInfo,
+    val battery: BatteryInfo,
+    val memory: MemoryInfo,
+    val storage: StorageInfo,
+    val display: DisplayInfo,
+    val network: NetworkInfo,
+    val sensors: List<SensorEntry> = emptyList(),
+    val cameras: List<CameraEntry> = emptyList(),
+    val thermals: List<ThermalZone> = emptyList(),
+    val nfc: NfcInfo = NfcInfo(),
+    val bluetooth: BluetoothInfo = BluetoothInfo(),
+    val audio: AudioInfo = AudioInfo(),
+    val security: SecurityInfo = SecurityInfo()
+)
