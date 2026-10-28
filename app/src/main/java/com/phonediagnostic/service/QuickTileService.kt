@@ -64,7 +64,7 @@ class QuickTileService : TileService() {
     private fun sample(): String? = try {
         val collector = DeviceInfoCollector(applicationContext)
         val b = collector.collectBattery()
-        val m = collector.collectMemory()
+        val m = collector.collectMemory(kernelExtras = false)
         getString(
             R.string.tile_subtitle,
             String.format(Locale.US, "%.1f", b.temperature),

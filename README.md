@@ -18,16 +18,16 @@ Captured on a Galaxy Z Flip4 running Android 16.
 ## Features
 
 - **Device overview** — model, Android version, security patch, fingerprint, board, bootloader, uptime
-- **CPU / SoC** — architecture, frequency range, live per-core clocks
+- **CPU / SoC** — architecture, frequency range, live per-core clocks, cluster layout, governors, available frequencies
 - **GPU** — OpenGL ES info
 - **Battery** — charge, health, temperature, voltage, thermal zones, charging power, cycle count (where available)
-- **RAM** — usage + process detail (system-wide with Shizuku/root)
+- **RAM** — usage, kernel stats (cached, buffers, swap, ZRAM) + process detail (system-wide with Shizuku/root)
 - **Storage** — volumes + per-app breakdown (requires Usage Access)
 - **Display** — refresh rates, HDR formats, wide colour gamut
-- **Sensors** — list + live streaming with per-axis charts
-- **Cameras** — facing, pixel array, focal lengths, hardware level (no capture permission needed)
+- **Sensors** — list, reporting mode / wake-up / batching, live streaming with per-axis charts
+- **Cameras** — facing, pixel array, focal lengths, hardware level, ISO / exposure ranges, flash, capabilities (no capture permission needed)
 - **Connectivity** — NFC / Bluetooth state, connected audio devices
-- **Security** — verified boot, bootloader lock, encryption status
+- **Security** — verified boot, bootloader lock, encryption, SELinux mode, build tags
 - **Network** — IP addresses, DNS / private DNS, Wi-Fi link speed / band / signal, carrier, optional latency probe + 5-probe burst stats
 - **History** — battery, temperature and RAM trends from up to 24 h of on-device samples
 - **Tools** — CPU load test (1 / 5 / 10 min) with k-ops/s score, vibration check, storage speed test

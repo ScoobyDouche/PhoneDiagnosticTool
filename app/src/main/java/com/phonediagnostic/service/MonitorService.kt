@@ -101,7 +101,7 @@ class MonitorService : Service() {
                 // context, enumerated cameras and woke every sensor — twice a
                 // minute, forever, on a service whose whole point is to be cheap.
                 val b = collector.collectBattery()
-                val m = collector.collectMemory()
+                val m = collector.collectMemory(kernelExtras = false)
                 log.append(
                     "BAT ${b.level}% ${b.status} " +
                         "${String.format(Locale.US, "%.1f", b.temperature)}\u00b0C \u00b7 " +

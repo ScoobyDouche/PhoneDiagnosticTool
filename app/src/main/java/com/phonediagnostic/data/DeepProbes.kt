@@ -19,7 +19,11 @@ object DeepProbes {
         val swapFreeMb: Long?,
         val zramMb: Long?,
         val activeMb: Long?
-    )
+    ) {
+        companion object {
+            val NONE = MemExtras(null, null, null, null, null, null)
+        }
+    }
 
     data class CameraDeep(
         val physicalIds: String,
@@ -30,65 +34,113 @@ object DeepProbes {
         val hasFlash: Boolean?
     )
 
-    fun cpuGovernors(readNode: (String) -> String?): List<String> {
-        val result = ArrayList<String>()
-        for (i in 0 until 16) {
-            val g = readNode("/sys/devices/system/cpu/cpu$i/cpufreq/scaling_governor")
-            if (!g.isNullOrBlank()) result.add(g.trim())
-            else break
+    /**
+     * One cpufreq policy: a group of cores that share a clock, i.e. a cluster
+     * on big.LITTLE parts. [cpus] comes from related_cpus.
+     */
+    data class CpuCluster(
+        val cpus: List<Int>,
+        val maxMhz: Int?,
+        val governor: String?,
+        val availableMhz: List<Int>
+    )
+
+    /**
+     * Reads every cpufreq policy once. A policy directory is named after its
+     * first core, so cores already covered by a found cluster are skipped,
+     * which keeps this to roughly one read set per cluster rather than per core.
+     */
+    fun cpuClusters(readNode: (String) -> String?, coreCount: Int): List<CpuCluster> {
+        val clusters = ArrayList<CpuCluster>()
+        val covered = HashSet<Int>()
+        for (i in 0 until coreCount.coerceIn(1, 64)) {
+            if (i in covered) continue
+            val base = "/sys/devices/system/cpu/cpufreq/policy$i"
+            val related = readNode("$base/related_cpus")?.let(::parseCpuList).orEmpty()
+            // Older kernels have no policyN directories; fall back to per-core nodes.
+            val dir = if (related.isNotEmpty()) base else "/sys/devices/system/cpu/cpu$i/cpufreq"
+            val maxMhz = readNode("$dir/cpuinfo_max_freq")?.trim()?.toLongOrNull()?.div(1000)?.toInt()
+            val governor = readNode("$dir/scaling_governor")?.trim()?.takeIf { it.isNotEmpty() }
+            if (related.isEmpty() && maxMhz == null && governor == null) continue
+            val cpus = related.ifEmpty { listOf(i) }
+            covered += cpus
+            clusters += CpuCluster(
+                cpus = cpus,
+                maxMhz = maxMhz,
+                governor = governor,
+                availableMhz = parseFreqListMhz(readNode("$dir/scaling_available_frequencies"))
+            )
         }
-        if (result.isEmpty()) {
-            val g = readNode("/sys/devices/system/cpu/cpufreq/policy0/scaling_governor")
-            if (!g.isNullOrBlank()) result.add(g.trim())
-        }
-        return result
+        // Per-core fallback yields one entry per core; merge cores that look identical.
+        return if (clusters.all { it.cpus.size == 1 } && clusters.size > 1) {
+            clusters.groupBy { it.maxMhz to it.governor }.values.map { group ->
+                CpuCluster(
+                    cpus = group.flatMap { it.cpus }.sorted(),
+                    maxMhz = group.first().maxMhz,
+                    governor = group.first().governor,
+                    availableMhz = group.flatMap { it.availableMhz }.distinct().sorted()
+                )
+            }
+        } else {
+            clusters
+        }.sortedBy { it.cpus.firstOrNull() ?: 0 }
     }
 
-    fun availableFreqMhz(readNode: (String) -> String?): List<Int> {
-        val paths = listOf(
-            "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies",
-            "/sys/devices/system/cpu/cpufreq/policy0/scaling_available_frequencies"
-        )
-        for (p in paths) {
-            val raw = readNode(p)?.trim() ?: continue
-            val mhz = raw.split(Regex("\\s+"))
-                .mapNotNull { it.toLongOrNull()?.div(1000)?.toInt() }
-                .filter { it > 0 }
-            if (mhz.isNotEmpty()) return mhz.distinct().sorted()
+    /** Distinct governors across clusters, e.g. ["schedutil"] rather than one per core. */
+    fun cpuGovernors(clusters: List<CpuCluster>): List<String> =
+        clusters.mapNotNull { it.governor }.distinct()
+
+    /** Every frequency any cluster can run at, ascending, so big cores are included. */
+    fun availableFreqMhz(clusters: List<CpuCluster>): List<Int> =
+        clusters.flatMap { it.availableMhz }.distinct().sorted()
+
+    fun onlineCores(readNode: (String) -> String?): List<Int> =
+        readNode("/sys/devices/system/cpu/online")?.let(::parseCpuList).orEmpty()
+
+    /**
+     * Core layout from cluster sizes and peak clocks, e.g. "4 + 3 + 1 cores ·
+     * 2.0 / 2.8 / 3.3 GHz". Based on each cluster's maximum rather than the
+     * current clocks, which move with load and say nothing about topology.
+     */
+    fun topologyHint(clusters: List<CpuCluster>, coreCount: Int): String {
+        if (clusters.isEmpty()) return if (coreCount > 0) "$coreCount cores" else ""
+        val ordered = clusters.sortedWith(compareBy({ it.maxMhz ?: 0 }, { it.cpus.firstOrNull() ?: 0 }))
+        val speeds = ordered.mapNotNull { it.maxMhz }
+        val ghz = speeds.joinToString(" / ") { String.format(Locale.US, "%.1f", it / 1000.0) }
+        return if (ordered.size == 1) {
+            val n = ordered[0].cpus.size.coerceAtLeast(coreCount)
+            if (speeds.isNotEmpty()) "$n cores · up to $ghz GHz" else "$n cores"
+        } else {
+            val sizes = ordered.joinToString(" + ") { it.cpus.size.toString() }
+            if (speeds.size == ordered.size) "$sizes cores · $ghz GHz" else "$sizes cores"
         }
-        return emptyList()
     }
 
-    fun onlineCores(readNode: (String) -> String?): List<Int> {
-        val online = readNode("/sys/devices/system/cpu/online")?.trim() ?: return emptyList()
+    /** Parses kernel CPU lists in both "0-3,6" (online) and "0 1 2 3" (related_cpus) forms. */
+    internal fun parseCpuList(raw: String): List<Int> {
         val cores = ArrayList<Int>()
-        for (part in online.split(",")) {
-            val p = part.trim()
-            if ("-" in p) {
-                val (a, b) = p.split("-", limit = 2)
+        for (part in raw.trim().split(Regex("[,\\s]+"))) {
+            if (part.isEmpty()) continue
+            if ("-" in part) {
+                val (a, b) = part.split("-", limit = 2)
                 val start = a.toIntOrNull() ?: continue
                 val end = b.toIntOrNull() ?: continue
-                for (i in start..end) cores.add(i)
+                if (end >= start && end - start < 256) cores.addAll(start..end)
             } else {
-                p.toIntOrNull()?.let { cores.add(it) }
+                part.toIntOrNull()?.let { cores.add(it) }
             }
         }
-        return cores
+        return cores.distinct().sorted()
     }
 
-    fun topologyHint(online: List<Int>, freqs: List<Int>, maxF: Int?): String {
-        if (online.isEmpty() && freqs.isEmpty()) return ""
-        val n = maxOf(online.size, freqs.size).coerceAtLeast(1)
-        if (freqs.size >= 2) {
-            val sorted = freqs.sorted()
-            val low = sorted.first()
-            val high = sorted.last()
-            if (high > low * 1.3) {
-                return "$n cores · mixed freqs ${low}–${high} MHz"
-            }
-        }
-        return if (maxF != null) "$n cores · up to $maxF MHz" else "$n cores"
-    }
+    /** kHz list from scaling_available_frequencies to distinct ascending MHz. */
+    internal fun parseFreqListMhz(raw: String?): List<Int> =
+        raw?.trim()?.split(Regex("\\s+"))
+            ?.mapNotNull { it.toLongOrNull()?.div(1000)?.toInt() }
+            ?.filter { it > 0 }
+            ?.distinct()
+            ?.sorted()
+            .orEmpty()
 
     fun meminfoExtras(readNode: (String) -> String?): MemExtras {
         fun kbToMb(kb: Long?) = kb?.div(1024)
@@ -97,7 +149,7 @@ object DeepProbes {
         var swapTotal: Long? = null
         var swapFree: Long? = null
         var active: Long? = null
-        val text = readNode("/proc/meminfo") ?: return MemExtras(null, null, null, null, null, null)
+        val text = readNode("/proc/meminfo") ?: return MemExtras.NONE
         for (line in text.lineSequence()) {
             val parts = line.split(Regex("\\s+"))
             if (parts.size < 2) continue
@@ -111,11 +163,9 @@ object DeepProbes {
                 "Active" -> active = kb
             }
         }
-        var zram: Long? = null
-        try {
-            val z = readNode("/sys/block/zram0/disksize")?.toLongOrNull()
-            if (z != null && z > 0) zram = z / (1024 * 1024)
-        } catch (_: Exception) {}
+        // SwapTotal already covers the ZRAM device's size on Android, so report
+        // what the compressed pages really cost in RAM: mm_stat's mem_used_total.
+        val zram = readNode("/sys/block/zram0/mm_stat")?.let(::parseZramUsedMb)
         return MemExtras(
             cachedMb = kbToMb(cached),
             buffersMb = kbToMb(buffers),
@@ -125,6 +175,10 @@ object DeepProbes {
             activeMb = kbToMb(active)
         )
     }
+
+    /** mm_stat fields: orig_data_size compr_data_size mem_used_total ... (bytes). */
+    internal fun parseZramUsedMb(mmStat: String): Long? =
+        mmStat.trim().split(Regex("\\s+")).getOrNull(2)?.toLongOrNull()?.div(1024 * 1024)
 
     fun selinuxMode(readNode: (String) -> String?): String {
         val enforce = readNode("/sys/fs/selinux/enforce")?.trim()

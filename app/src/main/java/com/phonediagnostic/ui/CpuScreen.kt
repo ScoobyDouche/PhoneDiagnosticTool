@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.phonediagnostic.R
+import java.util.Locale
 import com.phonediagnostic.data.CpuInfo
 import com.phonediagnostic.ui.components.ElevatedTag
 import com.phonediagnostic.ui.components.InfoCard
@@ -131,7 +132,7 @@ fun CpuScreen(
                             val avg = cpu.currentFreqMhz.average()
                             InfoRow(
                                 stringResource(R.string.label_average_online),
-                                String.format("%.0f MHz", avg)
+                                String.format(Locale.US, "%.0f MHz", avg)
                             )
                         }
                         if (cpu.availableFreqMhz.isNotEmpty()) {

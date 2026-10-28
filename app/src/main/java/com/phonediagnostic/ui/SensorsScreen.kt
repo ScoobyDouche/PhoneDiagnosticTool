@@ -187,24 +187,16 @@ private fun SensorCard(sensor: SensorEntry, onClick: () -> Unit) {
                     "${sensor.minDelayUs} µs"
                 )
             }
-            if (sensor.maxDelayUs > 0) {
-                MetaRow(
-                    stringResource(R.string.label_max_delay),
-                    "${sensor.maxDelayUs} µs"
-                )
-            }
-            if (sensor.reportingMode.isNotBlank()) {
-                MetaRow(stringResource(R.string.label_reporting_mode), sensor.reportingMode)
-            }
-            MetaRow(
-                stringResource(R.string.label_wake_up),
-                stringResource(if (sensor.isWakeUp) R.string.yes else R.string.no)
-            )
-            if (sensor.fifoMaxEventCount > 0) {
-                MetaRow(
-                    stringResource(R.string.label_fifo),
-                    stringResource(R.string.value_events, sensor.fifoMaxEventCount)
-                )
+            // One line for the delivery details; they are in the export in full.
+            val wakeUp = stringResource(R.string.sensor_mode_wake_up)
+            val batch = stringResource(R.string.sensor_mode_batch, sensor.fifoMaxEventCount)
+            val reporting = listOfNotNull(
+                sensor.reportingMode.takeIf { it.isNotBlank() },
+                wakeUp.takeIf { sensor.isWakeUp },
+                batch.takeIf { sensor.fifoMaxEventCount > 0 }
+            ).joinToString(" · ")
+            if (reporting.isNotEmpty()) {
+                MetaRow(stringResource(R.string.label_reporting_mode), reporting)
             }
             if (sensor.liveValues.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -248,10 +240,12 @@ private fun CameraCard(cam: CameraEntry) {
             if (cam.exposureRange.isNotBlank()) {
                 MetaRow(stringResource(R.string.label_exposure_range), cam.exposureRange)
             }
-            MetaRow(
-                stringResource(R.string.label_flash),
-                stringResource(if (cam.hasFlash) R.string.yes else R.string.no)
-            )
+            cam.hasFlash?.let { flash ->
+                MetaRow(
+                    stringResource(R.string.label_flash),
+                    stringResource(if (flash) R.string.yes else R.string.no)
+                )
+            }
             if (cam.physicalIds.isNotBlank()) {
                 MetaRow(stringResource(R.string.label_physical_cameras), cam.physicalIds)
             }

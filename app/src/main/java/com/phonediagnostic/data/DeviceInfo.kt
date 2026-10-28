@@ -40,13 +40,13 @@ data class CpuInfo(
      * values only visible thanks to elevated access.
      */
     val clockSource: String? = null,
-    /** Current CPU frequency governors (one per policy when readable). */
+    /** Distinct cpufreq governors across clusters. */
     val governors: List<String> = emptyList(),
-    /** Available frequencies (MHz) from the first readable policy, ascending. */
+    /** Frequencies (MHz) any cluster can run at, ascending. */
     val availableFreqMhz: List<Int> = emptyList(),
     /** Online core indices when /sys topology is readable. */
     val onlineCores: List<Int> = emptyList(),
-    /** Brief cluster / topology note when detectable (e.g. "4+4 big.LITTLE"). */
+    /** Cluster layout from peak clocks when detectable (e.g. "4 + 3 + 1 cores · 2.0 / 2.8 / 3.3 GHz"). */
     val topologyHint: String = ""
 )
 
@@ -129,7 +129,7 @@ data class MemoryInfo(
     val swapTotalMb: Long? = null,
     /** Swap free (MB). */
     val swapFreeMb: Long? = null,
-    /** ZRAM compressed block size when a zram device is present (MB). */
+    /** RAM taken by ZRAM's compressed pages (mm_stat mem_used_total), MB. */
     val zramMb: Long? = null,
     /** Kernel Active summary when readable. */
     val kernelActiveMb: Long? = null
@@ -295,8 +295,8 @@ data class CameraEntry(
     val isoRange: String = "",
     /** Exposure time range (shortest–longest) when exposed. */
     val exposureRange: String = "",
-    /** Whether the camera reports flash unit. */
-    val hasFlash: Boolean = false
+    /** Whether the camera has a flash unit; null when it does not say. */
+    val hasFlash: Boolean? = null
 )
 
 data class ThermalZone(

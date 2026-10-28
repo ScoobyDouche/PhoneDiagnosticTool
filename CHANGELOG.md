@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows a practical semantic versioning scheme for a single-app
 Android project (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Added
+- Deeper diagnostics: CPU clusters, governors, available frequencies and
+  online cores; kernel memory (cached, buffers, active, swap, ZRAM);
+  SELinux mode, debuggable build and build tags; sensor reporting mode,
+  wake-up and batching; camera ISO / exposure ranges, flash, capabilities
+  and physical cameras; readable thermal zone names. All are included in
+  text and JSON reports.
+- Screens keep their scroll position when you back out of a submenu.
+
+### Changed
+- More tab is more compact: links are grouped per section and the six
+  export actions are one card of buttons.
+
+### Fixed
+- CPU topology is derived from each cluster's peak clock instead of the
+  current clocks, and governors / frequencies cover every cluster rather
+  than stopping at the first offline core.
+- Background monitor, Quick Settings tile and live refresh no longer
+  re-read kernel memory stats on every sample.
+
 ## [1.3.2] — 2026-10-27
 
 ### Fixed

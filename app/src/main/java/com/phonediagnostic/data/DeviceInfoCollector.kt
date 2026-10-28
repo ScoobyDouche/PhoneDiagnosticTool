@@ -147,7 +147,9 @@ class DeviceInfoCollector(private val context: Context) {
         return previous.copy(
             overview = collectOverview(),
             battery = collectBattery(),
-            memory = collectMemory(),
+            // Kernel extras come from the last full collect; re-reading them every
+            // tick could mean an elevated-shell round trip for ZRAM each time.
+            memory = collectMemory(kernelExtras = false).withKernelExtrasFrom(previous.memory),
             network = collectNetworkLight(previous.network, networkProbe),
             cpu = readCpuFrequenciesMhz().let { (freqs, source) ->
                 previous.cpu.copy(
@@ -171,7 +173,7 @@ class DeviceInfoCollector(private val context: Context) {
      */
     fun collectSample(): MetricSample {
         val battery = collectBattery()
-        val memory = collectMemory()
+        val memory = collectMemory(kernelExtras = false)
         return MetricSample(
             timestampMs = System.currentTimeMillis(),
             batteryPct = battery.level,
@@ -239,17 +241,17 @@ class DeviceInfoCollector(private val context: Context) {
         val processor = resolveProcessorName(hardware, boardPlatform)
         val (freqs, freqSource) = readCpuFrequenciesMhz()
         val (minF, maxF, rangeSource) = readCpuFreqRangeMhz()
-        val governors = DeepProbes.cpuGovernors(::readNode)
-        val availableFreq = DeepProbes.availableFreqMhz(::readNode)
+        val clusters = DeepProbes.cpuClusters(::readNode, cores)
         val online = DeepProbes.onlineCores(::readNode)
-        val topology = DeepProbes.topologyHint(online, freqs, maxF)
         return CpuInfo(
             cores = cores, architecture = arch, supportedAbis = abis,
             hardware = hardware, processor = processor, boardPlatform = boardPlatform,
             currentFreqMhz = freqs, minFreqMhz = minF, maxFreqMhz = maxF,
             clockSource = (freqSource ?: rangeSource)?.name,
-            governors = governors, availableFreqMhz = availableFreq,
-            onlineCores = online, topologyHint = topology
+            governors = DeepProbes.cpuGovernors(clusters),
+            availableFreqMhz = DeepProbes.availableFreqMhz(clusters),
+            onlineCores = online,
+            topologyHint = DeepProbes.topologyHint(clusters, cores)
         )
     }
 
@@ -560,8 +562,12 @@ class DeviceInfoCollector(private val context: Context) {
         return if (ma == 0 && abs(rawUa) < 1000) null else ma
     }
 
-    /** Public so the background monitor can sample it without a full collect. */
-    fun collectMemory(): MemoryInfo {
+    /**
+     * Public so the background monitor can sample it without a full collect.
+     * Frequent samplers pass [kernelExtras] = false to skip /proc/meminfo and
+     * ZRAM, which they never show.
+     */
+    fun collectMemory(kernelExtras: Boolean = true): MemoryInfo {
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val memInfo = ActivityManager.MemoryInfo()
         am.getMemoryInfo(memInfo)
@@ -577,7 +583,7 @@ class DeviceInfoCollector(private val context: Context) {
             percent >= 75 -> "Normal when idle — Android keeps apps cached for speed"
             else -> "Healthy headroom"
         }
-        val extra = DeepProbes.meminfoExtras(::readNode)
+        val extra = if (kernelExtras) DeepProbes.meminfoExtras(::readNode) else DeepProbes.MemExtras.NONE
         return MemoryInfo(
             totalRamMb = totalMb, availableRamMb = availableMb, usedRamMb = usedMb,
             usagePercent = percent, thresholdMb = thresholdMb, isLowMemory = low, statusHint = hint,
@@ -586,6 +592,15 @@ class DeviceInfoCollector(private val context: Context) {
             zramMb = extra.zramMb, kernelActiveMb = extra.activeMb
         )
     }
+
+    private fun MemoryInfo.withKernelExtrasFrom(previous: MemoryInfo) = copy(
+        cachedMb = previous.cachedMb,
+        buffersMb = previous.buffersMb,
+        swapTotalMb = previous.swapTotalMb,
+        swapFreeMb = previous.swapFreeMb,
+        zramMb = previous.zramMb,
+        kernelActiveMb = previous.kernelActiveMb
+    )
 
     private fun collectStorage(): StorageInfo {
         val dataDir = Environment.getDataDirectory()
@@ -974,7 +989,7 @@ class DeviceInfoCollector(private val context: Context) {
                         focalLengths = focals, aperture = apertures,
                         physicalIds = deep.physicalIds, capabilities = deep.capabilities,
                         activeArraySize = deep.activeArraySize, isoRange = deep.isoRange,
-                        exposureRange = deep.exposureRange, hasFlash = deep.hasFlash ?: false
+                        exposureRange = deep.exposureRange, hasFlash = deep.hasFlash
                     )
                 )
             } catch (_: Exception) {}
