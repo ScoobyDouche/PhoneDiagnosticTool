@@ -433,7 +433,7 @@ private fun ReportList(
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
             )
         }
     }
@@ -502,7 +502,7 @@ private fun ErrorState(
         )
         Spacer(modifier = Modifier.height(20.dp))
         Button(onClick = onRetry) {
-            Text(stringResource(R.string.dashboard_retry))
+            Text(stringResource(R.string.dashboard_try_again))
         }
     }
 }
