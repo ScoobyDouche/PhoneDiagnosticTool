@@ -395,16 +395,21 @@ class MainActivity : ComponentActivity() {
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun requestAddQuickTile() {
+        val statusBar = getSystemService(StatusBarManager::class.java)
+        if (statusBar == null) {
+            Toast.makeText(this, R.string.toast_tile_request_failed, Toast.LENGTH_SHORT).show()
+            return
+        }
         try {
-            val sbm = getSystemService(StatusBarManager::class.java) ?: return
-            sbm.requestAddTileService(
+            statusBar.requestAddTileService(
                 ComponentName(this, QuickTileService::class.java),
-                getString(R.string.tile_label),
-                Icon.createWithResource(this, R.drawable.ic_notification),
-                mainExecutor
-            ) { }
+                getString(R.string.app_name),
+                Icon.createWithResource(this, R.drawable.ic_qs_diagnostic),
+                mainExecutor,
+                { _ -> }
+            )
         } catch (_: Exception) {
-            Toast.makeText(this, R.string.toast_open_settings_failed, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_tile_request_failed, Toast.LENGTH_SHORT).show()
         }
     }
 
