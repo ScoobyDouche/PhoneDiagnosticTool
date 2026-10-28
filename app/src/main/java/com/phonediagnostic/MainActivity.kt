@@ -315,7 +315,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                                 AppScreen.THERMALS -> ThermalsScreen(
-                                    zones = report?.thermals.orEmpty(),
+                                    thermals = report?.thermals.orEmpty(),
                                     isLive = isLive,
                                     isRefreshing = isRefreshing,
                                     onBack = { viewModel.navigateBack() },
@@ -367,7 +367,7 @@ class MainActivity : ComponentActivity() {
         try {
             startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
         } catch (_: Exception) {
-            Toast.makeText(this, R.string.toast_open_settings_failed, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_no_usage_access_settings, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -376,7 +376,9 @@ class MainActivity : ComponentActivity() {
             startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                 data = Uri.parse("package:$packageName")
             })
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            Toast.makeText(this, R.string.toast_no_app_info, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun uninstallApp(packageName: String) {
@@ -384,7 +386,9 @@ class MainActivity : ComponentActivity() {
             startActivity(Intent(Intent.ACTION_DELETE).apply {
                 data = Uri.parse("package:$packageName")
             })
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            Toast.makeText(this, R.string.toast_no_uninstall, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun openSourceRepository() {
@@ -419,7 +423,7 @@ class MainActivity : ComponentActivity() {
         startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)
-        }, getString(R.string.action_share)))
+        }, getString(R.string.chooser_share_report)))
     }
 
     private fun shareJson() {
@@ -428,7 +432,7 @@ class MainActivity : ComponentActivity() {
         startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
             type = "application/json"
             putExtra(Intent.EXTRA_TEXT, text)
-        }, getString(R.string.action_share)))
+        }, getString(R.string.chooser_share_json)))
     }
 
     private fun shareAsFile() {
@@ -442,7 +446,7 @@ class MainActivity : ComponentActivity() {
             type = "text/plain"
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }, getString(R.string.action_share)))
+        }, getString(R.string.chooser_share_file)))
     }
 
     private fun saveText() {
@@ -463,9 +467,9 @@ class MainActivity : ComponentActivity() {
         if (uri == null || body == null) return
         try {
             contentResolver.openOutputStream(uri)?.use { it.write(body.toByteArray()) }
-            Toast.makeText(this, R.string.toast_copied, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_report_saved, Toast.LENGTH_SHORT).show()
         } catch (_: Exception) {
-            Toast.makeText(this, R.string.toast_open_settings_failed, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_save_failed, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -474,19 +478,19 @@ class MainActivity : ComponentActivity() {
         val text = ReportExporter.toShareText(r)
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         cm.setPrimaryClip(ClipData.newPlainText("report", text))
-        Toast.makeText(this, R.string.toast_copied, Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, R.string.toast_report_copied, Toast.LENGTH_SHORT).show()
     }
 
     private fun shareLog() {
         val lines = viewModel.logLines.value
         if (lines.isEmpty()) {
-            Toast.makeText(this, getString(R.string.action_share), Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_log_empty, Toast.LENGTH_SHORT).show()
             return
         }
         startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, lines.joinToString("\n"))
-        }, getString(R.string.action_share)))
+        }, getString(R.string.chooser_share_log)))
     }
 
     companion object {
