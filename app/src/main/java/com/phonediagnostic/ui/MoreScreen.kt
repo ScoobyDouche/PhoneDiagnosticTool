@@ -3,12 +3,16 @@ package com.phonediagnostic.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -24,9 +28,12 @@ import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -42,7 +49,7 @@ import androidx.compose.ui.unit.dp
 import com.phonediagnostic.R
 import com.phonediagnostic.data.FullDeviceReport
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun MoreScreen(
     report: FullDeviceReport?,
@@ -75,191 +82,122 @@ fun MoreScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            item {
-                Text(
-                    text = stringResource(R.string.more_intro),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-                )
-            }
-
             // ── Diagnostics ──────────────────────────────────────────────
+            item { SectionHeader(stringResource(R.string.more_section_diagnostics)) }
             item {
-                SectionHeader(stringResource(R.string.more_section_diagnostics))
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Outlined.Memory,
-                    title = stringResource(R.string.more_ram),
-                    subtitle = report?.memory?.let {
-                        "${it.usedRamMb} / ${it.totalRamMb} MB"
-                    } ?: stringResource(R.string.more_ram_sub_fallback),
-                    onClick = onOpenRam
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.Storage,
-                    title = stringResource(R.string.more_storage),
-                    subtitle = report?.storage?.let {
-                        stringResource(R.string.more_storage_free, it.freeInternalGb)
-                    } ?: stringResource(R.string.more_storage_sub_fallback),
-                    onClick = onOpenStorage
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.Wifi,
-                    title = stringResource(R.string.more_network),
-                    subtitle = report?.network?.let {
-                        stringResource(R.string.more_network_sub, it.networkType)
-                    } ?: stringResource(R.string.more_network_sub_fallback),
-                    onClick = onOpenNetwork
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.Thermostat,
-                    title = stringResource(R.string.more_thermals),
-                    subtitle = report?.thermals?.let { zones ->
-                        if (zones.isEmpty()) stringResource(R.string.more_thermals_none)
-                        else stringResource(R.string.more_thermals_count, zones.size)
-                    } ?: stringResource(R.string.more_thermals_sub_fallback),
-                    onClick = onOpenThermals
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.AutoMirrored.Filled.ShowChart,
-                    title = stringResource(R.string.more_history),
-                    subtitle = if (historySamples > 0) {
-                        stringResource(R.string.more_history_samples, historySamples)
-                    } else {
-                        stringResource(R.string.more_history_fallback)
-                    },
-                    onClick = onOpenHistory
-                )
-            }
-
-            // ── Hardware tests ───────────────────────────────────────────
-            item {
-                SectionHeader(stringResource(R.string.more_section_tests))
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.Build,
-                    title = stringResource(R.string.more_tools),
-                    subtitle = stringResource(R.string.more_tools_sub),
-                    onClick = onOpenTools
-                )
+                MoreGroup {
+                    MoreLink(
+                        icon = Icons.Outlined.Memory,
+                        title = stringResource(R.string.more_ram),
+                        subtitle = report?.memory?.let {
+                            "${it.usedRamMb} / ${it.totalRamMb} MB"
+                        } ?: stringResource(R.string.more_ram_sub_fallback),
+                        onClick = onOpenRam
+                    )
+                    GroupDivider()
+                    MoreLink(
+                        icon = Icons.Filled.Storage,
+                        title = stringResource(R.string.more_storage),
+                        subtitle = report?.storage?.let {
+                            stringResource(R.string.more_storage_free, it.freeInternalGb)
+                        } ?: stringResource(R.string.more_storage_sub_fallback),
+                        onClick = onOpenStorage
+                    )
+                    GroupDivider()
+                    MoreLink(
+                        icon = Icons.Filled.Wifi,
+                        title = stringResource(R.string.more_network),
+                        subtitle = report?.network?.let {
+                            stringResource(R.string.more_network_sub, it.networkType)
+                        } ?: stringResource(R.string.more_network_sub_fallback),
+                        onClick = onOpenNetwork
+                    )
+                    GroupDivider()
+                    MoreLink(
+                        icon = Icons.Filled.Thermostat,
+                        title = stringResource(R.string.more_thermals),
+                        subtitle = report?.thermals?.let { zones ->
+                            if (zones.isEmpty()) stringResource(R.string.more_thermals_none)
+                            else stringResource(R.string.more_thermals_count, zones.size)
+                        } ?: stringResource(R.string.more_thermals_sub_fallback),
+                        onClick = onOpenThermals
+                    )
+                    GroupDivider()
+                    MoreLink(
+                        icon = Icons.AutoMirrored.Filled.ShowChart,
+                        title = stringResource(R.string.more_history),
+                        subtitle = if (historySamples > 0) {
+                            stringResource(R.string.more_history_samples, historySamples)
+                        } else {
+                            stringResource(R.string.more_history_fallback)
+                        },
+                        onClick = onOpenHistory
+                    )
+                }
             }
 
             // ── Report ───────────────────────────────────────────────────
+            // Six export actions used to be six full-size cards; they are
+            // one card of chips now so the tab fits without much scrolling.
+            item { SectionHeader(stringResource(R.string.more_section_report)) }
             item {
-                SectionHeader(stringResource(R.string.more_section_report))
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.Share,
-                    title = stringResource(R.string.more_share_text),
-                    subtitle = if (hasReport) {
-                        stringResource(R.string.more_share_text_sub)
-                    } else {
-                        stringResource(R.string.more_collect_first)
-                    },
-                    enabled = hasReport,
-                    onClick = onShareText
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.Share,
-                    title = stringResource(R.string.more_share_json),
-                    subtitle = if (hasReport) {
-                        stringResource(R.string.more_share_json_sub)
-                    } else {
-                        stringResource(R.string.more_collect_first)
-                    },
-                    enabled = hasReport,
-                    onClick = onShareJson
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.AttachFile,
-                    title = stringResource(R.string.more_share_file),
-                    subtitle = if (hasReport) {
-                        stringResource(R.string.more_share_file_sub)
-                    } else {
-                        stringResource(R.string.more_collect_first)
-                    },
-                    enabled = hasReport,
-                    onClick = onShareFile
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.Save,
-                    title = stringResource(R.string.more_save_txt),
-                    subtitle = if (hasReport) {
-                        stringResource(R.string.more_save_txt_sub)
-                    } else {
-                        stringResource(R.string.more_collect_first)
-                    },
-                    enabled = hasReport,
-                    onClick = onSaveText
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.Save,
-                    title = stringResource(R.string.more_save_json),
-                    subtitle = if (hasReport) {
-                        stringResource(R.string.more_save_json_sub)
-                    } else {
-                        stringResource(R.string.more_collect_first)
-                    },
-                    enabled = hasReport,
-                    onClick = onSaveJson
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.ContentCopy,
-                    title = stringResource(R.string.more_copy_text),
-                    subtitle = if (hasReport) {
-                        stringResource(R.string.more_copy_text_sub)
-                    } else {
-                        stringResource(R.string.more_collect_first)
-                    },
-                    enabled = hasReport,
-                    onClick = onCopyText
-                )
+                MoreGroup {
+                    Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp)) {
+                        Text(
+                            text = stringResource(R.string.more_export_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = stringResource(
+                                if (hasReport) R.string.more_export_sub else R.string.more_collect_first
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        FlowRow(
+                            modifier = Modifier.padding(top = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ExportChip(Icons.Filled.Share, stringResource(R.string.more_share_text), hasReport, onShareText)
+                            ExportChip(Icons.Filled.Share, stringResource(R.string.more_share_json), hasReport, onShareJson)
+                            ExportChip(Icons.Filled.AttachFile, stringResource(R.string.more_share_file), hasReport, onShareFile)
+                            ExportChip(Icons.Filled.Save, stringResource(R.string.more_save_txt), hasReport, onSaveText)
+                            ExportChip(Icons.Filled.Save, stringResource(R.string.more_save_json), hasReport, onSaveJson)
+                            ExportChip(Icons.Filled.ContentCopy, stringResource(R.string.more_copy_text), hasReport, onCopyText)
+                        }
+                    }
+                }
             }
 
             // ── App ──────────────────────────────────────────────────────
+            item { SectionHeader(stringResource(R.string.more_section_app)) }
             item {
-                SectionHeader(stringResource(R.string.more_section_app))
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.Settings,
-                    title = stringResource(R.string.more_settings),
-                    subtitle = stringResource(R.string.more_settings_sub),
-                    onClick = onOpenSettings
-                )
-            }
-            item {
-                MoreLink(
-                    icon = Icons.Filled.Info,
-                    title = stringResource(R.string.more_about),
-                    subtitle = stringResource(R.string.more_about_sub, versionName),
-                    onClick = onOpenAbout
-                )
+                MoreGroup {
+                    MoreLink(
+                        icon = Icons.Filled.Build,
+                        title = stringResource(R.string.more_tools),
+                        subtitle = stringResource(R.string.more_tools_sub),
+                        onClick = onOpenTools
+                    )
+                    GroupDivider()
+                    MoreLink(
+                        icon = Icons.Filled.Settings,
+                        title = stringResource(R.string.more_settings),
+                        subtitle = stringResource(R.string.more_settings_sub),
+                        onClick = onOpenSettings
+                    )
+                    GroupDivider()
+                    MoreLink(
+                        icon = Icons.Filled.Info,
+                        title = stringResource(R.string.more_about),
+                        subtitle = stringResource(R.string.more_about_sub, versionName),
+                        onClick = onOpenAbout
+                    )
+                }
             }
         }
     }
@@ -271,7 +209,28 @@ private fun SectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+        modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp)
+    )
+}
+
+/** One card per section; rows inside are separated by thin dividers. */
+@Composable
+private fun MoreGroup(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(content = content)
+    }
+}
+
+@Composable
+private fun GroupDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 54.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     )
 }
 
@@ -280,54 +239,49 @@ private fun MoreLink(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
-    val alpha = if (enabled) 1f else 0.45f
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .then(
-                if (enabled) Modifier.clickable(onClick = onClick)
-                else Modifier
-            ),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = alpha)
-        )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = alpha)
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
             )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
-                )
-            }
-            if (enabled) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
+}
+
+@Composable
+private fun ExportChip(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
+    AssistChip(
+        onClick = onClick,
+        enabled = enabled,
+        label = { Text(label) },
+        leadingIcon = {
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(AssistChipDefaults.IconSize))
+        }
+    )
 }

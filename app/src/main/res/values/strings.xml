@@ -229,9 +229,7 @@
 
     <!-- More screen -->
     <string name="more_title">More</string>
-    <string name="more_intro">CPU, Battery, and Sensors are in the bottom tabs. Everything else is organised below.</string>
     <string name="more_section_diagnostics">Diagnostics</string>
-    <string name="more_section_tests">Hardware tests</string>
     <string name="more_section_app">App</string>
     <string name="more_thermals">Thermals</string>
     <string name="more_thermals_sub_fallback">Temperature zones</string>
@@ -239,18 +237,14 @@
     <string name="more_thermals_count">%1$d zones</string>
     <string name="more_section_report">Report</string>
     <string name="more_section_details">Details and tools</string>
-    <string name="more_share_text">Share as text</string>
-    <string name="more_share_text_sub">Plain-text diagnostic report</string>
-    <string name="more_share_json">Share as JSON</string>
-    <string name="more_share_json_sub">Machine-readable export</string>
-    <string name="more_share_file">Share as file</string>
-    <string name="more_share_file_sub">Send a .txt attachment — survives long reports</string>
-    <string name="more_save_txt">Save as .txt</string>
-    <string name="more_save_txt_sub">Choose where to save it</string>
-    <string name="more_save_json">Save as .json</string>
-    <string name="more_save_json_sub">Machine-readable file</string>
-    <string name="more_copy_text">Copy text</string>
-    <string name="more_copy_text_sub">Copy report to clipboard</string>
+    <string name="more_share_text">Share text</string>
+    <string name="more_share_json">Share JSON</string>
+    <string name="more_share_file">Share file</string>
+    <string name="more_save_txt">Save .txt</string>
+    <string name="more_save_json">Save .json</string>
+    <string name="more_copy_text">Copy</string>
+    <string name="more_export_title">Export report</string>
+    <string name="more_export_sub">Share, save or copy the full diagnostic report</string>
     <string name="more_collect_first">Collect a report first</string>
     <string name="more_ram">RAM detail</string>
     <string name="more_ram_sub_fallback">Process memory</string>
