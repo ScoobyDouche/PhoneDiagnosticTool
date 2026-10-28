@@ -148,14 +148,21 @@ private fun ThermalCard(zone: ThermalZone) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                val title = zone.typeLabel.ifBlank { zone.type.ifBlank { zone.name } }
+                // Several zones share a label (e.g. one "CPU" per core), so keep
+                // the raw kernel type and zone name visible underneath.
+                val subtitle = listOf(zone.type, zone.name)
+                    .filter { it.isNotBlank() && it != title }
+                    .distinct()
+                    .joinToString(" · ")
                 Text(
-                    text = zone.type.ifBlank { zone.name },
+                    text = title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold
                 )
-                if (zone.type.isNotBlank() && zone.type != zone.name) {
+                if (subtitle.isNotEmpty()) {
                     Text(
-                        text = zone.name,
+                        text = subtitle,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontFamily = FontFamily.Monospace

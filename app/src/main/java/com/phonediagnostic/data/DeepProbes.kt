@@ -145,7 +145,8 @@ object DeepProbes {
             "gpu" in t -> "GPU"
             "bat" in t -> "Battery"
             "skin" in t || "surface" in t -> "Skin"
-            "xo" in t || "modem" in t || "pa" in t -> "Modem/RF"
+            // "pa" (power amplifier) only as its own token, so e.g. "panel" is not RF.
+            "xo" in t || "modem" in t || Regex("(^|[-_])pa([-_\\d]|$)").containsMatchIn(t) -> "Modem/RF"
             "npu" in t || "dsp" in t -> "NPU/DSP"
             "charger" in t || "usb" in t -> "Charger"
             else -> type

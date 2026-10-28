@@ -36,6 +36,7 @@ import com.phonediagnostic.R
 import com.phonediagnostic.data.MemoryInfo
 import com.phonediagnostic.data.ProcessRamEntry
 import com.phonediagnostic.ui.components.ElevatedTag
+import com.phonediagnostic.ui.components.InfoRow
 import com.phonediagnostic.ui.components.UsageBar
 import java.util.Locale
 
@@ -122,6 +123,30 @@ fun RamDetailScreen(
                                         Color(0xFF2E7D32)
                                     }
                                 )
+                            }
+                            val kernelRows = listOfNotNull(
+                                memory.cachedMb?.let { R.string.label_cached to it },
+                                memory.buffersMb?.let { R.string.label_buffers to it },
+                                memory.kernelActiveMb?.let { R.string.label_active to it },
+                                memory.zramMb?.let { R.string.label_zram to it }
+                            )
+                            val swapTotal = memory.swapTotalMb?.takeIf { it > 0 }
+                            if (kernelRows.isNotEmpty() || swapTotal != null) {
+                                Box(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = stringResource(R.string.ram_kernel_heading),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                kernelRows.forEach { (label, mb) ->
+                                    InfoRow(stringResource(label), stringResource(R.string.value_mb, mb))
+                                }
+                                if (swapTotal != null) {
+                                    InfoRow(
+                                        stringResource(R.string.label_swap),
+                                        stringResource(R.string.value_swap, memory.swapFreeMb ?: 0L, swapTotal)
+                                    )
+                                }
                             }
                         }
                     }

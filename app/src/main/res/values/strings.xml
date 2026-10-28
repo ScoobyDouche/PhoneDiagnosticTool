@@ -542,4 +542,33 @@
     <string name="storage_app_breakdown">App %1$s · Data %2$s · Cache %3$s</string>
     <string name="storage_gb_used">%1$.1f / %2$.1f GB</string>
     <string name="storage_gb_free">%1$.1f GB free</string>
+
+    <!-- Deeper diagnostics -->
+    <string name="label_online_cores">Online cores</string>
+    <string name="label_topology">Topology</string>
+    <string name="label_governors">Governors</string>
+    <string name="label_available_freqs">Available</string>
+    <string name="cpu_freq_list_mhz">%1$s MHz</string>
+    <string name="ram_kernel_heading">Kernel memory (/proc/meminfo)</string>
+    <string name="label_cached">Cached</string>
+    <string name="label_buffers">Buffers</string>
+    <string name="label_active">Active</string>
+    <string name="label_swap">Swap</string>
+    <string name="label_zram">ZRAM</string>
+    <string name="value_mb">%1$d MB</string>
+    <string name="value_swap">%1$d MB free of %2$d MB</string>
+    <string name="label_selinux">SELinux</string>
+    <string name="label_build_tags">Build tags</string>
+    <string name="label_debuggable_build">Debuggable build</string>
+    <string name="label_reporting_mode">Reporting mode</string>
+    <string name="label_wake_up">Wake-up sensor</string>
+    <string name="label_fifo">FIFO batch</string>
+    <string name="label_max_delay">Max delay</string>
+    <string name="value_events">%1$d events</string>
+    <string name="label_capabilities">Capabilities</string>
+    <string name="label_active_array">Active array</string>
+    <string name="label_iso_range">ISO</string>
+    <string name="label_exposure_range">Exposure</string>
+    <string name="label_flash">Flash</string>
+    <string name="label_physical_cameras">Physical cameras</string>
 </resources>

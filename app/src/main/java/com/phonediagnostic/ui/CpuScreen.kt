@@ -102,17 +102,17 @@ fun CpuScreen(
                         InfoRow(stringResource(R.string.label_architecture), cpu.architecture)
                         InfoRow(stringResource(R.string.label_cores), cpu.cores.toString())
                         if (cpu.onlineCores.isNotEmpty()) {
-                            InfoRow("Online", cpu.onlineCores.joinToString(", "))
+                            InfoRow(stringResource(R.string.label_online_cores), cpu.onlineCores.joinToString(", "))
                         }
                         if (cpu.topologyHint.isNotBlank()) {
-                            InfoRow("Topology", cpu.topologyHint)
+                            InfoRow(stringResource(R.string.label_topology), cpu.topologyHint)
                         }
                         InfoRow(
                             stringResource(R.string.label_abis),
                             cpu.supportedAbis.joinToString(", ")
                         )
                         if (cpu.governors.isNotEmpty()) {
-                            InfoRow("Governors", cpu.governors.joinToString(", "))
+                            InfoRow(stringResource(R.string.label_governors), cpu.governors.joinToString(", "))
                         }
                     }
                 }
@@ -142,8 +142,12 @@ fun CpuScreen(
                                     " … " +
                                     cpu.availableFreqMhz.takeLast(2).joinToString(", ")
                             }
-                            InfoRow("Available", "$preview MHz")
+                            InfoRow(
+                                stringResource(R.string.label_available_freqs),
+                                stringResource(R.string.cpu_freq_list_mhz, preview)
+                            )
                         }
+                        // Shown only when the clocks needed elevated access to read.
                         ElevatedTag(cpu.clockSource)
                     }
                 }

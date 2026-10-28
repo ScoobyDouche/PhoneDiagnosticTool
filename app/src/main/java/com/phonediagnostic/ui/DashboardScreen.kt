@@ -421,6 +421,18 @@ private fun ReportList(
                         stringResource(R.string.label_encryption),
                         sec.encryption.ifBlank { stringResource(R.string.unavailable) }
                     )
+                    if (sec.selinux.isNotBlank()) {
+                        InfoRow(stringResource(R.string.label_selinux), sec.selinux)
+                    }
+                    sec.isDebuggableBuild?.let { debuggable ->
+                        InfoRow(
+                            stringResource(R.string.label_debuggable_build),
+                            stringResource(if (debuggable) R.string.yes else R.string.no)
+                        )
+                    }
+                    if (sec.buildTags.isNotBlank()) {
+                        InfoRow(stringResource(R.string.label_build_tags), sec.buildTags)
+                    }
                 }
             }
         }

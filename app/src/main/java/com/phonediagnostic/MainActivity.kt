@@ -47,6 +47,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -82,6 +86,7 @@ import com.phonediagnostic.service.QuickTileService
 
 class MainActivity : ComponentActivity() {
 
+    /** Content queued for the document picker, consumed when it returns a target. */
     private var pendingExport: String? = null
 
     private val notificationPermissionLauncher =
@@ -144,14 +149,31 @@ class MainActivity : ComponentActivity() {
                     val lastLoadResult by viewModel.lastLoadResult.collectAsStateWithLifecycle()
                     val metricHistory by viewModel.metricHistory.collectAsStateWithLifecycle()
                     val networkDetail by viewModel.networkDetail.collectAsStateWithLifecycle()
-                    val networkDetailLoading by viewModel.networkDetailLoading.collectAsStateWithLifecycle()
+                    val networkDetailLoading by
+                        viewModel.networkDetailLoading.collectAsStateWithLifecycle()
                     val latencyStats by viewModel.latencyStats.collectAsStateWithLifecycle()
                     val latencyRunning by viewModel.latencyRunning.collectAsStateWithLifecycle()
                     val selectedSensor by viewModel.selectedSensor.collectAsStateWithLifecycle()
+                    val screenStates = rememberSaveableStateHolder()
+                    // A detail screen popped off the back stack reopens at the top
+                    // rather than where it was last left.
+                    var shownScreen by remember { mutableStateOf(screen) }
+                    LaunchedEffect(screen) {
+                        val left = shownScreen
+                        if (left != screen && !left.isMainTab() && !viewModel.isOnBackStack(left)) {
+                            screenStates.removeState(left.name)
+                        }
+                        shownScreen = screen
+                    }
                     val elevatedStatus by viewModel.elevatedStatus.collectAsStateWithLifecycle()
 
+                    // Back used to leave the app from every detail screen. Intercept
+                    // while there is somewhere to return to, and hold it entirely
+                    // during a load test so a stray gesture cannot abandon the run.
                     BackHandler(enabled = canGoBack || loadTesting) {
-                        if (!loadTesting) viewModel.navigateBack()
+                        if (!loadTesting) {
+                            viewModel.navigateBack()
+                        }
                     }
 
                     val lifecycleOwner = LocalLifecycleOwner.current
@@ -191,158 +213,198 @@ class MainActivity : ComponentActivity() {
                         }
                     ) { innerPadding ->
                         Surface(
-                            modifier = Modifier.fillMaxSize().padding(innerPadding)
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding)
                         ) {
-                            when (screen) {
-                                AppScreen.DASHBOARD -> DashboardScreen(
-                                    report = report,
-                                    isLive = isLive,
-                                    lastUpdated = lastUpdated,
-                                    isRefreshing = isRefreshing,
-                                    errorMessage = errorMessage,
-                                    versionName = BuildConfig.VERSION_NAME,
-                                    onToggleLive = { viewModel.toggleLive() },
-                                    onRefresh = { viewModel.refreshNow() },
-                                    onOpenRamDetail = { viewModel.openRamDetail() },
-                                    onOpenStorageDetail = { viewModel.openStorageDetail() },
-                                    onOpenNetwork = { viewModel.openNetwork() },
-                                    onOpenHistory = { viewModel.openHistory() }
-                                )
-                                AppScreen.CPU -> CpuScreen(
-                                    cpu = report?.cpu,
-                                    isLive = isLive,
-                                    isRefreshing = isRefreshing,
-                                    onRefresh = { viewModel.refreshNow() }
-                                )
-                                AppScreen.BATTERY -> BatteryScreen(
-                                    battery = report?.battery,
-                                    thermals = report?.thermals.orEmpty(),
-                                    isLive = isLive,
-                                    isRefreshing = isRefreshing,
-                                    onRefresh = { viewModel.refreshNow() },
-                                    onOpenThermals = { viewModel.openThermals() },
-                                    onOpenHistory = { viewModel.openHistory() }
-                                )
-                                AppScreen.SENSORS -> SensorsScreen(
-                                    sensors = report?.sensors.orEmpty(),
-                                    cameras = report?.cameras.orEmpty(),
-                                    isRefreshing = isRefreshing,
-                                    onBack = null,
-                                    onRefresh = { viewModel.refreshNow() },
-                                    onOpenSensor = { viewModel.openSensorDetail(it) }
-                                )
-                                AppScreen.MORE -> MoreScreen(
-                                    report = report,
-                                    versionName = BuildConfig.VERSION_NAME,
-                                    historySamples = metricHistory.size,
-                                    onOpenRam = { viewModel.openRamDetail() },
-                                    onOpenStorage = { viewModel.openStorageDetail() },
-                                    onOpenNetwork = { viewModel.openNetwork() },
-                                    onOpenHistory = { viewModel.openHistory() },
-                                    onOpenThermals = { viewModel.openThermals() },
-                                    onOpenTools = { viewModel.openTools() },
-                                    onOpenSettings = { viewModel.openSettings() },
-                                    onOpenAbout = { viewModel.openAbout() },
-                                    onShareText = { shareText() },
-                                    onShareJson = { shareJson() },
-                                    onShareFile = { shareAsFile() },
-                                    onSaveText = { saveText() },
-                                    onSaveJson = { saveJson() },
-                                    onCopyText = { copyText() }
-                                )
-                                AppScreen.SETTINGS -> {
-                                    LaunchedEffect(Unit) { viewModel.refreshElevatedStatus() }
-                                    SettingsScreen(
-                                        networkProbeEnabled = networkProbe,
-                                        backgroundMonitorEnabled = bgMonitor,
-                                        themeMode = themeMode,
-                                        elevatedStatus = elevatedStatus,
-                                        onNetworkProbeChange = { viewModel.setNetworkProbeEnabled(it) },
-                                        onBackgroundMonitorChange = { enabled ->
-                                            if (enabled) requestNotificationThenStartMonitor()
-                                            else viewModel.setBackgroundMonitorEnabled(false)
-                                        },
-                                        onThemeModeChange = { viewModel.setThemeMode(it) },
-                                        onAccessTierChange = { viewModel.setAccessTier(it) },
-                                        onRequestShizuku = { viewModel.requestShizukuPermission() },
-                                        onRefreshElevated = { viewModel.refreshElevatedStatus() },
-                                        onBack = { viewModel.navigateBack() },
-                                        onOpenAbout = { viewModel.openAbout() },
-                                        onOpenTools = { viewModel.openTools() },
-                                        onAddQuickTile = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                            { requestAddQuickTile() }
-                                        } else null
-                                    )
-                                }
-                                AppScreen.ABOUT -> AboutScreen(
-                                    versionName = BuildConfig.VERSION_NAME,
-                                    onOpenSource = { openSourceRepository() },
-                                    onBack = { viewModel.navigateBack() }
-                                )
-                                AppScreen.RAM_DETAIL -> RamDetailScreen(
-                                    memory = report?.memory,
-                                    entries = processRam,
-                                    isLoading = processRamLoading,
-                                    onBack = { viewModel.navigateBack() },
-                                    onRefresh = { viewModel.loadProcessRam() }
-                                )
-                                AppScreen.STORAGE_DETAIL -> StorageDetailScreen(
-                                    storageOverview = report?.storage,
-                                    entries = appStorage,
-                                    isLoading = appStorageLoading,
-                                    hasPermission = hasUsageStats,
-                                    usageAccessRestricted = usageAccessRestricted,
-                                    onBack = { viewModel.navigateBack() },
-                                    onRefresh = {
-                                        viewModel.refreshNow()
-                                        viewModel.loadAppStorage()
-                                    },
-                                    onRequestPermission = { openUsageAccessSettings() },
-                                    onOpenAppInfo = { openAppInfo(it) },
-                                    onUninstallApp = { uninstallApp(it) }
-                                )
-                                AppScreen.TOOLS -> ToolsScreen(
-                                    logLines = logLines,
-                                    loadTesting = loadTesting,
-                                    loadProgress = loadProgress,
-                                    lastLoadResult = lastLoadResult,
-                                    onBack = { viewModel.navigateBack() },
-                                    onRefreshLog = { viewModel.refreshLog() },
-                                    onClearLog = { viewModel.clearLog() },
-                                    onShareLog = { shareLog() },
-                                    onRunLoadTest = { durationSec, thermal ->
-                                        viewModel.runLoadTest(durationSec, thermal = thermal)
+                            // Each screen's scroll position (rememberLazyListState /
+                            // rememberScrollState are saveable) is kept per screen, so
+                            // backing out of a submenu returns to where the list was.
+                            screenStates.SaveableStateProvider(screen.name) {
+                                when (screen) {
+                                    AppScreen.DASHBOARD -> {
+                                        DashboardScreen(
+                                            report = report,
+                                            isLive = isLive,
+                                            lastUpdated = lastUpdated,
+                                            isRefreshing = isRefreshing,
+                                            errorMessage = errorMessage,
+                                            versionName = BuildConfig.VERSION_NAME,
+                                            onToggleLive = { viewModel.toggleLive() },
+                                            onRefresh = { viewModel.refreshNow() },
+                                            onOpenRamDetail = { viewModel.openRamDetail() },
+                                            onOpenStorageDetail = { viewModel.openStorageDetail() },
+                                            onOpenNetwork = { viewModel.openNetwork() },
+                                            onOpenHistory = { viewModel.openHistory() }
+                                        )
                                     }
-                                )
-                                AppScreen.THERMALS -> ThermalsScreen(
-                                    thermals = report?.thermals.orEmpty(),
-                                    isLive = isLive,
-                                    isRefreshing = isRefreshing,
-                                    onBack = { viewModel.navigateBack() },
-                                    onRefresh = { viewModel.refreshNow() }
-                                )
-                                AppScreen.HISTORY -> HistoryScreen(
-                                    samples = metricHistory,
-                                    monitorEnabled = bgMonitor,
-                                    onBack = { viewModel.navigateBack() },
-                                    onRefresh = { viewModel.refreshHistory() },
-                                    onClear = { viewModel.clearHistory() }
-                                )
-                                AppScreen.NETWORK -> NetworkScreen(
-                                    network = report?.network,
-                                    detail = networkDetail,
-                                    isLoading = networkDetailLoading,
-                                    probeEnabled = networkProbe,
-                                    latency = latencyStats,
-                                    latencyRunning = latencyRunning,
-                                    onBack = { viewModel.navigateBack() },
-                                    onRefresh = { viewModel.loadNetworkDetail() },
-                                    onRunLatency = { viewModel.runLatencyTest() }
-                                )
-                                AppScreen.SENSOR_DETAIL -> SensorDetailScreen(
-                                    sensorName = selectedSensor,
-                                    onBack = { viewModel.navigateBack() }
-                                )
+                                    AppScreen.CPU -> {
+                                        CpuScreen(
+                                            cpu = report?.cpu,
+                                            isLive = isLive,
+                                            isRefreshing = isRefreshing,
+                                            onRefresh = { viewModel.refreshNow() }
+                                        )
+                                    }
+                                    AppScreen.BATTERY -> {
+                                        BatteryScreen(
+                                            battery = report?.battery,
+                                            thermals = report?.thermals.orEmpty(),
+                                            isLive = isLive,
+                                            isRefreshing = isRefreshing,
+                                            onRefresh = { viewModel.refreshNow() },
+                                            onOpenThermals = { viewModel.openThermals() },
+                                            onOpenHistory = { viewModel.openHistory() }
+                                        )
+                                    }
+                                    AppScreen.SENSORS -> {
+                                        SensorsScreen(
+                                            sensors = report?.sensors.orEmpty(),
+                                            cameras = report?.cameras.orEmpty(),
+                                            isRefreshing = isRefreshing,
+                                            onBack = null,
+                                            onRefresh = { viewModel.refreshNow() },
+                                            onOpenSensor = { viewModel.openSensorDetail(it) }
+                                        )
+                                    }
+                                    AppScreen.MORE -> {
+                                        MoreScreen(
+                                            report = report,
+                                            versionName = BuildConfig.VERSION_NAME,
+                                            historySamples = metricHistory.size,
+                                            onOpenRam = { viewModel.openRamDetail() },
+                                            onOpenStorage = { viewModel.openStorageDetail() },
+                                            onOpenNetwork = { viewModel.openNetwork() },
+                                            onOpenHistory = { viewModel.openHistory() },
+                                            onOpenThermals = { viewModel.openThermals() },
+                                            onOpenTools = { viewModel.openTools() },
+                                            onOpenSettings = { viewModel.openSettings() },
+                                            onOpenAbout = { viewModel.openAbout() },
+                                            onShareText = { shareText() },
+                                            onShareJson = { shareJson() },
+                                            onShareFile = { shareAsFile() },
+                                            onSaveText = { saveText() },
+                                            onSaveJson = { saveJson() },
+                                            onCopyText = { copyText() }
+                                        )
+                                    }
+                                    AppScreen.SETTINGS -> {
+                                        // Grants may have changed in the Shizuku app while we
+                                        // were away; recheck each time Settings comes up.
+                                        LaunchedEffect(Unit) { viewModel.refreshElevatedStatus() }
+                                        SettingsScreen(
+                                            networkProbeEnabled = networkProbe,
+                                            backgroundMonitorEnabled = bgMonitor,
+                                            themeMode = themeMode,
+                                            elevatedStatus = elevatedStatus,
+                                            onNetworkProbeChange = { viewModel.setNetworkProbeEnabled(it) },
+                                            onBackgroundMonitorChange = { enabled ->
+                                                if (enabled) {
+                                                    requestNotificationThenStartMonitor()
+                                                } else {
+                                                    viewModel.setBackgroundMonitorEnabled(false)
+                                                }
+                                            },
+                                            onThemeModeChange = { viewModel.setThemeMode(it) },
+                                            onAccessTierChange = { viewModel.setAccessTier(it) },
+                                            onRequestShizuku = { viewModel.requestShizukuPermission() },
+                                            onRefreshElevated = { viewModel.refreshElevatedStatus() },
+                                            onBack = { viewModel.navigateBack() },
+                                            onOpenAbout = { viewModel.openAbout() },
+                                            onOpenTools = { viewModel.openTools() },
+                                            onAddQuickTile = if (
+                                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                                            ) {
+                                                { requestAddQuickTile() }
+                                            } else null
+                                        )
+                                    }
+                                    AppScreen.ABOUT -> {
+                                        AboutScreen(
+                                            versionName = BuildConfig.VERSION_NAME,
+                                            onOpenSource = { openSourceRepository() },
+                                            onBack = { viewModel.navigateBack() }
+                                        )
+                                    }
+                                    AppScreen.RAM_DETAIL -> {
+                                        RamDetailScreen(
+                                            memory = report?.memory,
+                                            entries = processRam,
+                                            isLoading = processRamLoading,
+                                            onBack = { viewModel.navigateBack() },
+                                            onRefresh = { viewModel.loadProcessRam() }
+                                        )
+                                    }
+                                    AppScreen.STORAGE_DETAIL -> {
+                                        StorageDetailScreen(
+                                            storageOverview = report?.storage,
+                                            entries = appStorage,
+                                            isLoading = appStorageLoading,
+                                            hasPermission = hasUsageStats,
+                                            usageAccessRestricted = usageAccessRestricted,
+                                            onBack = { viewModel.navigateBack() },
+                                            onRefresh = {
+                                                viewModel.refreshNow()
+                                                viewModel.loadAppStorage()
+                                            },
+                                            onRequestPermission = { openUsageAccessSettings() },
+                                            onOpenAppInfo = { openAppInfo(it) },
+                                            onUninstallApp = { uninstallApp(it) }
+                                        )
+                                    }
+                                    AppScreen.TOOLS -> {
+                                        ToolsScreen(
+                                            logLines = logLines,
+                                            loadTesting = loadTesting,
+                                            loadProgress = loadProgress,
+                                            lastLoadResult = lastLoadResult,
+                                            onBack = { viewModel.navigateBack() },
+                                            onRefreshLog = { viewModel.refreshLog() },
+                                            onClearLog = { viewModel.clearLog() },
+                                            onShareLog = { shareLog() },
+                                            onRunLoadTest = { durationSec, thermal ->
+                                                viewModel.runLoadTest(durationSec, thermal)
+                                            }
+                                        )
+                                    }
+                                    AppScreen.THERMALS -> {
+                                        ThermalsScreen(
+                                            thermals = report?.thermals.orEmpty(),
+                                            isLive = isLive,
+                                            isRefreshing = isRefreshing,
+                                            onBack = { viewModel.navigateBack() },
+                                            onRefresh = { viewModel.refreshNow() }
+                                        )
+                                    }
+                                    AppScreen.HISTORY -> {
+                                        HistoryScreen(
+                                            samples = metricHistory,
+                                            monitorEnabled = bgMonitor,
+                                            onBack = { viewModel.navigateBack() },
+                                            onRefresh = { viewModel.refreshHistory() },
+                                            onClear = { viewModel.clearHistory() }
+                                        )
+                                    }
+                                    AppScreen.NETWORK -> {
+                                        NetworkScreen(
+                                            network = report?.network,
+                                            detail = networkDetail,
+                                            isLoading = networkDetailLoading,
+                                            probeEnabled = networkProbe,
+                                            latency = latencyStats,
+                                            latencyRunning = latencyRunning,
+                                            onBack = { viewModel.navigateBack() },
+                                            onRefresh = { viewModel.loadNetworkDetail() },
+                                            onRunLatency = { viewModel.runLatencyTest() }
+                                        )
+                                    }
+                                    AppScreen.SENSOR_DETAIL -> {
+                                        SensorDetailScreen(
+                                            sensorName = selectedSensor,
+                                            onBack = { viewModel.navigateBack() }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -354,13 +416,15 @@ class MainActivity : ComponentActivity() {
     private fun requestNotificationThenStartMonitor() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(
-                this, Manifest.permission.POST_NOTIFICATIONS
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
-            if (granted) viewModel.setBackgroundMonitorEnabled(true)
-            else notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            viewModel.setBackgroundMonitorEnabled(true)
+            if (!granted) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                return
+            }
         }
+        viewModel.setBackgroundMonitorEnabled(true)
     }
 
     private fun openUsageAccessSettings() {
@@ -373,30 +437,41 @@ class MainActivity : ComponentActivity() {
 
     private fun openAppInfo(packageName: String) {
         try {
-            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.parse("package:$packageName")
-            })
+            startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", packageName, null)
+                }
+            )
         } catch (_: Exception) {
             Toast.makeText(this, R.string.toast_no_app_info, Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun uninstallApp(packageName: String) {
+    private fun openSourceRepository() {
+        val url = getString(R.string.about_source_link)
         try {
-            startActivity(Intent(Intent.ACTION_DELETE).apply {
-                data = Uri.parse("package:$packageName")
-            })
+            // Deliberately no FLAG_ACTIVITY_NEW_TASK: launching into this task
+            // is what makes Back come straight back to About. The flag would
+            // hand the browser its own task and send Back to the launcher.
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         } catch (_: Exception) {
-            Toast.makeText(this, R.string.toast_no_uninstall, Toast.LENGTH_SHORT).show()
+            // A device with no browser is unusual but real (kiosk builds, some
+            // AOSP images). Copying the URL is more use than a dead tap.
+            copyUrlToClipboard(url, R.string.toast_no_browser)
         }
     }
 
-    private fun openSourceRepository() {
-        try {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ScoobyDouche/PhoneDiagnosticTool")))
-        } catch (_: Exception) {}
-    }
-
+    /**
+     * Ask the system to offer the Quick Settings tile in one tap.
+     *
+     * Third-party tiles are not added automatically: without this the user has
+     * to open the shade's edit screen and find ours among the inactive tiles,
+     * which is exactly the step people miss. Android 13 added this prompt; the
+     * caller passes null below that, and Settings shows directions instead.
+     *
+     * The result callback is deliberately empty — the system dialog already
+     * tells the user what happened, and a toast on top of it would be noise.
+     */
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun requestAddQuickTile() {
         val statusBar = getSystemService(StatusBarManager::class.java)
@@ -417,68 +492,56 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun shareText() {
-        val r = viewModel.report.value ?: return
-        val text = ReportExporter.toShareText(r)
-        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
-        }, getString(R.string.chooser_share_report)))
+    private fun copyUrlToClipboard(url: String, @StringRes message: Int) {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        if (clipboard == null) {
+            Toast.makeText(this, R.string.toast_clipboard_unavailable, Toast.LENGTH_SHORT).show()
+            return
+        }
+        clipboard.setPrimaryClip(ClipData.newPlainText(url, url))
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
-    private fun shareJson() {
-        val r = viewModel.report.value ?: return
-        val text = ReportExporter.toJson(r)
-        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-            type = "application/json"
-            putExtra(Intent.EXTRA_TEXT, text)
-        }, getString(R.string.chooser_share_json)))
-    }
-
-    private fun shareAsFile() {
-        val r = viewModel.report.value ?: return
-        val text = ReportExporter.toShareText(r)
-        val name = ReportExporter.suggestedFileName(r, "txt")
-        val file = File(cacheDir, name)
-        file.writeText(text)
-        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
-        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }, getString(R.string.chooser_share_file)))
-    }
-
-    private fun saveText() {
-        val r = viewModel.report.value ?: return
-        pendingExport = ReportExporter.toShareText(r)
-        saveTextLauncher.launch(ReportExporter.suggestedFileName(r, "txt"))
-    }
-
-    private fun saveJson() {
-        val r = viewModel.report.value ?: return
-        pendingExport = ReportExporter.toJson(r)
-        saveJsonLauncher.launch(ReportExporter.suggestedFileName(r, "json"))
-    }
-
-    private fun writePendingExport(uri: Uri?) {
-        val body = pendingExport
-        pendingExport = null
-        if (uri == null || body == null) return
+    private fun uninstallApp(packageName: String) {
         try {
-            contentResolver.openOutputStream(uri)?.use { it.write(body.toByteArray()) }
-            Toast.makeText(this, R.string.toast_report_saved, Toast.LENGTH_SHORT).show()
+            startActivity(
+                Intent(Intent.ACTION_DELETE).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+            )
         } catch (_: Exception) {
-            Toast.makeText(this, R.string.toast_save_failed, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_no_uninstall, Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun copyText() {
-        val r = viewModel.report.value ?: return
-        val text = ReportExporter.toShareText(r)
-        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        cm.setPrimaryClip(ClipData.newPlainText("report", text))
-        Toast.makeText(this, R.string.toast_report_copied, Toast.LENGTH_SHORT).show()
+    private fun currentReport(): FullDeviceReport? {
+        val report = viewModel.report.value
+        if (report == null) {
+            Toast.makeText(this, R.string.toast_no_report_yet, Toast.LENGTH_SHORT).show()
+        }
+        return report
+    }
+
+    // ------------------------------------------------------------------- sharing
+
+    private fun shareText() {
+        val report = currentReport() ?: return
+        startChooser(
+            text = ReportExporter.toShareText(report),
+            mimeType = MIME_TEXT,
+            subject = getString(R.string.report_subject),
+            title = getString(R.string.chooser_share_report)
+        )
+    }
+
+    private fun shareJson() {
+        val report = currentReport() ?: return
+        startChooser(
+            text = ReportExporter.toJson(report),
+            mimeType = MIME_JSON,
+            subject = getString(R.string.report_subject_json),
+            title = getString(R.string.chooser_share_json)
+        )
     }
 
     private fun shareLog() {
@@ -487,38 +550,173 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, R.string.toast_log_empty, Toast.LENGTH_SHORT).show()
             return
         }
-        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, lines.joinToString("\n"))
-        }, getString(R.string.chooser_share_log)))
+        startChooser(
+            text = lines.joinToString("\n"),
+            mimeType = MIME_TEXT,
+            subject = getString(R.string.log_subject),
+            title = getString(R.string.chooser_share_log)
+        )
     }
 
-    companion object {
-        private const val MIME_TEXT = "text/plain"
-        private const val MIME_JSON = "application/json"
+    private fun startChooser(text: String, mimeType: String, subject: String, title: String) {
+        try {
+            startActivity(
+                Intent.createChooser(
+                    Intent(Intent.ACTION_SEND).apply {
+                        type = mimeType
+                        putExtra(Intent.EXTRA_SUBJECT, subject)
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    },
+                    title
+                )
+            )
+        } catch (_: Exception) {
+            Toast.makeText(this, R.string.toast_no_share_app, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Shares the report as a real attachment. A full report is large enough that
+     * some targets silently truncate or drop `EXTRA_TEXT`, so this route writes a
+     * file and hands over a content URI instead.
+     */
+    private fun shareAsFile() {
+        val report = currentReport() ?: return
+        val name = ReportExporter.suggestedFileName(report, "txt")
+        val uri = try {
+            val dir = File(cacheDir, SHARE_DIR).apply { mkdirs() }
+            // One file per share keeps this from growing without bound.
+            dir.listFiles()?.forEach { it.delete() }
+            val file = File(dir, name)
+            file.writeText(ReportExporter.toShareText(report))
+            FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        } catch (e: Exception) {
+            Toast.makeText(
+                this,
+                getString(
+                    R.string.toast_prepare_file_failed,
+                    e.message ?: e.javaClass.simpleName
+                ),
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        try {
+            startActivity(
+                Intent.createChooser(
+                    Intent(Intent.ACTION_SEND).apply {
+                        type = MIME_TEXT
+                        putExtra(Intent.EXTRA_SUBJECT, getString(R.string.report_subject))
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    },
+                    getString(R.string.chooser_share_file)
+                )
+            )
+        } catch (_: Exception) {
+            Toast.makeText(this, R.string.toast_no_share_app, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ------------------------------------------------------------------- saving
+
+    private fun saveText() {
+        val report = currentReport() ?: return
+        pendingExport = ReportExporter.toShareText(report)
+        launchSave(saveTextLauncher, ReportExporter.suggestedFileName(report, "txt"))
+    }
+
+    private fun saveJson() {
+        val report = currentReport() ?: return
+        pendingExport = ReportExporter.toJson(report)
+        launchSave(saveJsonLauncher, ReportExporter.suggestedFileName(report, "json"))
+    }
+
+    private fun launchSave(
+        launcher: androidx.activity.result.ActivityResultLauncher<String>,
+        fileName: String
+    ) {
+        try {
+            launcher.launch(fileName)
+        } catch (_: Exception) {
+            pendingExport = null
+            Toast.makeText(this, R.string.toast_no_file_picker, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun writePendingExport(uri: Uri?) {
+        val content = pendingExport
+        pendingExport = null
+        if (uri == null || content == null) return
+        try {
+            contentResolver.openOutputStream(uri)?.use { stream ->
+                stream.write(content.toByteArray())
+            } ?: throw IllegalStateException(getString(R.string.error_open_selected_file))
+            Toast.makeText(this, R.string.toast_report_saved, Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(
+                this,
+                getString(R.string.toast_save_failed, e.message ?: e.javaClass.simpleName),
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun copyText() {
+        val report = currentReport() ?: return
+        val text = ReportExporter.toShareText(report)
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        if (clipboard == null) {
+            Toast.makeText(this, R.string.toast_clipboard_unavailable, Toast.LENGTH_SHORT).show()
+            return
+        }
+        clipboard.setPrimaryClip(
+            ClipData.newPlainText(getString(R.string.report_subject), text)
+        )
+        // Android 13+ shows its own copy confirmation; a toast would duplicate it.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            Toast.makeText(this, R.string.toast_report_copied, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private companion object {
+        const val MIME_TEXT = "text/plain"
+        const val MIME_JSON = "application/json"
+        const val SHARE_DIR = "reports"
     }
 }
 
-data class TabItem(
+private data class TabItem(
     val screen: AppScreen,
-    @StringRes val labelRes: Int,
+    @StringRes val label: Int,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector
 )
 
 @Composable
-private fun MainBottomBar(current: AppScreen, onSelect: (AppScreen) -> Unit) {
+private fun MainBottomBar(
+    current: AppScreen,
+    onSelect: (AppScreen) -> Unit
+) {
     val tabs = listOf(
-        TabItem(AppScreen.DASHBOARD, R.string.tab_overview, Icons.Filled.Dashboard, Icons.Outlined.Dashboard),
+        TabItem(
+            AppScreen.DASHBOARD, R.string.tab_overview,
+            Icons.Filled.Dashboard, Icons.Outlined.Dashboard
+        ),
         TabItem(AppScreen.CPU, R.string.tab_cpu, Icons.Filled.Memory, Icons.Outlined.Memory),
-        TabItem(AppScreen.BATTERY, R.string.tab_battery, Icons.Filled.BatteryFull, Icons.Outlined.BatteryFull),
+        TabItem(
+            AppScreen.BATTERY, R.string.tab_battery,
+            Icons.Filled.BatteryFull, Icons.Outlined.BatteryFull
+        ),
         TabItem(AppScreen.SENSORS, R.string.tab_sensors, Icons.Filled.Sensors, Icons.Outlined.Sensors),
         TabItem(AppScreen.MORE, R.string.tab_more, Icons.Filled.MoreHoriz, Icons.Outlined.MoreHoriz)
     )
+
     NavigationBar {
         tabs.forEach { tab ->
             val selected = current == tab.screen
-            val label = stringResource(tab.labelRes)
+            val label = stringResource(tab.label)
             NavigationBarItem(
                 selected = selected,
                 onClick = { onSelect(tab.screen) },

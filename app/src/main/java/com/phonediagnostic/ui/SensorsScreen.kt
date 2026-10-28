@@ -88,54 +88,16 @@ fun SensorsScreen(
                         sensors.size,
                         cameras.size
                     ),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = stringResource(R.string.sensors_hint),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            itemsIndexed(sensors, key = { _, s -> "${s.type}:${s.name}" }) { _, sensor ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenSensor(sensor.name) },
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    )
-                ) {
-                    Column(Modifier.padding(14.dp)) {
-                        Text(sensor.name, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            sensor.type,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        if (sensor.vendor.isNotBlank()) {
-                            Text(
-                                sensor.vendor,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            String.format(
-                                Locale.US,
-                                "%.2f mA · res %.4f · max %.1f",
-                                sensor.powerMa,
-                                sensor.resolution,
-                                sensor.maxRange
-                            ),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        if (sensor.liveValues.isNotBlank()) {
-                            Text(
-                                "Live: ${sensor.liveValues}",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                    }
-                }
-            }
+
             if (cameras.isNotEmpty()) {
                 item {
                     Text(
@@ -145,27 +107,179 @@ fun SensorsScreen(
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
-                items(cameras, key = { it.id }) { cam ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                        )
-                    ) {
-                        Column(Modifier.padding(14.dp)) {
-                            Text("${cam.facing} · ${cam.id}", fontWeight = FontWeight.SemiBold)
-                            Text(
-                                "${cam.pixelArraySize} · ${cam.hardwareLevel}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Text(
-                                "Focal: ${cam.focalLengths} · ${cam.aperture}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
+                items(cameras, key = { "cam-${it.id}" }) { cam ->
+                    CameraCard(cam)
+                }
+            }
+
+            item {
+                Text(
+                    text = stringResource(R.string.sensors_section_sensors),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+
+            if (sensors.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.sensors_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                itemsIndexed(
+                    items = sensors,
+                    // Vendors sometimes expose two sensors with the same type and
+                    // name (wakeup / non-wakeup); the index keeps keys unique so
+                    // LazyColumn does not reject the list.
+                    key = { index, sensor -> "sensor-$index-${sensor.type}-${sensor.name}" }
+                ) { _, sensor ->
+                    SensorCard(sensor = sensor, onClick = { onOpenSensor(sensor.name) })
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SensorCard(sensor: SensorEntry, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = sensor.name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = sensor.type,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            if (sensor.vendor.isNotBlank()) {
+                MetaRow(stringResource(R.string.label_vendor), sensor.vendor)
+            }
+            MetaRow(
+                stringResource(R.string.label_power),
+                String.format(Locale.US, "%.2f mA", sensor.powerMa)
+            )
+            MetaRow(
+                stringResource(R.string.label_resolution),
+                String.format(Locale.US, "%.4f", sensor.resolution)
+            )
+            MetaRow(
+                stringResource(R.string.label_max_range),
+                String.format(Locale.US, "%.2f", sensor.maxRange)
+            )
+            if (sensor.minDelayUs > 0) {
+                MetaRow(
+                    stringResource(R.string.label_min_delay),
+                    "${sensor.minDelayUs} µs"
+                )
+            }
+            if (sensor.maxDelayUs > 0) {
+                MetaRow(
+                    stringResource(R.string.label_max_delay),
+                    "${sensor.maxDelayUs} µs"
+                )
+            }
+            if (sensor.reportingMode.isNotBlank()) {
+                MetaRow(stringResource(R.string.label_reporting_mode), sensor.reportingMode)
+            }
+            MetaRow(
+                stringResource(R.string.label_wake_up),
+                stringResource(if (sensor.isWakeUp) R.string.yes else R.string.no)
+            )
+            if (sensor.fifoMaxEventCount > 0) {
+                MetaRow(
+                    stringResource(R.string.label_fifo),
+                    stringResource(R.string.value_events, sensor.fifoMaxEventCount)
+                )
+            }
+            if (sensor.liveValues.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.sensors_live_prefix, sensor.liveValues),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CameraCard(cam: CameraEntry) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = stringResource(R.string.camera_title, cam.id, cam.facing),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            MetaRow(stringResource(R.string.label_hardware_level), cam.hardwareLevel)
+            MetaRow(stringResource(R.string.label_pixel_array), cam.pixelArraySize)
+            MetaRow(stringResource(R.string.label_orientation), "${cam.sensorOrientation}°")
+            MetaRow(stringResource(R.string.label_focal_lengths), cam.focalLengths)
+            MetaRow(stringResource(R.string.label_aperture), cam.aperture)
+            if (cam.activeArraySize.isNotBlank() && cam.activeArraySize != cam.pixelArraySize) {
+                MetaRow(stringResource(R.string.label_active_array), cam.activeArraySize)
+            }
+            if (cam.isoRange.isNotBlank()) {
+                MetaRow(stringResource(R.string.label_iso_range), cam.isoRange)
+            }
+            if (cam.exposureRange.isNotBlank()) {
+                MetaRow(stringResource(R.string.label_exposure_range), cam.exposureRange)
+            }
+            MetaRow(
+                stringResource(R.string.label_flash),
+                stringResource(if (cam.hasFlash) R.string.yes else R.string.no)
+            )
+            if (cam.physicalIds.isNotBlank()) {
+                MetaRow(stringResource(R.string.label_physical_cameras), cam.physicalIds)
+            }
+            if (cam.capabilities.isNotBlank()) {
+                MetaRow(stringResource(R.string.label_capabilities), cam.capabilities)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetaRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace
+        )
     }
 }
