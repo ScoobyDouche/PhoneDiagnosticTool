@@ -132,8 +132,6 @@
     <string name="dashboard_try_again">Try again</string>
     <string name="dashboard_live_badge">● LIVE</string>
     <string name="dashboard_paused_badge">○ PAUSED</string>
-    <string name="dashboard_live_hint">Updates every 3s · Pull to full refresh</string>
-    <string name="dashboard_paused_hint">Tap play to resume</string>
     <string name="dashboard_footer">Use bottom tabs for CPU · Battery · Sensors\nNetwork, history, sharing and settings are under More · v%1$s</string>
 
     <string name="section_device">Device</string>
@@ -245,7 +243,6 @@
     <string name="more_thermals_none">No readable zones</string>
     <string name="more_thermals_count">%1$d zones</string>
     <string name="more_section_report">Report</string>
-    <string name="more_section_details">Details and tools</string>
     <string name="more_share_text">Share text</string>
     <string name="more_share_json">Share JSON</string>
     <string name="more_share_file">Share file</string>

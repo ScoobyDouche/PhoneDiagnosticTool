@@ -17,31 +17,43 @@ Captured on a Galaxy Z Flip4 running Android 16.
 
 ## Features
 
-- **Device overview** — model, Android version, security patch, fingerprint, board, bootloader, uptime
-- **CPU / SoC** — architecture, frequency range, live per-core clocks, cluster layout, governors, available frequencies
-- **GPU** — OpenGL ES info
-- **Battery** — charge, health, temperature, voltage, thermal zones, charging power, cycle count (where available)
-- **RAM** — usage, kernel stats (cached, buffers, swap, ZRAM) + process detail (system-wide with Shizuku/root)
-- **Storage** — volumes + per-app breakdown (requires Usage Access)
-- **Display** — refresh rates, HDR formats, wide colour gamut
+**Device and hardware**
+- **Overview** — model, Android version, security patch, fingerprint, board, bootloader, kernel, uptime
+- **CPU / SoC** — cluster layout and peak clocks, governors, available frequencies, live per-core clocks
+- **GPU** — OpenGL ES renderer and version
+- **Battery** — charge, health, temperature, voltage, charging power, charger rating, drain rate and time left, capacity wear and cycle count (where available)
+- **RAM** — usage, kernel stats (cached, buffers, swap, ZRAM) and process detail (system-wide with Shizuku/root)
+- **Storage** — volumes, per-app breakdown (requires Usage Access), flash type and wear (UFS / eMMC)
+- **Display** — resolution modes, refresh rates, HDR formats and peak brightness, wide colour gamut
 - **Sensors** — list, reporting mode / wake-up / batching, live streaming with per-axis charts
-- **Cameras** — facing, pixel array, focal lengths, hardware level, ISO / exposure ranges, flash, capabilities (no capture permission needed)
+- **Cameras** — facing, pixel array, focal lengths, hardware level, ISO / exposure ranges, flash, capabilities (no camera permission)
+- **Media codecs** — every video and audio format, hardware vs software playback and recording, max resolution and frame rate
+- **Thermals** — every zone with readable names, Android's thermal status and throttling headroom
+- **System activity** — awake vs deep-sleep time since boot, last wake reason, top wakeup sources
+- **Network** — IPs, DNS / private DNS, Wi-Fi standard (4 to 7, 6E) / band / signal, cellular generation (2G to 5G) and signal, latency probe with burst stats
+- **Security** — verified boot, bootloader lock, encryption, SELinux, patch age, StrongBox / hardware keystore
 - **Connectivity** — NFC / Bluetooth state, connected audio devices
-- **Security** — verified boot, bootloader lock, encryption, SELinux mode, build tags
-- **Network** — IP addresses, DNS / private DNS, Wi-Fi link speed / band / signal, carrier, optional latency probe + 5-probe burst stats
+
+**Privacy**
+- **Privacy audit** — which apps hold camera, microphone, location, contacts, SMS and other sensitive permissions, and which have accessibility, notification or device-admin access
+- **Redacted reports** (on by default) — exports leave out fingerprint, bootloader, baseband and build host
+- **Latency target of your choice** — Cloudflare, Quad9, Google, or your router only
+- **Sensitive clipboard** — copied reports are hidden from the copy preview and cleared after a minute
+- **Block screenshots** (optional) — no screenshots, screen recording or Recents preview
+
+**Tools**
 - **History** — battery, temperature and RAM trends from up to 24 h of on-device samples
-- **Tools** — CPU load test (1 / 5 / 10 min) with k-ops/s score, vibration check, storage speed test
-- **Background monitor** — rotating log (capped at 5000 lines)
+- **Load test** — 1 / 5 / 10 min CPU load with k-ops/s score and throttling detection (sustained % of peak)
+- Vibration check, storage speed test, background monitor with a rotating log (5000 lines)
 - **Reports** — share as text / JSON / file, save, or copy
-- **Elevated access** (optional, off by default) — Shizuku or root for fuel-gauge health, per-core clocks, and system process list
-- Theme: system / light / dark
-- Fully externalised strings (ready for translation packs)
+- **Elevated access** (optional, off by default) — Shizuku or root for fuel-gauge health, per-core clocks, flash wear, wakeup sources and the system process list
+- Theme: system / light / dark; fully externalised strings
 
 ## Privacy
 
 See **[PRIVACY.md](PRIVACY.md)**.
 
-Short version: everything stays on the device. The only network use is an optional latency probe you can disable in Settings.
+Short version: everything stays on the device. The only network use is an optional latency check you can point at your own router or switch off in Settings. The app asks for no camera, microphone, location, contacts or phone permissions.
 
 ## Download
 
@@ -106,7 +118,7 @@ CI runs tests + debug/release APK + AAB on every push and pull request.
 | `ACCESS_WIFI_STATE` | Wi-Fi link speed, band, signal |
 | `VIBRATE` | Vibration hardware check under Tools |
 | `PACKAGE_USAGE_STATS` | Per-app storage (user must grant Usage Access) |
-| `QUERY_ALL_PACKAGES` | List installed apps for the storage breakdown (Android 11+) |
+| `QUERY_ALL_PACKAGES` | List installed apps for the storage breakdown and Privacy audit (Android 11+) |
 | `REQUEST_DELETE_PACKAGES` | Uninstall from storage detail |
 | `FOREGROUND_SERVICE` / `SPECIAL_USE` | Optional background monitor |
 | `POST_NOTIFICATIONS` | Background monitor notification (Android 13+) |

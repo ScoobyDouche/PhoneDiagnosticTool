@@ -122,7 +122,7 @@ Do it while the install base is small. The cost only grows.
 - **Play App Signing** — enroll when creating the app; keep your **upload** keystore as the one in GitHub secrets
 - Privacy policy URL — use the raw or GitHub-rendered `PRIVACY.md`, or host a short page:
   - https://github.com/ScoobyDouche/PhoneDiagnosticTool/blob/main/PRIVACY.md
-- Data safety form — declare **no data collected / no data shared** (matches the app: local-only diagnostics; optional user-disabled latency probe to `8.8.8.8`)
+- Data safety form — declare **no data collected / no data shared** (matches the app: local-only diagnostics; optional user-disabled latency probe that only opens a TCP connection to a DNS resolver or the user's router)
 - Store listing: title, short/full description, screenshots (phone), feature graphic, app icon
 - For many new personal accounts: **closed testing** with the minimum number of testers for the required period before production
 

@@ -16,10 +16,34 @@ Android project (`MAJOR.MINOR.PATCH`).
   and physical cameras; readable thermal zone names. All are included in
   text and JSON reports.
 - Screens keep their scroll position when you back out of a submenu.
+- Privacy audit screen: apps holding camera, microphone, location,
+  contacts, SMS, call log and other sensitive grants, plus apps with
+  accessibility, notification-listener or device-admin access, and a
+  "This app" card explaining each of the tool's own permissions.
+- Reports can leave out device identifiers (fingerprint, bootloader,
+  baseband, build host, kernel build line); on by default.
+- Latency target setting: Cloudflare, Quad9, Google, or the router only.
+- Copied reports are marked sensitive and cleared after a minute.
+- Optional "Block screenshots" setting (FLAG_SECURE).
+- Battery charger rating, drain rate and estimated time left; capacity
+  health and cycle count in reports.
+- Flash storage type and JEDEC wear / spare-block status.
+- System activity: awake vs deep-sleep time, last wake reason and top
+  wakeup sources.
+- Android thermal status and headroom on the Thermals screen; load test
+  reports sustained throughput and flags throttled runs.
+- Media codecs screen: hardware vs software playback and recording per
+  format, with max resolution and frame rate.
+- Display modes and HDR peak brightness; Wi-Fi standard; cellular
+  generation and signal (no permission, no cell identifiers); security
+  patch age and StrongBox / hardware keystore support.
+- Gradle wrapper (`./gradlew`), so the build instructions work as written.
 
 ### Changed
 - More tab is more compact: links are grouped per section and the six
   export actions are one card of buttons.
+- The latency check now defaults to Cloudflare (1.1.1.1) instead of
+  Google (8.8.8.8).
 
 ### Fixed
 - CPU topology is derived from each cluster's peak clock instead of the

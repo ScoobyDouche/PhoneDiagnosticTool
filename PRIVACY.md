@@ -1,6 +1,6 @@
 # Privacy Policy — Phone Diagnostic Tool
 
-**Last updated:** 2026-09-12
+**Last updated:** 2026-10-28
 
 Phone Diagnostic Tool is designed to be privacy-first.
 
@@ -23,6 +23,10 @@ The app reads standard Android system APIs on-device to show:
 - Whether NFC and Bluetooth are present and switched on (never the Bluetooth
   name or address), and which kinds of audio device are connected
 - Verified-boot, bootloader-lock and encryption state, where Android exposes it
+- Which installed apps hold sensitive permissions or special access (Privacy
+  audit screen)
+- Cellular generation and signal strength, read without any phone or location
+  permission and without cell tower or location identifiers
 
 That information stays on your phone unless **you** choose to share or export a report.
 
@@ -33,11 +37,11 @@ Permissions:
 - `INTERNET` — used only for the optional latency probe
 - `ACCESS_NETWORK_STATE` — used to detect connection type (Wi‑Fi, cellular, etc.), plus DNS servers and IP addresses shown on the Network screen
 - `ACCESS_WIFI_STATE` — used to read the current Wi‑Fi link speed, band and signal strength on the Network screen
-- `QUERY_ALL_PACKAGES` — used to list installed apps so the storage screen can show which ones are using space
+- `QUERY_ALL_PACKAGES` — used to list installed apps so the storage screen can show which ones are using space, and so the Privacy audit can show which apps hold sensitive permissions
 
 On Android 11 and newer the system hides the installed-app list from apps
 that do not hold `QUERY_ALL_PACKAGES`, which is why the per-app storage
-breakdown needs it. The list is read on demand, shown on screen, and never
+breakdown and the Privacy audit need it. The list is read on demand, shown on screen, and never
 leaves the device — it is not written to the diagnostic log, not included in
 an exported report, and not transmitted anywhere.
 
@@ -47,7 +51,7 @@ addresses are deliberately not shown. The Wi‑Fi network name is only visible i
 you have granted a location permission to this app — it does not request one, so
 it normally shows as hidden.
 
-When **Network latency check** is enabled (default on, can be turned off in Settings), the app measures TCP connect time to Google Public DNS at `8.8.8.8:53`. No DNS query payload beyond a TCP connect is required for this measurement, and no diagnostic report is uploaded.
+When **Network latency check** is enabled (default on, can be turned off in Settings), the app measures how long a TCP connection takes to open to port 53 of the target you pick in Settings: Cloudflare `1.1.1.1` (default), Quad9 `9.9.9.9`, Google `8.8.8.8`, or **your router only**, which keeps the check on your local network. Only the connection is opened; no DNS query or other data is sent, and no diagnostic report is uploaded.
 
 When the latency check is disabled, the app does not open network connections for diagnostics — including the repeat-probe button on the Network screen, which is unavailable while it is off.
 
@@ -66,7 +70,7 @@ backend:
 - **Root** — the app runs the same read-only commands through `su`.
 
 In both cases the commands are limited to reading diagnostic values (e.g.
-`cat`-ing a sysfs node), the results are shown on-device exactly like every
+`cat`-ing a sysfs node for storage wear or wakeup sources), the results are shown on-device exactly like every
 other reading, and **nothing about this is transmitted anywhere**. No elevated
 access is used, requested, or bound while the feature is set to Off.
 
@@ -89,6 +93,19 @@ share sheet, the system file picker, or the clipboard. "Share as file" writes
 one report into the app's private cache and grants the app you choose temporary
 read access to that single file; the previous export is deleted each time.
 Where that data goes next is controlled by **you** and the app you pick.
+
+By default, exported reports leave out the build fingerprint, bootloader and
+baseband versions, build host and the kernel build line, which together
+identify one exact device build. You can turn this off in Settings. Reports
+never contain IP addresses, Wi‑Fi network names, DNS servers, carrier details
+or the list of installed apps.
+
+A copied report is marked sensitive, so Android 13+ hides it from the copy
+preview and keyboard suggestions, and the app clears it from the clipboard
+after a minute if it is still there.
+
+An optional **Block screenshots** setting stops screenshots and screen
+recording of the app and hides its preview in Recents.
 
 ## Children
 

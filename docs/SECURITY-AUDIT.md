@@ -64,7 +64,8 @@ Checked deliberately, and clean:
 - **No hardware identifiers anywhere.** No IMEI, serial, `ANDROID_ID`, or MAC
   address is read by any code path.
 - **One outbound endpoint**, opt-in via Settings: a TCP connect to `8.8.8.8:53`
-  for latency timing. No payload is sent.
+  for latency timing. No payload is sent. *(Since the 2026-10 privacy work the
+  target is user-selectable — Cloudflare by default, or the router only.)*
 - **The shareable report contains no SSID, IP addresses, DNS servers, or
   carrier details.** Its NETWORK section carries only connection state, type,
   latency, link bandwidth, validated and metered flags. SSID is displayed
