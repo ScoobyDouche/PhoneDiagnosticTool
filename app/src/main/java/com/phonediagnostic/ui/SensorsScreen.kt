@@ -95,61 +95,84 @@ fun SensorsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            items(sensors, key = { it.name + it.type }) { sensor ->
-                SensorCard(sensor = sensor, onClick = { onOpenSensor(sensor.name) })
+
+            items(sensors, key = { "${it.type}:${it.name}" }) { sensor ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenSensor(sensor.name) },
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    )
+                ) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text(sensor.name, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            sensor.type,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (sensor.vendor.isNotBlank()) {
+                            Text(
+                                sensor.vendor,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            String.format(
+                                Locale.US,
+                                "%.2f mA · res %.4f · max %.1f",
+                                sensor.powerMa,
+                                sensor.resolution,
+                                sensor.maxRange
+                            ),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        if (sensor.liveValues.isNotBlank()) {
+                            Text(
+                                "Live: ${sensor.liveValues}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
             }
+
             if (cameras.isNotEmpty()) {
                 item {
                     Text(
-                        text = stringResource(R.string.section_cameras),
+                        text = stringResource(R.string.sensors_section_cameras),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
                 items(cameras, key = { it.id }) { cam ->
-                    CameraCard(camera = cam)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                        )
+                    ) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text(
+                                "${cam.facing} · ${cam.id}",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "${cam.pixelArraySize} · ${cam.hardwareLevel}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                "Focal: ${cam.focalLengths} · ${cam.aperture}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SensorCard(sensor: SensorEntry, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-    ) {
-        Column(Modifier = Modifier.padding(14.dp)) {
-            Text(sensor.name, fontWeight = FontWeight.SemiBold)
-            Text(sensor.type, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            if (sensor.vendor.isNotBlank()) {
-                Text(sensor.vendor, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(String.format(Locale.US, "%.2f mA · res %.4f · max %.1f", sensor.powerMa, sensor.resolution, sensor.maxRange), style = MaterialTheme.typography.bodySmall)
-            if (sensor.liveValues.isNotBlank()) {
-                Text("Live: ${sensor.liveValues}", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
-            }
-        }
-    }
-}
-
-@Composable
-private fun CameraCard(camera: CameraEntry) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text("${camera.facing} · ${camera.id}", fontWeight = FontWeight.SemiBold)
-            Text("${camera.pixelArraySize} · ${camera.hardwareLevel}", style = MaterialTheme.typography.bodySmall)
-            Text("Focal: ${camera.focalLengths} · ${camera.aperture}", style = MaterialTheme.typography.bodySmall)
-            if (camera.capabilities.isNotBlank()) {
-                Text(camera.capabilities, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
