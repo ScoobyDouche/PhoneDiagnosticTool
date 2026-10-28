@@ -140,6 +140,23 @@ class MetricHistory(context: Context) {
     }
 
     companion object {
+        /**
+         * Battery drain in %/hour over the latest unplugged stretch. Needs at
+         * least [minSpanMs] and a 2% drop so a few noisy samples do not
+         * produce a wild figure.
+         */
+        fun drainRatePerHour(samples: List<MetricSample>, minSpanMs: Long = 30 * 60_000L): Float? {
+            val stretch = samples.sortedBy { it.timestampMs }
+                .takeLastWhile { !it.charging && it.batteryPct >= 0 }
+            if (stretch.size < 2) return null
+            val first = stretch.first()
+            val last = stretch.last()
+            val span = last.timestampMs - first.timestampMs
+            val drop = first.batteryPct - last.batteryPct
+            if (span < minSpanMs || drop < 2) return null
+            return drop / (span / 3_600_000f)
+        }
+
         private const val FILE_NAME = "metric_history.csv"
 
         /** 24 h at one sample every 30 s. ~120 KB of text when full. */

@@ -618,4 +618,21 @@
     <string name="purpose_notifications">Shows the background monitor\'s notification.</string>
     <string name="purpose_shizuku">Talks to Shizuku if you opt into elevated access.</string>
     <string name="purpose_other">Added by a library for internal use; gives no access to your data.</string>
+
+    <!-- Battery / storage / system / thermal depth -->
+    <string name="label_charger_rating">Charger offers</string>
+    <string name="label_drain_rate">Drain rate</string>
+    <string name="label_time_left">Estimated time left</string>
+    <string name="battery_time_left_value">%1$dh %2$dm at this rate</string>
+    <string name="label_storage_type">Storage type</string>
+    <string name="label_storage_wear">Flash wear</string>
+    <string name="label_storage_spare">Spare blocks</string>
+    <string name="section_system">System activity</string>
+    <string name="label_since_boot">Since boot</string>
+    <string name="label_awake">CPU awake</string>
+    <string name="label_deep_sleep">Deep sleep</string>
+    <string name="label_last_wake">Last woken by</string>
+    <string name="system_wake_sources">Kept the phone awake longest</string>
+    <string name="thermals_status">Android thermal status: %1$s</string>
+    <string name="thermals_headroom">%1$d%% of the throttling limit expected in 10 s</string>
 </resources>

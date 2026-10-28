@@ -22,6 +22,7 @@ import android.net.wifi.WifiManager
 import android.telephony.TelephonyManager
 import android.opengl.GLES20
 import android.os.BatteryManager
+import android.os.PowerManager
 import android.os.Build
 import android.os.Environment
 import android.os.StatFs
@@ -101,6 +102,19 @@ class DeviceInfoCollector(private val context: Context) {
             "/sys/class/power_supply/bat"
         )
         private const val LATENCY_PORT = 53
+        private const val EXTRA_MAX_CHARGING_CURRENT = "max_charging_current"
+        private const val EXTRA_MAX_CHARGING_VOLTAGE = "max_charging_voltage"
+        private const val DEFAULT_CHARGING_MICROVOLTS = 5_000_000
+        private const val THERMAL_FORECAST_SEC = 10
+        private val UFS_PLATFORM_DIRS = listOf("/sys/devices/platform/soc", "/sys/devices/platform")
+        private const val UFS_LIFE_GLOB_COMMAND =
+            "cat /sys/devices/platform/*/health_descriptor/life_time_estimation_[ab] " +
+                "/sys/devices/platform/soc/*/health_descriptor/life_time_estimation_[ab] 2>/dev/null"
+        private const val UFS_EOL_GLOB_COMMAND =
+            "cat /sys/devices/platform/*/health_descriptor/eol_info " +
+                "/sys/devices/platform/soc/*/health_descriptor/eol_info 2>/dev/null"
+        private const val WAKEUP_SOURCES_COMMAND =
+            "for d in /sys/class/wakeup/*; do echo \"\$(cat \$d/name) \$(cat \$d/active_time_ms)\"; done 2>/dev/null"
         private const val LATENCY_TIMEOUT_MS = 3000
         private const val SENSOR_SAMPLE_MS = 250L
         private const val PROPERTY_TIMEOUT_MS = 500L
@@ -138,7 +152,9 @@ class DeviceInfoCollector(private val context: Context) {
             nfc = collectNfc(),
             bluetooth = collectBluetooth(),
             audio = collectAudio(),
-            security = collectSecurity()
+            security = collectSecurity(),
+            system = collectSystemState(),
+            thermalState = collectThermalState()
         )
     }
 
@@ -163,6 +179,9 @@ class DeviceInfoCollector(private val context: Context) {
             // Keep the previously captured readings when we are not re-sampling.
             sensors = if (sampleSensors) collectSensors(live = true) else previous.sensors,
             thermals = collectThermals(),
+            thermalState = collectThermalState(),
+            // Wake sources are a full-collect read; the clocks are free to refresh.
+            system = previous.system.withClocks(),
             // Cheap, and the user may toggle a radio or plug in headphones mid-session.
             nfc = collectNfc(),
             bluetooth = collectBluetooth(),
@@ -449,6 +468,18 @@ class DeviceInfoCollector(private val context: Context) {
         val cycleCount = broadcastCycles ?: gaugeCycles?.count
         val cycleSource = if (broadcastCycles == null) gaugeCycles?.source?.name else null
 
+        // Not public API, but sent by AOSP's BatteryService and read by Settings.
+        // A charger that reports current without voltage is assumed to be 5 V,
+        // as Settings does.
+        val chargerWatts = if (plugged != 0) {
+            val microAmps = batteryStatus?.getIntExtra(EXTRA_MAX_CHARGING_CURRENT, 0) ?: 0
+            val microVolts = (batteryStatus?.getIntExtra(EXTRA_MAX_CHARGING_VOLTAGE, 0) ?: 0)
+                .takeIf { it > 0 } ?: DEFAULT_CHARGING_MICROVOLTS
+            if (microAmps > 0) {
+                ((microAmps / 1_000_000f) * (microVolts / 1_000_000f)).takeIf { it in 0.5f..300f }
+            } else null
+        } else null
+
         return BatteryInfo(
             level = batteryPct, status = status, health = health, temperature = temperature,
             voltage = voltage, technology = technology, isCharging = isCharging,
@@ -456,7 +487,8 @@ class DeviceInfoCollector(private val context: Context) {
             capacityMah = designMah ?: designGaugeMah, chargeCounterUah = chargeCounter,
             fullChargeMah = fullMah, designChargeMah = designGaugeMah,
             capacityHealthPercent = healthPct, cycleCount = cycleCount,
-            healthSource = healthSource, cycleSource = cycleSource
+            healthSource = healthSource, cycleSource = cycleSource,
+            chargerMaxWatts = chargerWatts
         )
     }
 
@@ -616,13 +648,132 @@ class DeviceInfoCollector(private val context: Context) {
         val usedGb = usedBytes / (1024.0 * 1024 * 1024)
         val percent = if (totalBytes > 0) ((usedBytes * 100) / totalBytes).toInt() else 0
         val externalState = try { Environment.getExternalStorageState() } catch (_: Exception) { "unknown" }
+        val flash = readFlashHealth()
         return StorageInfo(
             totalInternalGb = totalGb, freeInternalGb = freeGb, usedInternalGb = usedGb,
             usagePercent = percent, volumes = collectVolumes(),
             dataDirectory = dataDir.absolutePath, cacheDirectory = context.cacheDir.absolutePath,
             filesDirectory = context.filesDir.absolutePath, externalStorageState = externalState,
-            emulatedExternal = Environment.isExternalStorageEmulated()
+            emulatedExternal = Environment.isExternalStorageEmulated(),
+            storageType = flash.type, lifeUsed = flash.lifeUsed, preEol = flash.preEol,
+            healthSource = flash.source?.name
         )
+    }
+
+    private data class FlashHealth(
+        val type: String,
+        val lifeUsed: String? = null,
+        val preEol: String? = null,
+        val source: AccessTier? = null
+    )
+
+    /** Flash type from the block devices present, plus JEDEC wear where readable. */
+    private fun readFlashHealth(): FlashHealth {
+        val type = when {
+            File("/sys/block/sda").exists() -> "UFS"
+            File("/sys/block/mmcblk0").exists() -> "eMMC"
+            File("/sys/block/nvme0n1").exists() -> "NVMe"
+            else -> ""
+        }
+        return when (type) {
+            "eMMC" -> {
+                val life = readNodeSourced("/sys/block/mmcblk0/device/life_time")
+                val eol = readNodeSourced("/sys/block/mmcblk0/device/pre_eol_info")
+                FlashHealth(
+                    type,
+                    DeepProbes.storageLifeUsed(life.value),
+                    DeepProbes.storagePreEol(eol.value),
+                    life.source ?: eol.source
+                )
+            }
+            "UFS" -> readUfsHealth()
+            else -> FlashHealth(type)
+        }
+    }
+
+    /**
+     * The UFS controller's sysfs directory is SoC-specific (…/soc/1d84000.ufshc,
+     * …/13100000.ufs), so search the platform bus for a health_descriptor.
+     */
+    private fun readUfsHealth(): FlashHealth {
+        val dirs = UFS_PLATFORM_DIRS.flatMap { base ->
+            runCatching { File(base).listFiles()?.toList() }.getOrNull().orEmpty()
+                .map { File(it, "health_descriptor") }
+                .filter { runCatching { it.isDirectory }.getOrDefault(false) }
+        }
+        for (dir in dirs) {
+            val a = readNodeSourced("${dir.path}/life_time_estimation_a")
+            val b = readNodeSourced("${dir.path}/life_time_estimation_b")
+            val eol = readNodeSourced("${dir.path}/eol_info")
+            val life = DeepProbes.storageLifeUsed(listOfNotNull(a.value, b.value).joinToString(" "))
+            val preEol = DeepProbes.storagePreEol(eol.value)
+            if (life != null || preEol != null) {
+                return FlashHealth("UFS", life, preEol, a.source ?: b.source ?: eol.source)
+            }
+        }
+        // Listing the platform bus is usually denied to apps; a shell glob is not.
+        val e = elevated ?: return FlashHealth("UFS")
+        val life = e.exec(UFS_LIFE_GLOB_COMMAND)
+        val eol = e.exec(UFS_EOL_GLOB_COMMAND)?.lineSequence()?.firstOrNull()
+        val lifeUsed = DeepProbes.storageLifeUsed(life)
+        val preEol = DeepProbes.storagePreEol(eol)
+        return if (lifeUsed != null || preEol != null) {
+            FlashHealth("UFS", lifeUsed, preEol, e.tier)
+        } else {
+            FlashHealth("UFS")
+        }
+    }
+
+    private fun collectSystemState(): SystemState {
+        val reason = readNodeSourced("/sys/kernel/wakeup_reasons/last_resume_reason")
+        val (wakeLines, wakeTier) = readWakeSourceLines()
+        val top = DeepProbes.topWakeSources(wakeLines).map { (name, ms) -> WakeSource(name, ms) }
+        return SystemState(
+            lastWakeReason = reason.value?.lineSequence()?.firstOrNull()?.takeIf { it.isNotBlank() },
+            topWakeSources = top,
+            wakeSource = (wakeTier ?: reason.source)?.takeIf { top.isNotEmpty() || reason.value != null }?.name
+        ).withClocks()
+    }
+
+    private fun SystemState.withClocks(): SystemState {
+        val sinceBoot = SystemClock.elapsedRealtime()
+        val awake = SystemClock.uptimeMillis()
+        return copy(
+            sinceBootMs = sinceBoot,
+            awakeMs = awake,
+            deepSleepPercent = DeepProbes.deepSleepPercent(sinceBoot, awake)
+        )
+    }
+
+    /** "name active_time_ms" per wakeup source, read directly or through elevated access. */
+    private fun readWakeSourceLines(): Pair<String?, AccessTier?> {
+        val direct = runCatching {
+            File("/sys/class/wakeup").listFiles()?.mapNotNull { dir ->
+                val name = runCatching { File(dir, "name").readText().trim() }.getOrNull()
+                val ms = runCatching { File(dir, "active_time_ms").readText().trim() }.getOrNull()
+                if (name.isNullOrBlank() || ms.isNullOrBlank()) null else "$name $ms"
+            }
+        }.getOrNull()
+        if (!direct.isNullOrEmpty()) return direct.joinToString("\n") to null
+        val e = elevated ?: return null to null
+        val out = e.exec(WAKEUP_SOURCES_COMMAND)
+        return if (out.isNullOrBlank()) null to null else out to e.tier
+    }
+
+    private fun collectThermalState(): ThermalState {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return ThermalState()
+        val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return ThermalState()
+        return try {
+            ThermalState(
+                status = DeepProbes.thermalStatusName(pm.currentThermalStatus),
+                headroom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    // NaN when unsupported or when polled more than once a second.
+                    pm.getThermalHeadroom(THERMAL_FORECAST_SEC).takeIf { !it.isNaN() && it >= 0f }
+                } else null
+            )
+        } catch (_: Exception) {
+            ThermalState()
+        }
     }
 
     private fun collectVolumes(): List<StorageVolumeInfo> {

@@ -65,7 +65,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.phonediagnostic.data.FullDeviceReport
+import com.phonediagnostic.data.MetricHistory
 import com.phonediagnostic.data.ReportExporter
+import com.phonediagnostic.data.ThermalState
 import com.phonediagnostic.data.ThemeMode
 import com.phonediagnostic.ui.AboutScreen
 import com.phonediagnostic.ui.AppScreen
@@ -268,7 +270,8 @@ class MainActivity : ComponentActivity() {
                                             isRefreshing = isRefreshing,
                                             onRefresh = { viewModel.refreshNow() },
                                             onOpenThermals = { viewModel.openThermals() },
-                                            onOpenHistory = { viewModel.openHistory() }
+                                            onOpenHistory = { viewModel.openHistory() },
+                                            drainRatePerHour = MetricHistory.drainRatePerHour(metricHistory)
                                         )
                                     }
                                     AppScreen.SENSORS -> {
@@ -394,7 +397,8 @@ class MainActivity : ComponentActivity() {
                                             isLive = isLive,
                                             isRefreshing = isRefreshing,
                                             onBack = { viewModel.navigateBack() },
-                                            onRefresh = { viewModel.refreshNow() }
+                                            onRefresh = { viewModel.refreshNow() },
+                                            thermalState = report?.thermalState ?: ThermalState()
                                         )
                                     }
                                     AppScreen.HISTORY -> {

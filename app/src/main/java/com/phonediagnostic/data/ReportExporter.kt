@@ -125,8 +125,11 @@ object ReportExporter {
             if (b.chargeCounterUah != null) {
                 appendLine("  Charge counter: ${String.format(Locale.US, "%.0f", b.chargeCounterUah / 1000.0)} mAh")
             }
+            b.capacityHealthPercent?.let { appendLine("  Capacity health: $it% of design") }
+            b.cycleCount?.let { appendLine("  Charge cycles: $it") }
             appendLine("  Technology: ${b.technology}")
             appendLine("  Power Source: ${b.powerSource}")
+            b.chargerMaxWatts?.let { appendLine("  Charger offers: ${String.format(Locale.US, "%.1f", it)} W") }
             appendLine()
             appendLine("MEMORY (RAM)")
             appendLine("  Total: ${m.totalRamMb} MB")
@@ -161,6 +164,9 @@ object ReportExporter {
             appendLine("  Cache path: ${s.cacheDirectory}")
             appendLine("  External state: ${s.externalStorageState}")
             appendLine("  Emulated external: ${s.emulatedExternal}")
+            if (s.storageType.isNotBlank()) appendLine("  Flash type: ${s.storageType}")
+            s.lifeUsed?.let { appendLine("  Flash wear: $it") }
+            s.preEol?.let { appendLine("  Spare blocks: $it") }
             s.volumes.forEachIndexed { i, v ->
                 appendLine("  Volume ${i + 1}: ${v.name}")
                 appendLine("    Path: ${v.path}")
@@ -203,6 +209,20 @@ object ReportExporter {
             if (sec.buildTags.isNotBlank()) appendLine("  Build tags: ${sec.buildTags}")
             sec.isDebuggableBuild?.let { appendLine("  Debuggable build: ${if (it) "Yes" else "No"}") }
             appendLine()
+            val sys = report.system
+            appendLine("SYSTEM")
+            appendLine("  Since boot: ${sys.sinceBootMs / 60_000} min, CPU awake ${sys.awakeMs / 60_000} min")
+            sys.deepSleepPercent?.let { appendLine("  Deep sleep: $it%") }
+            sys.lastWakeReason?.let { appendLine("  Last woken by: $it") }
+            sys.topWakeSources.forEach { appendLine("  Wake source: ${it.name} (${it.activeMs / 1000} s)") }
+            appendLine()
+            if (report.thermalState.status.isNotBlank()) {
+                appendLine("THERMAL STATUS: ${report.thermalState.status}")
+                report.thermalState.headroom?.let {
+                    appendLine("  Headroom: ${(it * 100).toInt()}% of throttling limit (10 s forecast)")
+                }
+                appendLine()
+            }
             if (report.thermals.isNotEmpty()) {
                 appendLine("THERMALS (${report.thermals.size})")
                 report.thermals.forEach { z ->
@@ -305,6 +325,9 @@ object ReportExporter {
             put("chargeCounterUah", b.chargeCounterUah ?: JSONObject.NULL)
             put("technology", b.technology)
             put("powerSource", b.powerSource)
+            put("capacityHealthPercent", b.capacityHealthPercent ?: JSONObject.NULL)
+            put("cycleCount", b.cycleCount ?: JSONObject.NULL)
+            put("chargerMaxWatts", b.chargerMaxWatts ?: JSONObject.NULL)
         })
         root.put("memory", JSONObject().apply {
             put("totalRamMb", m.totalRamMb)
@@ -339,6 +362,9 @@ object ReportExporter {
             put("cacheDirectory", s.cacheDirectory)
             put("externalStorageState", s.externalStorageState)
             put("emulatedExternal", s.emulatedExternal)
+            put("storageType", s.storageType)
+            put("lifeUsed", s.lifeUsed ?: JSONObject.NULL)
+            put("preEol", s.preEol ?: JSONObject.NULL)
             put("volumes", JSONArray().apply {
                 s.volumes.forEach { v ->
                     put(JSONObject().apply {
@@ -390,6 +416,24 @@ object ReportExporter {
             put("selinux", report.security.selinux.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
             put("buildTags", report.security.buildTags.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
             put("isDebuggableBuild", report.security.isDebuggableBuild ?: JSONObject.NULL)
+        })
+        root.put("system", JSONObject().apply {
+            put("sinceBootMs", report.system.sinceBootMs)
+            put("awakeMs", report.system.awakeMs)
+            put("deepSleepPercent", report.system.deepSleepPercent ?: JSONObject.NULL)
+            put("lastWakeReason", report.system.lastWakeReason ?: JSONObject.NULL)
+            put("topWakeSources", JSONArray().apply {
+                report.system.topWakeSources.forEach { w ->
+                    put(JSONObject().apply {
+                        put("name", w.name)
+                        put("activeMs", w.activeMs)
+                    })
+                }
+            })
+        })
+        root.put("thermalState", JSONObject().apply {
+            put("status", report.thermalState.status.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+            put("headroom", report.thermalState.headroom?.toDouble() ?: JSONObject.NULL)
         })
         root.put("thermals", JSONArray().apply {
             report.thermals.forEach { z ->

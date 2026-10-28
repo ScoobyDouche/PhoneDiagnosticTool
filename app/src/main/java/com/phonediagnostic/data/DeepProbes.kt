@@ -267,4 +267,71 @@ object DeepProbes {
             hasFlash = flash
         )
     }
+
+    /**
+     * JEDEC device life-time estimate (eMMC life_time, UFS life_time_estimation_a/b):
+     * 0x01 = 0–10% of rated erase cycles used ... 0x0A = 90–100%, 0x0B = exceeded.
+     */
+    fun storageLifeUsed(raw: String?): String? {
+        val values = raw.orEmpty().trim().split(Regex("\\s+"))
+            .mapNotNull { it.removePrefix("0x").removePrefix("0X").toIntOrNull(16) }
+            .filter { it in 1..0x0B }
+        val worst = values.maxOrNull() ?: return null
+        return if (worst == 0x0B) "Rated life exceeded" else "${(worst - 1) * 10}–${worst * 10}% used"
+    }
+
+    /** JEDEC pre-EOL info: how much of the spare block pool is gone. */
+    fun storagePreEol(raw: String?): String? =
+        when (raw?.trim()?.removePrefix("0x")?.removePrefix("0X")?.toIntOrNull(16)) {
+            1 -> "Normal"
+            2 -> "Warning — 80% of spare blocks used"
+            3 -> "Urgent — spare blocks nearly gone"
+            else -> null
+        }
+
+    /**
+     * Parses "name active_time_ms" lines (one per /sys/class/wakeup source) into
+     * the [limit] sources that kept the phone awake longest.
+     */
+    fun topWakeSources(lines: String?, limit: Int = 5): List<Pair<String, Long>> =
+        lines.orEmpty().lineSequence()
+            .mapNotNull { line ->
+                val name = line.substringBeforeLast(' ').trim()
+                val ms = line.substringAfterLast(' ').trim().toLongOrNull()
+                if (name.isEmpty() || ms == null || ms <= 0) null else name to ms
+            }
+            .sortedByDescending { it.second }
+            .take(limit)
+            .toList()
+
+    /** Share of time since boot the CPU spent suspended. */
+    fun deepSleepPercent(sinceBootMs: Long, awakeMs: Long): Int? {
+        if (sinceBootMs <= 0 || awakeMs < 0 || awakeMs > sinceBootMs) return null
+        return (((sinceBootMs - awakeMs) * 100) / sinceBootMs).toInt()
+    }
+
+    /** PowerManager.THERMAL_STATUS_* as words. */
+    fun thermalStatusName(status: Int): String = when (status) {
+        0 -> "None"
+        1 -> "Light"
+        2 -> "Moderate"
+        3 -> "Severe"
+        4 -> "Critical"
+        5 -> "Emergency"
+        6 -> "Shutdown"
+        else -> "Unknown"
+    }
+
+    /**
+     * Throughput at the end of a load test as a share of its best stretch.
+     * [perSecond] is ops counted in each one-second interval. Well under 100
+     * means the SoC slowed down, almost always from heat.
+     */
+    fun sustainedPercent(perSecond: List<Long>, window: Int = 10): Int? {
+        if (perSecond.size < window * 2) return null
+        val peak = perSecond.windowed(window).maxOf { it.average() }
+        if (peak <= 0.0) return null
+        val end = perSecond.takeLast(window).average()
+        return ((end * 100) / peak).toInt().coerceIn(0, 100)
+    }
 }

@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.phonediagnostic.R
+import com.phonediagnostic.data.ThermalState
 import com.phonediagnostic.data.ThermalZone
 import java.util.Locale
 
@@ -43,7 +44,8 @@ fun ThermalsScreen(
     isLive: Boolean,
     isRefreshing: Boolean,
     onBack: () -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    thermalState: ThermalState = ThermalState()
 ) {
     val hottest = thermals.maxByOrNull { it.tempC }
     val coolest = thermals.minByOrNull { it.tempC }
@@ -86,6 +88,9 @@ fun ThermalsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            if (thermalState.status.isNotBlank()) {
+                item { ThermalStatusCard(thermalState) }
+            }
             item {
                 Text(
                     text = stringResource(R.string.thermals_zones_count, thermals.size),
@@ -176,6 +181,34 @@ private fun ThermalCard(zone: ThermalZone) {
                 fontFamily = FontFamily.Monospace,
                 color = tempColor
             )
+        }
+    }
+}
+
+/** Android's own verdict on heat, which is what actually triggers throttling. */
+@Composable
+private fun ThermalStatusCard(state: ThermalState) {
+    val severe = state.status in setOf("Severe", "Critical", "Emergency", "Shutdown")
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (severe) MaterialTheme.colorScheme.errorContainer
+            else MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = stringResource(R.string.thermals_status, state.status),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            state.headroom?.let { headroom ->
+                Text(
+                    text = stringResource(R.string.thermals_headroom, (headroom * 100).toInt()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

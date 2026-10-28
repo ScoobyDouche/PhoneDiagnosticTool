@@ -1,6 +1,8 @@
 package com.phonediagnostic.data
 
 import android.content.Context
+import android.os.Build
+import android.os.PowerManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -51,7 +53,14 @@ data class LoadTestResult(
     val afterTempC: Float,
     /** Highest battery temperature seen while the test ran. */
     val peakTempC: Float,
-    val summary: String
+    val summary: String,
+    /**
+     * Throughput over the last 10 s as a share of the best 10 s. Well under
+     * 100 means the SoC throttled. Null for runs too short to judge.
+     */
+    val sustainedPercent: Int? = null,
+    /** Worst Android thermal status seen during the run; blank below API 29. */
+    val worstThermalStatus: String = ""
 )
 
 /**
@@ -86,6 +95,13 @@ object LoadTester {
         // distorts the measurement and burns the battery we are reporting on.
         val before = collector.collectSample()
         var peakTempC = before.batteryTempC
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        fun thermalStatus(): Int =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) powerManager?.currentThermalStatus ?: -1 else -1
+        var worstThermal = thermalStatus()
+        // Operations completed in each ~1 s interval, to spot throttling.
+        val perSecond = ArrayList<Long>()
+        var lastOps = 0L
 
         fun emit(elapsed: Int, phase: String, running: Boolean, sample: MetricSample) {
             if (sample.batteryTempC > peakTempC) peakTempC = sample.batteryTempC
@@ -152,6 +168,10 @@ object LoadTester {
                 delay(PROGRESS_INTERVAL_MS)
                 val elapsed = ((System.currentTimeMillis() - startMs) / 1000L)
                     .toInt().coerceIn(0, sec)
+                val now = ops.get()
+                perSecond.add(now - lastOps)
+                lastOps = now
+                worstThermal = maxOf(worstThermal, thermalStatus())
                 emit(elapsed, "Stressing CPU", running = true, sample = collector.collectSample())
             }
         } finally {
@@ -170,6 +190,8 @@ object LoadTester {
         val elapsedSec = ((System.currentTimeMillis() - startMs) / 1000L).coerceAtLeast(1L)
         val totalOps = ops.get()
         val score = totalOps / elapsedSec / 1000L
+        val sustained = DeepProbes.sustainedPercent(perSecond)
+        val worstThermalName = if (worstThermal >= 0) DeepProbes.thermalStatusName(worstThermal) else ""
 
         val summary = buildString {
             val modeLabel = if (mode == LoadMode.THERMAL) "thermal" else "standard"
@@ -186,6 +208,11 @@ object LoadTester {
                     peakTempC
                 )
             )
+            if (sustained != null) {
+                append(" - sustained $sustained% of peak")
+                if (sustained < THROTTLE_THRESHOLD_PERCENT) append(" (throttled)")
+            }
+            if (worstThermalName.isNotEmpty()) append(" - thermal status $worstThermalName")
         }
 
         DiagnosticLog.get(context).append(summary)
@@ -204,7 +231,9 @@ object LoadTester {
             beforeTempC = before.batteryTempC,
             afterTempC = after.batteryTempC,
             peakTempC = peakTempC,
-            summary = summary
+            summary = summary,
+            sustainedPercent = sustained,
+            worstThermalStatus = worstThermalName
         )
     }
 
@@ -213,6 +242,8 @@ object LoadTester {
     private const val PROGRESS_INTERVAL_MS = 1000L
     private const val WORKER_JOIN_MS = 2000L
     private const val COOLDOWN_MS = 400L
+    /** Below this share of peak throughput the run is labelled throttled. */
+    private const val THROTTLE_THRESHOLD_PERCENT = 85
 
     /** Thermal-mode per-thread buffer: 2^17 doubles = 1 MB, a power of two for masking. */
     private const val BUFFER_DOUBLES = 1 shl 17

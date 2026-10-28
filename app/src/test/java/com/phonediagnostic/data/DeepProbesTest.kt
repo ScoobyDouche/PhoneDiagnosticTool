@@ -120,4 +120,44 @@ class DeepProbesTest {
         // "pa" inside another word is not a power amplifier.
         assertEquals("panel-therm", DeepProbes.thermalTypeLabel("panel-therm"))
     }
+
+    @Test
+    fun storageLifeReportsWorstEstimate() {
+        assertEquals("10–20% used", DeepProbes.storageLifeUsed("0x01 0x02"))
+        assertEquals("0–10% used", DeepProbes.storageLifeUsed("0x01"))
+        assertEquals("Rated life exceeded", DeepProbes.storageLifeUsed("0x0B"))
+        assertNull(DeepProbes.storageLifeUsed("0x00"))
+        assertNull(DeepProbes.storageLifeUsed(null))
+    }
+
+    @Test
+    fun storagePreEolMapsJedecLevels() {
+        assertEquals("Normal", DeepProbes.storagePreEol("0x01"))
+        assertEquals("Urgent — spare blocks nearly gone", DeepProbes.storagePreEol("0x03"))
+        assertNull(DeepProbes.storagePreEol("0x00"))
+    }
+
+    @Test
+    fun wakeSourcesSortedByActiveTime() {
+        val top = DeepProbes.topWakeSources(
+            "PowerManagerService.WakeLocks 5000\nalarmtimer 200\nqcom_rx_wakelock 90000\nidle 0\nbroken",
+            limit = 2
+        )
+        assertEquals(listOf("qcom_rx_wakelock" to 90000L, "PowerManagerService.WakeLocks" to 5000L), top)
+    }
+
+    @Test
+    fun deepSleepIsTheSuspendedShare() {
+        assertEquals(75, DeepProbes.deepSleepPercent(sinceBootMs = 400, awakeMs = 100))
+        assertNull(DeepProbes.deepSleepPercent(sinceBootMs = 100, awakeMs = 200))
+    }
+
+    @Test
+    fun sustainedPercentComparesEndToBestStretch() {
+        val steady = List(30) { 100L }
+        assertEquals(100, DeepProbes.sustainedPercent(steady))
+        val throttled = List(15) { 100L } + List(15) { 60L }
+        assertEquals(60, DeepProbes.sustainedPercent(throttled))
+        assertNull(DeepProbes.sustainedPercent(List(5) { 100L }))
+    }
 }

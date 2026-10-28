@@ -41,7 +41,9 @@ fun BatteryScreen(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     onOpenThermals: () -> Unit,
-    onOpenHistory: () -> Unit
+    onOpenHistory: () -> Unit,
+    /** %/hour over the latest unplugged stretch of history, when there is enough of it. */
+    drainRatePerHour: Float? = null
 ) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -102,6 +104,29 @@ fun BatteryScreen(
                         )
                         InfoRow(stringResource(R.string.label_status), battery.status)
                         InfoRow(stringResource(R.string.label_power_source), battery.powerSource)
+                        battery.chargerMaxWatts?.let { watts ->
+                            InfoRow(
+                                stringResource(R.string.label_charger_rating),
+                                String.format(Locale.US, "%.1f W", watts)
+                            )
+                        }
+                        if (drainRatePerHour != null && !battery.isCharging) {
+                            InfoRow(
+                                stringResource(R.string.label_drain_rate),
+                                String.format(Locale.US, "%.1f%%/h", drainRatePerHour)
+                            )
+                            if (battery.level > 0 && drainRatePerHour > 0f) {
+                                val hours = battery.level / drainRatePerHour
+                                InfoRow(
+                                    stringResource(R.string.label_time_left),
+                                    stringResource(
+                                        R.string.battery_time_left_value,
+                                        hours.toInt(),
+                                        ((hours - hours.toInt()) * 60).toInt()
+                                    )
+                                )
+                            }
+                        }
                         InfoRow(stringResource(R.string.label_health), battery.health)
                         InfoRow(stringResource(R.string.label_technology), battery.technology)
                     }

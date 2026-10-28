@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.phonediagnostic.R
 import com.phonediagnostic.data.FullDeviceReport
+import com.phonediagnostic.ui.components.ElevatedTag
 import com.phonediagnostic.ui.components.InfoCard
 import com.phonediagnostic.ui.components.InfoRow
 import com.phonediagnostic.ui.components.UsageBar
@@ -325,6 +326,11 @@ private fun ReportList(
                         stringResource(R.string.label_free),
                         String.format(Locale.US, "%.2f GB", s.freeInternalGb)
                     )
+                    if (s.storageType.isNotBlank()) {
+                        InfoRow(stringResource(R.string.label_storage_type), s.storageType)
+                    }
+                    s.lifeUsed?.let { InfoRow(stringResource(R.string.label_storage_wear), it) }
+                    s.preEol?.let { InfoRow(stringResource(R.string.label_storage_spare), it) }
                     InfoRow(stringResource(R.string.label_volumes), s.volumes.size.toString())
                     InfoRow(
                         stringResource(R.string.label_external),
@@ -334,6 +340,34 @@ private fun ReportList(
                             s.externalStorageState.ifBlank { "—" }
                         }
                     )
+                }
+            }
+        }
+
+        item(key = "system") {
+            val sys = data.system
+            InfoCard(title = stringResource(R.string.section_system)) {
+                Column {
+                    InfoRow(stringResource(R.string.label_since_boot), formatDuration(sys.sinceBootMs))
+                    InfoRow(stringResource(R.string.label_awake), formatDuration(sys.awakeMs))
+                    sys.deepSleepPercent?.let {
+                        InfoRow(stringResource(R.string.label_deep_sleep), "$it%")
+                    }
+                    sys.lastWakeReason?.let {
+                        InfoRow(stringResource(R.string.label_last_wake), it.take(48))
+                    }
+                    if (sys.topWakeSources.isNotEmpty()) {
+                        Text(
+                            text = stringResource(R.string.system_wake_sources),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                        sys.topWakeSources.forEach { source ->
+                            InfoRow(source.name.take(32), formatDuration(source.activeMs))
+                        }
+                    }
+                    ElevatedTag(sys.wakeSource)
                 }
             }
         }
@@ -525,5 +559,19 @@ private fun radioLabel(present: Boolean, enabled: Boolean): String {
         !present -> stringResource(R.string.radio_absent)
         enabled -> stringResource(R.string.radio_on)
         else -> stringResource(R.string.radio_off)
+    }
+}
+
+/** "2d 4h", "3h 12m" or "45s" — coarse on purpose; these are since-boot totals. */
+private fun formatDuration(ms: Long): String {
+    val totalSec = ms / 1000
+    val days = totalSec / 86_400
+    val hours = (totalSec % 86_400) / 3600
+    val minutes = (totalSec % 3600) / 60
+    return when {
+        days > 0 -> "${days}d ${hours}h"
+        hours > 0 -> "${hours}h ${minutes}m"
+        minutes > 0 -> "${minutes}m"
+        else -> "${totalSec}s"
     }
 }

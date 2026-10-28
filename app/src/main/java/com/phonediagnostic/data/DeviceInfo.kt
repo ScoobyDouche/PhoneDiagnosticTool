@@ -96,7 +96,12 @@ data class BatteryInfo(
      */
     val healthSource: String? = null,
     /** As [healthSource], for the charge-cycle count. */
-    val cycleSource: String? = null
+    val cycleSource: String? = null,
+    /**
+     * What the plugged-in charger offers, in watts, from the battery broadcast's
+     * max charging current and voltage. Null when unplugged or not reported.
+     */
+    val chargerMaxWatts: Float? = null
 ) {
     /**
      * Instantaneous power in watts: positive charging, negative discharging.
@@ -163,7 +168,15 @@ data class StorageInfo(
     val cacheDirectory: String = "",
     val filesDirectory: String = "",
     val externalStorageState: String = "",
-    val emulatedExternal: Boolean = false
+    val emulatedExternal: Boolean = false,
+    /** UFS / eMMC / NVMe, from the block devices present. */
+    val storageType: String = "",
+    /** Wear from the flash chip's JEDEC life-time estimate, e.g. "10–20% used". */
+    val lifeUsed: String? = null,
+    /** JEDEC pre-end-of-life status of the spare block pool. */
+    val preEol: String? = null,
+    /** Elevated tier that made the wear figures readable, null for a direct read. */
+    val healthSource: String? = null
 )
 
 /**
@@ -354,6 +367,33 @@ data class SecurityInfo(
     val buildTags: String = ""
 )
 
+data class WakeSource(val name: String, val activeMs: Long)
+
+/** Sleep and wake behaviour since boot. */
+data class SystemState(
+    val sinceBootMs: Long = 0,
+    /** Time the CPU was running, i.e. not in deep sleep. */
+    val awakeMs: Long = 0,
+    val deepSleepPercent: Int? = null,
+    /** Why the phone last woke from suspend; needs elevated access on most builds. */
+    val lastWakeReason: String? = null,
+    /** Sources that held the phone awake longest since boot. */
+    val topWakeSources: List<WakeSource> = emptyList(),
+    /** Elevated tier that made the wake data readable, null for a direct read. */
+    val wakeSource: String? = null
+)
+
+/** Android's own thermal verdict, as opposed to raw zone temperatures. */
+data class ThermalState(
+    /** None / Light / Moderate / Severe / Critical / Emergency / Shutdown; blank below API 29. */
+    val status: String = "",
+    /**
+     * Forecast 10 s ahead where 1.0 is the point the system starts severe
+     * throttling. Null below API 30 or when the device does not support it.
+     */
+    val headroom: Float? = null
+)
+
 data class FullDeviceReport(
     val overview: DeviceOverview,
     val cpu: CpuInfo,
@@ -369,5 +409,7 @@ data class FullDeviceReport(
     val nfc: NfcInfo = NfcInfo(),
     val bluetooth: BluetoothInfo = BluetoothInfo(),
     val audio: AudioInfo = AudioInfo(),
-    val security: SecurityInfo = SecurityInfo()
+    val security: SecurityInfo = SecurityInfo(),
+    val system: SystemState = SystemState(),
+    val thermalState: ThermalState = ThermalState()
 )
