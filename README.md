@@ -131,7 +131,7 @@ Camera and sensors use system APIs without requesting the CAMERA permission (cha
 - Kotlin · Jetpack Compose · Material 3
 - ViewModel + StateFlow
 - Min SDK 26 · Target / compile SDK 35
-- Version **1.3.1**
+- Version **1.4.0**
 
 Diagnostics stay on-device only: a rotating log and 24 h metric history live in internal storage. The app opts out of Android cloud backup and device transfer (`allowBackup="false"`).
 

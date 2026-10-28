@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows a practical semantic versioning scheme for a single-app
 Android project (`MAJOR.MINOR.PATCH`).
 
-## [Unreleased]
+## [1.4.0] — 2026-10-28
 
 ### Added
 - Deeper diagnostics: CPU clusters, governors, available frequencies and
