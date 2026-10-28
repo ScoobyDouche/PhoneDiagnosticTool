@@ -495,4 +495,19 @@ class DeviceInfoCollector(private val context: Context) {
     private fun collectNfc(): NfcInfo = NfcInfo()
     private fun collectBluetooth(): BluetoothInfo = BluetoothInfo()
     private fun collectAudio(): AudioInfo = AudioInfo()
+
+    fun collectNetworkDetail(): NetworkDetail = NetworkDetail()
+
+    fun measureLatencyStats(count: Int = 5): LatencyStats =
+        LatencyStats(
+            target = "8.8.8.8:53",
+            samplesMs = emptyList(),
+            attempts = count,
+            minMs = null,
+            avgMs = null,
+            maxMs = null,
+            jitterMs = null,
+            lossPercent = 100,
+            lastError = "not restored yet"
+        )
 }
