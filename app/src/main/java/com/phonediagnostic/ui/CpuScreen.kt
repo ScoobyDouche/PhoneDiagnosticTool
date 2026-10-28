@@ -101,10 +101,19 @@ fun CpuScreen(
                         InfoRow(stringResource(R.string.label_board_platform), cpu.boardPlatform)
                         InfoRow(stringResource(R.string.label_architecture), cpu.architecture)
                         InfoRow(stringResource(R.string.label_cores), cpu.cores.toString())
+                        if (cpu.onlineCores.isNotEmpty()) {
+                            InfoRow("Online", cpu.onlineCores.joinToString(", "))
+                        }
+                        if (cpu.topologyHint.isNotBlank()) {
+                            InfoRow("Topology", cpu.topologyHint)
+                        }
                         InfoRow(
                             stringResource(R.string.label_abis),
                             cpu.supportedAbis.joinToString(", ")
                         )
+                        if (cpu.governors.isNotEmpty()) {
+                            InfoRow("Governors", cpu.governors.joinToString(", "))
+                        }
                     }
                 }
             }
@@ -125,9 +134,18 @@ fun CpuScreen(
                                 String.format("%.0f MHz", avg)
                             )
                         }
-                        // Shown only when the clocks needed elevated access to read.
+                        if (cpu.availableFreqMhz.isNotEmpty()) {
+                            val preview = if (cpu.availableFreqMhz.size <= 8) {
+                                cpu.availableFreqMhz.joinToString(", ")
+                            } else {
+                                cpu.availableFreqMhz.take(4).joinToString(", ") +
+                                    " … " +
+                                    cpu.availableFreqMhz.takeLast(2).joinToString(", ")
+                            }
+                            InfoRow("Available", "$preview MHz")
+                        }
                         ElevatedTag(cpu.clockSource)
-}
+                    }
                 }
             }
 
