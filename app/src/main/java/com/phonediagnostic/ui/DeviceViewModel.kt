@@ -70,15 +70,8 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val history = MetricHistory.get(appContext)
     private val elevatedManager = ElevatedAccessManager(appContext)
 
-    /**
-     * Serialises full and live collects. A full pass (EGL GPU probe + optional
-     * sensor sampling) can exceed [LIVE_INTERVAL_MS], so without this the live
-     * loop, refreshNow and the elevated-shell observer could overlap and race
-     * on [_report] and the collector's elevated shell reference.
-     */
     private val collectionMutex = Mutex()
 
-    /** Live view of what elevated access is available and active, for Settings. */
     val elevatedStatus: StateFlow<ElevatedStatus> = elevatedManager.status
 
     private val _report = MutableStateFlow<FullDeviceReport?>(null)
@@ -93,12 +86,22 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val _screen = MutableStateFlow(AppScreen.DASHBOARD)
     val screen: StateFlow<AppScreen> = _screen.asStateFlow()
 
-    /** Drives whether the system back gesture is intercepted. */
     private val _canNavigateBack = MutableStateFlow(false)
     val canNavigateBack: StateFlow<Boolean> = _canNavigateBack.asStateFlow()
 
-    /** Screens visited before the current one. Mutated from the main thread only. */
     private val backStack = ArrayList<AppScreen>()
+
+    /** Per-screen LazyColumn positions so back navigation restores scroll. */
+    private val scrollIndex = HashMap<AppScreen, Int>()
+    private val scrollOffset = HashMap<AppScreen, Int>()
+
+    fun listScrollIndex(screen: AppScreen): Int = scrollIndex[screen] ?: 0
+    fun listScrollOffset(screen: AppScreen): Int = scrollOffset[screen] ?: 0
+
+    fun saveListScroll(screen: AppScreen, index: Int, offset: Int) {
+        scrollIndex[screen] = index
+        scrollOffset[screen] = offset
+    }
 
     private val _networkProbeEnabled = MutableStateFlow(prefs.networkProbeEnabled)
     val networkProbeEnabled: StateFlow<Boolean> = _networkProbeEnabled.asStateFlow()
@@ -160,14 +163,8 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val _backgroundMonitorEnabled = MutableStateFlow(prefs.backgroundMonitorEnabled)
     val backgroundMonitorEnabled: StateFlow<Boolean> = _backgroundMonitorEnabled.asStateFlow()
 
-    /**
-     * Whether the activity is started. viewModelScope outlives onStop, so
-     * without this the live loop kept probing the network and waking sensors
-     * every few seconds with the app in the background.
-     */
     private val _inForeground = MutableStateFlow(true)
 
-    /** Name of the sensor opened in the live detail view, if any. */
     private val _selectedSensor = MutableStateFlow<String?>(null)
     val selectedSensor: StateFlow<String?> = _selectedSensor.asStateFlow()
 
@@ -191,9 +188,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
             MonitorService.start(appContext)
         }
 
-        // Feed the collector whichever elevated shell is live, and re-collect
-        // once one becomes available so gated data (battery fuel gauge, per-core
-        // clocks) appears without the user having to hit refresh.
         viewModelScope.launch {
             elevatedManager.activeShell.collect { shell ->
                 val gained = collector.elevated == null && shell != null
@@ -230,8 +224,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
-
-    // ---------------------------------------------------------------- navigation
 
     private fun navigateTo(target: AppScreen) {
         val current = _screen.value
@@ -304,8 +296,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         _selectedSensor.value = sensorName
         navigateTo(AppScreen.SENSOR_DETAIL)
     }
-
-    // ------------------------------------------------------------------- details
 
     fun loadProcessRam() {
         viewModelScope.launch(Dispatchers.Default) {
@@ -380,8 +370,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         refreshLog()
     }
 
-    // ------------------------------------------------------------------ settings
-
     fun setNetworkProbeEnabled(enabled: Boolean) {
         prefs.networkProbeEnabled = enabled
         _networkProbeEnabled.value = enabled
@@ -409,8 +397,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         _themeMode.value = mode
     }
 
-    // ------------------------------------------------------------ elevated access
-
     fun setAccessTier(tier: AccessTier) {
         elevatedManager.setPreferredTier(tier)
     }
@@ -431,8 +417,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         log.clear()
         refreshLog()
     }
-
-    // ----------------------------------------------------------------- load test
 
     fun runLoadTest(durationSec: Int, thermal: Boolean = false) {
         if (_loadTesting.value) return
@@ -465,13 +449,6 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // ---------------------------------------------------------------- collection
-
-    /**
-     * Serialised full / live collect. The mutex prevents the live loop, pull-to-refresh,
-     * elevated-shell observer and load-test completion from overlapping on the collector
-     * and on [_report].
-     */
     private suspend fun runCollection(full: Boolean) {
         collectionMutex.withLock {
             try {
