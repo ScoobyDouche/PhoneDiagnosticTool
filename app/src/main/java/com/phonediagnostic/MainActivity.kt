@@ -1,1 +1,4 @@
-REFER_TO_MAIN
+package com.phonediagnostic
+
+// TEMP: will replace - see next
+class MainActivity
