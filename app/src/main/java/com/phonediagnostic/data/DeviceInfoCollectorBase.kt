@@ -3,53 +3,25 @@ package com.phonediagnostic.data
 import android.app.ActivityManager
 import android.app.admin.DevicePolicyManager
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
-import android.media.AudioDeviceInfo
-import android.media.AudioManager
-import android.nfc.NfcAdapter
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import android.net.wifi.WifiManager
-import android.telephony.TelephonyManager
 import android.opengl.GLES20
-import android.os.BatteryManager
 import android.os.Build
-import android.os.Environment
-import android.os.StatFs
 import android.os.SystemClock
-import android.os.storage.StorageManager
-import android.provider.Settings
-import android.hardware.display.DisplayManager
-import android.view.Display
 import com.phonediagnostic.data.elevated.AccessTier
 import com.phonediagnostic.data.elevated.ElevatedShell
-import java.util.Locale
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
-import java.net.Inet4Address
-import java.net.Inet6Address
-import java.net.InetSocketAddress
-import java.net.NetworkInterface
-import java.net.Socket
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import javax.microedition.khronos.egl.EGL10
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.egl.EGLContext
 import javax.microedition.khronos.egl.EGLDisplay
-import kotlin.math.abs
-import kotlin.math.sqrt
 
 /** Core collector implementation; DeviceInfoCollector delegates here and layers DeepProbes. */
 internal open class DeviceInfoCollectorBase(protected val context: Context) {
@@ -76,18 +48,7 @@ internal open class DeviceInfoCollectorBase(protected val context: Context) {
     internal fun readNode(path: String): String? = readNodeSourced(path).value
 
     companion object {
-        private const val LATENCY_HOST = "8.8.8.8"
-        private val BATTERY_SUPPLY_DIRS = listOf(
-            "/sys/class/power_supply/battery",
-            "/sys/class/power_supply/bms",
-            "/sys/class/power_supply/max170xx_battery",
-            "/sys/class/power_supply/bat"
-        )
-        private const val LATENCY_PORT = 53
-        private const val LATENCY_TIMEOUT_MS = 3000
-        private const val SENSOR_SAMPLE_MS = 250L
         private const val PROPERTY_TIMEOUT_MS = 500L
-        private const val LATENCY_GAP_MS = 120L
         private val propertyCache = ConcurrentHashMap<String, String>()
         @Volatile
         private var cachedGpu: GpuInfo? = null
@@ -449,18 +410,23 @@ internal open class DeviceInfoCollectorBase(protected val context: Context) {
         return result
     }
 
-    // Stubs for remaining collectors — full implementations can be restored from main later
     fun collectBattery(): BatteryInfo = BatteryInfo(
         level = -1, status = "Unknown", health = "Unknown", temperature = 0f,
         voltage = 0, technology = "Unknown", isCharging = false, powerSource = "Unknown",
         currentNowMa = null, currentAvgMa = null
     )
 
-    internal fun collectStorage(): StorageInfo = StorageInfo(volumes = emptyList())
-    internal fun collectDisplay(): DisplayInfo = DisplayInfo(
-        widthPx = 0, heightPx = 0, densityDpi = 0, refreshRateHz = 0f, hdrTypes = emptyList()
+    internal fun collectStorage(): StorageInfo = StorageInfo(
+        totalInternalGb = 0.0, freeInternalGb = 0.0, usedInternalGb = 0.0, usagePercent = 0
     )
-    internal fun collectNetwork(probe: Boolean): NetworkInfo = NetworkInfo()
+    internal fun collectDisplay(): DisplayInfo = DisplayInfo(
+        widthPx = 0, heightPx = 0, densityDpi = 0, density = 1f,
+        refreshRate = 0f, screenSizeInches = 0.0
+    )
+    internal fun collectNetwork(probe: Boolean): NetworkInfo = NetworkInfo(
+        isConnected = false, networkType = "Unknown", latencyMs = null,
+        latencyTarget = "", latencyStatus = ""
+    )
     internal fun collectNetworkLight(prev: NetworkInfo, probe: Boolean): NetworkInfo = prev
     internal fun collectNfc(): NfcInfo = NfcInfo()
     internal fun collectBluetooth(): BluetoothInfo = BluetoothInfo()
