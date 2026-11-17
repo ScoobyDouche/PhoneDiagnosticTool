@@ -19,13 +19,14 @@ Captured on a Galaxy Z Flip4 running Android 16.
 
 **Device and hardware**
 - **Overview** — model, Android version, security patch, fingerprint, board, bootloader, kernel, uptime
-- **CPU / SoC** — cluster layout and peak clocks, governors, available frequencies, live per-core clocks
+- **CPU / SoC** — chip, core designs (Cortex-A / X, Kryo), cluster layout and peak clocks, governors, available frequencies, instruction-set features, live per-core clocks
 - **GPU** — OpenGL ES renderer and version
-- **Battery** — charge, health, temperature, voltage, charging power, charger rating, drain rate and time left, capacity wear and cycle count (where available)
+- **Battery** — charge, health, temperature, voltage, charging power, charger rating, time to full, drain rate and time left, remaining energy, capacity wear and cycle count (where available)
 - **RAM** — usage, kernel stats (cached, buffers, swap, ZRAM) and process detail (system-wide with Shizuku/root)
 - **Storage** — volumes, per-app breakdown (requires Usage Access), flash type and wear (UFS / eMMC)
 - **Display** — resolution modes, refresh rates, HDR formats and peak brightness, wide colour gamut
-- **Sensors** — list, reporting mode / wake-up / batching, live streaming with per-axis charts
+- **Sensors** — every sensor named with its unit (including hinge angle, heading and vendor sensors), which standard sensors are fitted or missing, reporting mode / wake-up / batching, live streaming with per-axis charts and measured rate
+- **Hardware and platform** — every screen (cover screens included), biometric readers, NFC / UWB / eSIM / infrared, Wi-Fi bands, positioning chip, SIM slots, Vulkan and OpenGL ES versions, audio latency class, vibration motor, memory page size, Treble / seamless updates
 - **Cameras** — facing, pixel array, focal lengths, hardware level, ISO / exposure ranges, flash, capabilities (no camera permission)
 - **Media codecs** — every video and audio format, hardware vs software playback and recording, max resolution and frame rate
 - **Thermals** — every zone with readable names, Android's thermal status and throttling headroom
@@ -35,8 +36,11 @@ Captured on a Galaxy Z Flip4 running Android 16.
 - **Connectivity** — NFC / Bluetooth state, connected audio devices
 
 **Privacy**
-- **Privacy audit** — which apps hold camera, microphone, location, contacts, SMS and other sensitive permissions, and which have accessibility, notification or device-admin access
-- **Redacted reports** (on by default) — exports leave out fingerprint, bootloader, baseband and build host
+- **Privacy audit** — which apps hold camera, microphone, location, contacts, SMS and other sensitive permissions, and which have accessibility, keyboard, notification or device-admin access; apps that were not installed from a store or have no launcher icon are marked
+- **Device checks** — screen lock, encryption, bootloader, patch age, USB / wireless debugging, VPN, Private DNS, location services at a glance
+- **Redacted reports** (on by default) — exports leave out fingerprint, bootloader, baseband, build host and app paths; no report ever contains an IP address
+- **Hide network addresses** (optional) — IPs, DNS servers, Wi-Fi name and carrier stay masked on screen until tapped
+- **Keep history** (on by default) — switch off to store no trend samples at all
 - **Latency target of your choice** — Cloudflare, Quad9, Google, or your router only
 - **Sensitive clipboard** — copied reports are hidden from the copy preview and cleared after a minute
 - **Block screenshots** (optional) — no screenshots, screen recording or Recents preview
@@ -107,7 +111,7 @@ cd PhoneDiagnosticTool
 ./gradlew bundleRelease     # AAB for Play
 ```
 
-CI runs tests + debug/release APK + AAB on every push and pull request.
+CI runs tests, lint and the debug/release APK + AAB builds on every push and pull request.
 
 ## Permissions
 

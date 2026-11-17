@@ -13,6 +13,8 @@ import android.content.ComponentName
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PersistableBundle
 import android.provider.Settings
 import android.view.WindowManager
@@ -63,7 +65,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.lifecycleScope
 import com.phonediagnostic.data.FullDeviceReport
 import com.phonediagnostic.data.MetricHistory
 import com.phonediagnostic.data.ReportExporter
@@ -76,6 +77,7 @@ import com.phonediagnostic.ui.CodecsScreen
 import com.phonediagnostic.ui.CpuScreen
 import com.phonediagnostic.ui.DashboardScreen
 import com.phonediagnostic.ui.DeviceViewModel
+import com.phonediagnostic.ui.HardwareScreen
 import com.phonediagnostic.ui.HistoryScreen
 import com.phonediagnostic.ui.MoreScreen
 import com.phonediagnostic.ui.NetworkScreen
@@ -90,8 +92,6 @@ import com.phonediagnostic.ui.ToolsScreen
 import com.phonediagnostic.ui.isMainTab
 import com.phonediagnostic.ui.theme.PhoneDiagnosticTheme
 import java.io.File
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import com.phonediagnostic.service.QuickTileService
 
 class MainActivity : ComponentActivity() {
@@ -127,6 +127,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (savedInstanceState == null) clearSharedReports()
         applySecureFlag(viewModel.secureScreens.value)
 
         setContent {
@@ -183,6 +184,8 @@ class MainActivity : ComponentActivity() {
                         shownScreen = screen
                     }
                     val elevatedStatus by viewModel.elevatedStatus.collectAsStateWithLifecycle()
+                    val historyEnabled by viewModel.historyEnabled.collectAsStateWithLifecycle()
+                    val hideAddresses by viewModel.hideAddresses.collectAsStateWithLifecycle()
 
                     // Back used to leave the app from every detail screen. Intercept
                     // while there is somewhere to return to, and hold it entirely
@@ -282,7 +285,7 @@ class MainActivity : ComponentActivity() {
                                             isRefreshing = isRefreshing,
                                             onBack = null,
                                             onRefresh = { viewModel.refreshNow() },
-                                            onOpenSensor = { viewModel.openSensorDetail(it) }
+                                            onOpenSensor = { viewModel.openSensorDetail(it.key) }
                                         )
                                     }
                                     AppScreen.MORE -> {
@@ -297,6 +300,7 @@ class MainActivity : ComponentActivity() {
                                             onOpenThermals = { viewModel.openThermals() },
                                             onOpenPrivacy = { viewModel.openPrivacy() },
                                             onOpenCodecs = { viewModel.openCodecs() },
+                                            onOpenHardware = { viewModel.openHardware() },
                                             onOpenTools = { viewModel.openTools() },
                                             onOpenSettings = { viewModel.openSettings() },
                                             onOpenAbout = { viewModel.openAbout() },
@@ -319,11 +323,15 @@ class MainActivity : ComponentActivity() {
                                             latencyTarget = latencyTarget,
                                             redactReports = redactReports,
                                             secureScreens = secureScreens,
+                                            historyEnabled = historyEnabled,
+                                            hideAddresses = hideAddresses,
                                             elevatedStatus = elevatedStatus,
                                             onNetworkProbeChange = { viewModel.setNetworkProbeEnabled(it) },
                                             onLatencyTargetChange = { viewModel.setLatencyTarget(it) },
                                             onRedactReportsChange = { viewModel.setRedactReports(it) },
                                             onSecureScreensChange = { viewModel.setSecureScreens(it) },
+                                            onHistoryEnabledChange = { viewModel.setHistoryEnabled(it) },
+                                            onHideAddressesChange = { viewModel.setHideAddresses(it) },
                                             onBackgroundMonitorChange = { enabled ->
                                                 if (enabled) {
                                                     requestNotificationThenStartMonitor()
@@ -407,6 +415,7 @@ class MainActivity : ComponentActivity() {
                                         HistoryScreen(
                                             samples = metricHistory,
                                             monitorEnabled = bgMonitor,
+                                            historyEnabled = historyEnabled,
                                             onBack = { viewModel.navigateBack() },
                                             onRefresh = { viewModel.refreshHistory() },
                                             onClear = { viewModel.clearHistory() }
@@ -420,6 +429,7 @@ class MainActivity : ComponentActivity() {
                                             probeEnabled = networkProbe,
                                             latency = latencyStats,
                                             latencyRunning = latencyRunning,
+                                            hideAddresses = hideAddresses,
                                             onBack = { viewModel.navigateBack() },
                                             onRefresh = { viewModel.loadNetworkDetail() },
                                             onRunLatency = { viewModel.runLatencyTest() }
@@ -428,6 +438,12 @@ class MainActivity : ComponentActivity() {
                                     AppScreen.CODECS -> {
                                         CodecsScreen(
                                             codecs = report?.mediaCodecs.orEmpty(),
+                                            onBack = { viewModel.navigateBack() }
+                                        )
+                                    }
+                                    AppScreen.HARDWARE -> {
+                                        HardwareScreen(
+                                            hardware = report?.hardware,
                                             onBack = { viewModel.navigateBack() }
                                         )
                                     }
@@ -442,7 +458,8 @@ class MainActivity : ComponentActivity() {
                                     }
                                     AppScreen.SENSOR_DETAIL -> {
                                         SensorDetailScreen(
-                                            sensorName = selectedSensor,
+                                            sensorKey = selectedSensor,
+                                            entry = report?.sensors?.firstOrNull { it.key == selectedSensor },
                                             onBack = { viewModel.navigateBack() }
                                         )
                                     }
@@ -636,13 +653,22 @@ class MainActivity : ComponentActivity() {
      * some targets silently truncate or drop `EXTRA_TEXT`, so this route writes a
      * file and hands over a content URI instead.
      */
+    /**
+     * A report shared as a file stays in the cache so the receiving app can
+     * read it. Drop it on the next fresh launch instead of keeping a copy of
+     * the last report around until the user happens to share again.
+     */
+    private fun clearSharedReports() {
+        runCatching { File(cacheDir, SHARE_DIR).listFiles()?.forEach { it.delete() } }
+    }
+
     private fun shareAsFile() {
         val report = currentReport() ?: return
         val name = ReportExporter.suggestedFileName(report, "txt")
         val uri = try {
             val dir = File(cacheDir, SHARE_DIR).apply { mkdirs() }
             // One file per share keeps this from growing without bound.
-            dir.listFiles()?.forEach { it.delete() }
+            clearSharedReports()
             val file = File(dir, name)
             file.writeText(ReportExporter.toShareText(report, redactExports()))
             FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
@@ -722,7 +748,8 @@ class MainActivity : ComponentActivity() {
     private fun copyText() {
         val report = currentReport() ?: return
         val text = ReportExporter.toShareText(report, redactExports())
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        // The application's service, so the delayed clear does not pin this activity.
+        val clipboard = applicationContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         if (clipboard == null) {
             Toast.makeText(this, R.string.toast_clipboard_unavailable, Toast.LENGTH_SHORT).show()
             return
@@ -746,8 +773,10 @@ class MainActivity : ComponentActivity() {
      * clipboard. Only our own clip is touched; anything copied since is left alone.
      */
     private fun scheduleClipboardClear(clipboard: ClipboardManager) {
-        lifecycleScope.launch {
-            delay(CLIPBOARD_CLEAR_MS)
+        // On the main looper rather than the activity's scope: the clip must
+        // still be cleared if the user leaves and the activity is destroyed.
+        clipboardHandler.removeCallbacksAndMessages(null)
+        clipboardHandler.postDelayed({
             try {
                 if (clipboard.primaryClipDescription?.label == CLIP_LABEL) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -759,7 +788,7 @@ class MainActivity : ComponentActivity() {
             } catch (_: Exception) {
                 // Reading the clipboard can be refused once we are in the background.
             }
-        }
+        }, CLIPBOARD_CLEAR_MS)
     }
 
     private companion object {
@@ -768,6 +797,7 @@ class MainActivity : ComponentActivity() {
         const val SHARE_DIR = "reports"
         const val CLIP_LABEL = "Phone diagnostic report"
         const val CLIPBOARD_CLEAR_MS = 60_000L
+        val clipboardHandler = Handler(Looper.getMainLooper())
     }
 }
 

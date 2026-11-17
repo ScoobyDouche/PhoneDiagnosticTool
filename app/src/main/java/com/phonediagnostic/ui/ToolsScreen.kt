@@ -507,11 +507,7 @@ private fun vibrateShort(context: Context) {
             )
         } else {
             val v = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                v.vibrate(VibrationEffect.createOneShot(80, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                v.vibrate(80)
-            }
+            v.vibrate(VibrationEffect.createOneShot(80, VibrationEffect.DEFAULT_AMPLITUDE))
         }
     } catch (_: Exception) {
         // no vibrator

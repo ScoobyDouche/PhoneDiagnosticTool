@@ -53,7 +53,8 @@ enum class AppScreen {
     NETWORK,
     SENSOR_DETAIL,
     PRIVACY,
-    CODECS
+    CODECS,
+    HARDWARE
 }
 
 fun AppScreen.isMainTab(): Boolean = when (this) {
@@ -128,6 +129,12 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val _secureScreens = MutableStateFlow(prefs.secureScreens)
     val secureScreens: StateFlow<Boolean> = _secureScreens.asStateFlow()
 
+    private val _historyEnabled = MutableStateFlow(prefs.historyEnabled)
+    val historyEnabled: StateFlow<Boolean> = _historyEnabled.asStateFlow()
+
+    private val _hideAddresses = MutableStateFlow(prefs.hideAddresses)
+    val hideAddresses: StateFlow<Boolean> = _hideAddresses.asStateFlow()
+
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
@@ -189,7 +196,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
      */
     private val _inForeground = MutableStateFlow(true)
 
-    /** Name of the sensor opened in the live detail view, if any. */
+    /** [com.phonediagnostic.data.SensorEntry.key] of the sensor opened in the live detail view, if any. */
     private val _selectedSensor = MutableStateFlow<String?>(null)
     val selectedSensor: StateFlow<String?> = _selectedSensor.asStateFlow()
 
@@ -298,6 +305,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     fun openAbout() = navigateTo(AppScreen.ABOUT)
     fun openThermals() = navigateTo(AppScreen.THERMALS)
     fun openCodecs() = navigateTo(AppScreen.CODECS)
+    fun openHardware() = navigateTo(AppScreen.HARDWARE)
 
     fun openTools() {
         refreshLog()
@@ -327,8 +335,8 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         loadNetworkDetail()
     }
 
-    fun openSensorDetail(sensorName: String) {
-        _selectedSensor.value = sensorName
+    fun openSensorDetail(sensorKey: String) {
+        _selectedSensor.value = sensorKey
         navigateTo(AppScreen.SENSOR_DETAIL)
     }
 
@@ -370,7 +378,12 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.Default) {
             _privacyLoading.value = true
             try {
-                _privacyAudit.value = privacyAuditor.collect()
+                val report = _report.value
+                _privacyAudit.value = privacyAuditor.collect(
+                    security = report?.security,
+                    nfc = report?.nfc,
+                    bluetooth = report?.bluetooth
+                )
             } catch (_: Exception) {
                 _privacyAudit.value = null
             } finally {
@@ -472,6 +485,21 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         _secureScreens.value = enabled
     }
 
+    /** Turning history off also discards what was already kept. */
+    fun setHistoryEnabled(enabled: Boolean) {
+        prefs.historyEnabled = enabled
+        _historyEnabled.value = enabled
+        if (!enabled) {
+            history.clear()
+            refreshHistory()
+        }
+    }
+
+    fun setHideAddresses(enabled: Boolean) {
+        prefs.hideAddresses = enabled
+        _hideAddresses.value = enabled
+    }
+
     // ------------------------------------------------------------ elevated access
 
     fun setAccessTier(tier: AccessTier) {
@@ -540,8 +568,9 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 val probe = _networkProbeEnabled.value
                 val current = _report.value
-                val sampleSensors = _screen.value == AppScreen.SENSORS ||
-                    _screen.value == AppScreen.SENSOR_DETAIL
+                // Only the list shows these snapshots; the detail screen runs
+                // its own stream, so sampling every sensor behind it is waste.
+                val sampleSensors = _screen.value == AppScreen.SENSORS
                 val next = if (full || current == null) {
                     collector.collect(networkProbe = probe, sampleSensors = sampleSensors)
                 } else {
@@ -560,6 +589,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun recordHistory(report: FullDeviceReport) {
+        if (!_historyEnabled.value) return
         val stored = history.record(
             MetricSample(
                 timestampMs = System.currentTimeMillis(),

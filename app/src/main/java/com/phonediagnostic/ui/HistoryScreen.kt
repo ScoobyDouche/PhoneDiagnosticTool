@@ -48,6 +48,7 @@ import java.util.concurrent.TimeUnit
 @Composable
 fun HistoryScreen(
     samples: List<MetricSample>,
+    historyEnabled: Boolean = true,
     monitorEnabled: Boolean,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
@@ -105,6 +106,7 @@ fun HistoryScreen(
         if (samples.isEmpty()) {
             EmptyHistory(
                 monitorEnabled = monitorEnabled,
+                historyEnabled = historyEnabled,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
@@ -207,7 +209,7 @@ fun HistoryScreen(
 }
 
 @Composable
-private fun EmptyHistory(monitorEnabled: Boolean, modifier: Modifier = Modifier) {
+private fun EmptyHistory(monitorEnabled: Boolean, historyEnabled: Boolean, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.padding(32.dp),
         verticalArrangement = Arrangement.Center,
@@ -218,7 +220,9 @@ private fun EmptyHistory(monitorEnabled: Boolean, modifier: Modifier = Modifier)
             style = MaterialTheme.typography.titleMedium
         )
         Text(
-            text = if (monitorEnabled) {
+            text = if (!historyEnabled) {
+                stringResource(R.string.history_empty_disabled)
+            } else if (monitorEnabled) {
                 stringResource(R.string.history_empty_monitor_on)
             } else {
                 stringResource(R.string.history_empty_monitor_off)

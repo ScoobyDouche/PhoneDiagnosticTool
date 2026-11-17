@@ -407,7 +407,7 @@
     <!-- Sensors screen -->
     <string name="sensors_title">Sensors and cameras</string>
     <string name="sensors_summary">%1$d sensors · %2$d cameras</string>
-    <string name="sensors_hint">Tap a sensor to stream it live. No extra permissions required.</string>
+    <string name="sensors_hint">Tap a sensor to stream it live. Step and heart-rate sensors are listed but not read: they need a permission this app does not ask for.</string>
     <string name="sensors_section_cameras">Cameras</string>
     <string name="sensors_section_sensors">Sensors</string>
     <string name="sensors_empty">No sensors reported by SensorManager.</string>
@@ -662,4 +662,86 @@
     <string name="codecs_max">Up to %1$s</string>
     <string name="codecs_max_fps">Up to %1$s at %2$d fps</string>
     <string name="codecs_empty">No codecs reported.</string>
+
+    <!-- Hardware screen -->
+    <string name="more_hardware">Hardware and platform</string>
+    <string name="more_hardware_sub">Screens, radios, biometrics, audio, platform</string>
+    <string name="hardware_title">Hardware and platform</string>
+    <string name="hardware_section_screens">Screens</string>
+    <string name="hardware_screen_n">Screen %1$d</string>
+    <string name="hardware_section_features">Radios and features</string>
+    <string name="hardware_has">This phone has</string>
+    <string name="hardware_lacks">Not on this phone</string>
+    <string name="hardware_section_graphics_audio">Graphics, audio and haptics</string>
+    <string name="hardware_section_platform">Platform</string>
+    <string name="hardware_not_supported">Not supported</string>
+    <string name="hardware_note">Read from Android\'s feature list and system services. No permission is needed, and no location is requested to identify the positioning chip.</string>
+    <string name="label_gnss_chip">Positioning chip</string>
+    <string name="label_sim_slots">SIM slots</string>
+    <string name="label_gles">OpenGL ES</string>
+    <string name="label_vulkan">Vulkan</string>
+    <string name="label_audio_rate">Audio output rate</string>
+    <string name="label_audio_buffer">Audio buffer</string>
+    <string name="value_frames">%1$d frames</string>
+    <string name="label_audio_low_latency">Low-latency audio</string>
+    <string name="label_audio_pro">Pro audio</string>
+    <string name="label_vibration">Vibration motor</string>
+    <string name="vibration_variable">Variable strength</string>
+    <string name="vibration_on_off">On/off only</string>
+    <string name="label_first_api">Shipped with API</string>
+    <string name="label_kernel_arch">Kernel architecture</string>
+    <string name="label_page_size">Memory page size</string>
+    <string name="label_64bit_only">64-bit only</string>
+    <string name="label_low_ram">Low-RAM device</string>
+    <string name="label_heap_limit">App heap limit (normal / large)</string>
+    <string name="label_runtime">ART version</string>
+    <string name="label_treble">Project Treble</string>
+    <string name="label_ab_updates">Seamless (A/B) updates</string>
+    <string name="label_dynamic_partitions">Dynamic partitions</string>
+
+    <!-- CPU / battery / sensor additions -->
+    <string name="label_soc">Chip</string>
+    <string name="label_core_types">Core types</string>
+    <string name="cpu_section_features">Instruction-set features</string>
+    <string name="label_time_to_full">Time to full</string>
+    <string name="label_energy_left">Energy remaining</string>
+    <string name="label_battery_saver">Battery Saver</string>
+    <string name="label_event_rate">Measured rate</string>
+    <string name="label_batching">Batching</string>
+    <string name="sensors_coverage_title">Standard sensors</string>
+    <string name="sensors_coverage_present">Fitted: %1$s</string>
+    <string name="sensors_coverage_missing">Not fitted: %1$s</string>
+
+    <!-- Privacy additions -->
+    <string name="settings_hide_addresses_title">Hide network addresses</string>
+    <string name="settings_hide_addresses_description">Masks IP addresses, DNS servers, the Wi‑Fi name and carrier on the Network screen until you tap the eye.</string>
+    <string name="settings_history_title">Keep history</string>
+    <string name="settings_history_description">Stores battery, temperature and RAM samples on this device for the History screen. Turning this off deletes what is stored.</string>
+    <string name="history_empty_disabled">History is turned off. Turn on Keep history in Settings to record trends.</string>
+    <string name="network_reveal_cd">Show addresses</string>
+    <string name="network_hide_cd">Hide addresses</string>
+    <string name="privacy_device_heading">This device</string>
+    <string name="privacy_device_note">Settings that affect how exposed this phone is. Red is worth changing; grey is for information.</string>
+    <string name="privacy_cat_keyboard">Keyboards — can see everything you type</string>
+    <string name="privacy_tag_sideloaded">Not from an app store</string>
+    <string name="privacy_tag_hidden">No launcher icon</string>
+    <string name="posture_screen_lock">Screen lock</string>
+    <string name="posture_set">Set</string>
+    <string name="posture_not_set">Not set</string>
+    <string name="posture_encryption">Storage encryption</string>
+    <string name="posture_bootloader">Bootloader</string>
+    <string name="posture_patch">Security updates</string>
+    <string name="posture_recent">Recent</string>
+    <string name="posture_out_of_date">Out of date</string>
+    <string name="posture_usb_debugging">USB debugging</string>
+    <string name="posture_wireless_debugging">Wireless debugging</string>
+    <string name="posture_developer_options">Developer options</string>
+    <string name="posture_private_dns">Private DNS</string>
+    <string name="posture_vpn">VPN</string>
+    <string name="posture_in_use">In use</string>
+    <string name="posture_not_in_use">Not in use</string>
+    <string name="posture_location">Location services</string>
+    <string name="posture_sensor_toggles">Camera and mic switches</string>
+    <string name="posture_available">Available</string>
+    <string name="posture_not_available">Not available</string>
 </resources>

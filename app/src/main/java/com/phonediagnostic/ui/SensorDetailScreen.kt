@@ -42,6 +42,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.phonediagnostic.R
+import com.phonediagnostic.data.SensorCatalog
+import com.phonediagnostic.data.SensorEntry
 import com.phonediagnostic.ui.components.InfoCard
 import com.phonediagnostic.ui.components.InfoRow
 import com.phonediagnostic.ui.components.Sparkline
@@ -49,6 +51,9 @@ import java.util.Locale
 
 private const val WINDOW_SIZE = 120
 private const val PUBLISH_INTERVAL_MS = 100L
+
+/** Most values shown for one reading; the chart draws the first three. */
+private const val MAX_VALUES = 9
 private val AXIS_LABELS = listOf("X", "Y", "Z")
 
 /** Named axes for the first three values; anything beyond them is numbered. */
@@ -69,28 +74,35 @@ private val AXIS_COLORS = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SensorDetailScreen(
-    sensorName: String?,
+    sensorKey: String?,
+    entry: SensorEntry?,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
     val sensorManager = remember(context) {
         context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
     }
-    val sensor = remember(sensorManager, sensorName) {
-        if (sensorName == null) {
+    // Name alone is ambiguous: wake-up and non-wake-up variants share one.
+    val sensor = remember(sensorManager, sensorKey) {
+        if (entry == null) {
             null
         } else {
             runCatching {
-                sensorManager?.getSensorList(Sensor.TYPE_ALL)?.firstOrNull { it.name == sensorName }
+                sensorManager?.getSensorList(Sensor.TYPE_ALL)?.firstOrNull {
+                    it.type == entry.typeId && it.name == entry.name && it.isWakeUpSensor == entry.isWakeUp
+                }
             }.getOrNull()
         }
     }
+    val kind = remember(sensor) { sensor?.let { SensorCatalog.describe(it.type, it.stringType) } }
+    val valueCount = (kind?.valueCount ?: AXIS_COLORS.size).coerceIn(1, MAX_VALUES)
 
     var streaming by remember { mutableStateOf(true) }
     var latest by remember { mutableStateOf<List<Float>>(emptyList()) }
     var window by remember { mutableStateOf<List<List<Float>>>(emptyList()) }
     var eventCount by remember { mutableLongStateOf(0L) }
     var accuracy by remember { mutableIntStateOf(Int.MIN_VALUE) }
+    var rateHz by remember { mutableStateOf<Float?>(null) }
 
     DisposableEffect(sensor, streaming) {
         val manager = sensorManager
@@ -99,16 +111,24 @@ fun SensorDetailScreen(
         }
         var lastPublishMs = 0L
         var received = 0L
+        var firstEventMs = 0L
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent?) {
                 val values = event?.values ?: return
                 received++
                 val now = SystemClock.uptimeMillis()
+                if (firstEventMs == 0L) firstEventMs = now
                 if (now - lastPublishMs < PUBLISH_INTERVAL_MS) return
                 lastPublishMs = now
-                val snapshot = values.take(3)
+                // Only the values that mean something: a light sensor's array
+                // is three long but everything past the first is padding.
+                val snapshot = values.take(valueCount)
                 latest = snapshot
                 eventCount = received
+                val elapsedMs = now - firstEventMs
+                if (received > 1 && elapsedMs >= 1000L) {
+                    rateHz = (received - 1) * 1000f / elapsedMs
+                }
                 window = (window + listOf(snapshot)).takeLast(WINDOW_SIZE)
             }
 
@@ -127,7 +147,7 @@ fun SensorDetailScreen(
                 title = {
                     Column {
                         Text(
-                            text = sensor?.name ?: sensorName ?: stringResource(R.string.sensor_detail_fallback),
+                            text = sensor?.name ?: entry?.name ?: stringResource(R.string.sensor_detail_fallback),
                             maxLines = 1
                         )
                         Text(
@@ -202,11 +222,17 @@ fun SensorDetailScreen(
                             latest.forEachIndexed { index, value ->
                                 InfoRow(
                                     axisLabel(index),
-                                    String.format(Locale.US, "%.4f", value)
+                                    String.format(Locale.US, "%.4f %s", value, kind?.unit.orEmpty()).trim()
                                 )
                             }
                         }
                         InfoRow(stringResource(R.string.label_events), eventCount.toString())
+                        rateHz?.let {
+                            InfoRow(
+                                stringResource(R.string.label_event_rate),
+                                String.format(Locale.US, "%.1f Hz", it)
+                            )
+                        }
                         InfoRow(stringResource(R.string.label_accuracy), accuracyLabel(accuracy))
                     }
                 }
@@ -256,14 +282,28 @@ fun SensorDetailScreen(
             item(key = "meta") {
                 InfoCard(title = stringResource(R.string.sensor_section_meta)) {
                     Column {
+                        InfoRow(stringResource(R.string.label_type), kind?.name.orEmpty())
                         InfoRow(
                             stringResource(R.string.label_vendor),
                             sensor.vendor.orEmpty().ifBlank { "—" }
                         )
+                        InfoRow(
+                            stringResource(R.string.sensor_mode_wake_up),
+                            stringResource(if (sensor.isWakeUpSensor) R.string.yes else R.string.no)
+                        )
+                        entry?.reportingMode?.takeIf { it.isNotBlank() }?.let {
+                            InfoRow(stringResource(R.string.label_reporting_mode), it)
+                        }
+                        if (sensor.fifoMaxEventCount > 0) {
+                            InfoRow(
+                                stringResource(R.string.label_batching),
+                                stringResource(R.string.sensor_mode_batch, sensor.fifoMaxEventCount)
+                            )
+                        }
                         InfoRow(stringResource(R.string.label_version), sensor.version.toString())
                         InfoRow(
                             stringResource(R.string.label_max_range),
-                            String.format(Locale.US, "%.3f", sensor.maximumRange)
+                            String.format(Locale.US, "%.3f %s", sensor.maximumRange, kind?.unit.orEmpty()).trim()
                         )
                         InfoRow(
                             stringResource(R.string.label_resolution),

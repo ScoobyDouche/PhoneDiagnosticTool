@@ -95,12 +95,13 @@ class MonitorService : Service() {
         val collector = DeviceInfoCollector(applicationContext)
         val log = DiagnosticLog.get(this)
         val history = MetricHistory.get(this)
+        val prefs = AppPreferences(this)
         while (currentCoroutineContext().isActive) {
             try {
                 // Battery and memory only. A full collect here spun up an EGL
                 // context, enumerated cameras and woke every sensor — twice a
                 // minute, forever, on a service whose whole point is to be cheap.
-                val b = collector.collectBattery()
+                val b = collector.collectBattery(DeviceInfoCollector.GaugeRead.SKIP)
                 val m = collector.collectMemory(kernelExtras = false)
                 log.append(
                     "BAT ${b.level}% ${b.status} " +
@@ -108,7 +109,9 @@ class MonitorService : Service() {
                         "RAM ${m.usedRamMb}/${m.totalRamMb}MB avail ${m.availableRamMb} \u00b7 " +
                         if (m.isLowMemory) "PRESSURE" else "ok"
                 )
-                history.record(
+                // The log line above is this service's job; trend samples are
+                // kept only while the user has history switched on.
+                if (prefs.historyEnabled) history.record(
                     MetricSample(
                         timestampMs = System.currentTimeMillis(),
                         batteryPct = b.level,
@@ -141,7 +144,6 @@ class MonitorService : Service() {
     }
 
     private fun ensureChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val mgr = getSystemService(NotificationManager::class.java) ?: return
         val channel = NotificationChannel(
             CHANNEL_ID,
@@ -161,12 +163,7 @@ class MonitorService : Service() {
         private const val SAMPLE_INTERVAL_MS = 30_000L
 
         fun start(context: Context) {
-            val intent = Intent(context, MonitorService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(Intent(context, MonitorService::class.java))
         }
 
         fun stop(context: Context) {

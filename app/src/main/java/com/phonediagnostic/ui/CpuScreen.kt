@@ -98,6 +98,16 @@ fun CpuScreen(
                 InfoCard(title = stringResource(R.string.cpu_section_processor)) {
                     Column {
                         InfoRow(stringResource(R.string.label_processor), cpu.processor)
+                        if (cpu.socModel.isNotBlank()) {
+                            InfoRow(
+                                stringResource(R.string.label_soc),
+                                listOf(cpu.socManufacturer, cpu.socModel)
+                                    .filter { it.isNotBlank() }.joinToString(" ")
+                            )
+                        }
+                        if (cpu.coreNames.isNotEmpty()) {
+                            InfoRow(stringResource(R.string.label_core_types), cpu.coreNames.joinToString(" + "))
+                        }
                         InfoRow(stringResource(R.string.label_hardware), cpu.hardware)
                         InfoRow(stringResource(R.string.label_board_platform), cpu.boardPlatform)
                         InfoRow(stringResource(R.string.label_architecture), cpu.architecture)
@@ -154,15 +164,33 @@ fun CpuScreen(
                 }
             }
 
+            if (cpu.features.isNotEmpty()) {
+                item {
+                    InfoCard(title = stringResource(R.string.cpu_section_features)) {
+                        Text(
+                            text = cpu.features.joinToString(" "),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
             if (cpu.currentFreqMhz.isNotEmpty()) {
                 item {
                     InfoCard(title = stringResource(R.string.cpu_section_live_clocks)) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             cpu.currentFreqMhz.forEachIndexed { index, mhz ->
+                                // Offline cores have no reading, so the position in
+                                // the list is not the core number.
+                                val core = cpu.freqCoreIndices.getOrElse(index) { index }
                                 CoreFreqRow(
-                                    coreIndex = index,
+                                    coreIndex = core,
                                     mhz = mhz,
-                                    maxMhz = cpu.maxFreqMhz
+                                    // Against its own cluster's peak: a little core at
+                                    // full speed is busy, a big core at that clock is not.
+                                    maxMhz = cpu.coreMaxMhz[core] ?: cpu.maxFreqMhz
                                 )
                             }
                         }

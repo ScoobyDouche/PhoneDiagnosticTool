@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
@@ -64,6 +65,7 @@ fun MoreScreen(
     onOpenThermals: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onOpenCodecs: () -> Unit,
+    onOpenHardware: () -> Unit,
     onOpenTools: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAbout: () -> Unit,
@@ -139,6 +141,13 @@ fun MoreScreen(
                             stringResource(R.string.more_history_fallback)
                         },
                         onClick = onOpenHistory
+                    )
+                    GroupDivider()
+                    MoreLink(
+                        icon = Icons.Filled.DeveloperBoard,
+                        title = stringResource(R.string.more_hardware),
+                        subtitle = stringResource(R.string.more_hardware_sub),
+                        onClick = onOpenHardware
                     )
                     GroupDivider()
                     MoreLink(

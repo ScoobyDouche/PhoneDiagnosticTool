@@ -230,26 +230,13 @@ jobs:
           } > "$WARN"
           cat "$WARN" "$BODY" > "$BODY.new" && mv "$BODY.new" "$BODY"
 
-      - name: Grant execute (if wrapper present)
-        run: |
-          if [ -f gradlew ]; then chmod +x gradlew; fi
-
-      - name: Pick Gradle command
-        id: gradle
-        run: |
-          if [ -f gradlew ]; then
-            echo "cmd=./gradlew" >> "$GITHUB_OUTPUT"
-          else
-            echo "cmd=gradle" >> "$GITHUB_OUTPUT"
-          fi
-
       # The tests gate the release, not just the branch build: a red suite must
       # never reach a tagged artifact.
       - name: Unit tests
-        run: ${{ steps.gradle.outputs.cmd }} test --no-daemon --stacktrace
+        run: ./gradlew test --no-daemon --stacktrace
 
       - name: Build debug APK
-        run: ${{ steps.gradle.outputs.cmd }} assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Build release APK and AAB
         env:
@@ -257,7 +244,7 @@ jobs:
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: ${{ steps.gradle.outputs.cmd }} assembleRelease bundleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace
 
       # Ship the RELEASE variant, not the debug one. The debug build carries
       # android:debuggable, the Compose tooling libraries and no minification —

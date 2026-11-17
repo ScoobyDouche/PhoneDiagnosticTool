@@ -65,6 +65,19 @@ class AppPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_SECURE_SCREENS, false)
         set(value) = prefs.edit().putBoolean(KEY_SECURE_SCREENS, value).apply()
 
+    /**
+     * Whether battery, temperature and RAM samples are kept for the History
+     * screen. On by default; off means nothing is written while the app is open.
+     */
+    var historyEnabled: Boolean
+        get() = prefs.getBoolean(KEY_HISTORY, true)
+        set(value) = prefs.edit().putBoolean(KEY_HISTORY, value).apply()
+
+    /** Mask IP addresses, DNS servers and network names on screen until revealed. */
+    var hideAddresses: Boolean
+        get() = prefs.getBoolean(KEY_HIDE_ADDRESSES, false)
+        set(value) = prefs.edit().putBoolean(KEY_HIDE_ADDRESSES, value).apply()
+
     companion object {
         private const val PREFS_NAME = "phone_diagnostic_prefs"
         private const val KEY_NETWORK_PROBE = "network_probe_enabled"
@@ -74,5 +87,7 @@ class AppPreferences(context: Context) {
         private const val KEY_LATENCY_TARGET = "latency_target"
         private const val KEY_REDACT_REPORTS = "redact_reports"
         private const val KEY_SECURE_SCREENS = "secure_screens"
+        private const val KEY_HISTORY = "history_enabled"
+        private const val KEY_HIDE_ADDRESSES = "hide_addresses"
     }
 }

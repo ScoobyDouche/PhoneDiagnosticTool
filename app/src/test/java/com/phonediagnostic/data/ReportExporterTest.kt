@@ -200,4 +200,53 @@ class ReportExporterTest {
         assertFalse(text.contains("Device identifiers removed"))
         assertFalse(JSONObject(ReportExporter.toJson(identifying())).getBoolean("redacted"))
     }
+
+    @Test
+    fun `exports never carry the router address`() {
+        val base = report()
+        val viaRouter = base.copy(
+            network = base.network.copy(latencyTarget = "Router 192.168.1.1:53")
+        )
+        // With redaction off as well: this is a promise about every report.
+        val text = ReportExporter.toShareText(viaRouter, redact = false)
+        val json = ReportExporter.toJson(viaRouter, redact = false)
+        assertFalse(text.contains("192.168"))
+        assertFalse(json.contains("192.168"))
+        assertTrue(text.contains("Router (address withheld)"))
+        // A public resolver is not the user's address and stays as it is.
+        assertTrue(ReportExporter.toShareText(base).contains("8.8.8.8:53"))
+    }
+
+    @Test
+    fun `redaction drops app-private paths`() {
+        val base = report()
+        val withPaths = base.copy(
+            storage = base.storage.copy(
+                dataDirectory = "/data", filesDirectory = "/data/user/10/com.phonediagnostic/files",
+                cacheDirectory = "/data/user/10/com.phonediagnostic/cache"
+            )
+        )
+        assertTrue(ReportExporter.toShareText(withPaths, redact = false).contains("/data/user/10"))
+        assertFalse(ReportExporter.toShareText(withPaths, redact = true).contains("/data/user/10"))
+        assertFalse(ReportExporter.toJson(withPaths, redact = true).contains("/data/user/10"))
+    }
+
+    @Test
+    fun `hardware section lists what the phone has and lacks`() {
+        val withHardware = report().copy(
+            hardware = HardwareInfo(
+                features = listOf(HardwareFeature("NFC", true), HardwareFeature("Infrared emitter", false)),
+                vulkanVersion = "1.3", pageSizeKb = 16, simSlots = 2
+            )
+        )
+        val text = ReportExporter.toShareText(withHardware)
+        assertTrue(text.contains("Has: NFC"))
+        assertTrue(text.contains("Lacks: Infrared emitter"))
+        assertTrue(text.contains("Memory page size: 16 KB"))
+        val hardware = JSONObject(ReportExporter.toJson(withHardware)).getJSONObject("hardware")
+        assertEquals("1.3", hardware.getString("vulkanVersion"))
+        assertTrue(hardware.getJSONObject("features").getBoolean("NFC"))
+        // A report built before hardware was collected has no section at all.
+        assertFalse(ReportExporter.toShareText(report()).contains("HARDWARE"))
+    }
 }

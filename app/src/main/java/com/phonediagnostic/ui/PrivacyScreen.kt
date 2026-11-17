@@ -44,6 +44,9 @@ import androidx.compose.ui.unit.dp
 import com.phonediagnostic.R
 import com.phonediagnostic.data.AppPrivacyEntry
 import com.phonediagnostic.data.OwnPermission
+import com.phonediagnostic.data.PostureCheck
+import com.phonediagnostic.data.PostureResult
+import com.phonediagnostic.data.PostureState
 import com.phonediagnostic.data.PrivacyAudit
 import com.phonediagnostic.data.SensitiveAccess
 
@@ -106,6 +109,11 @@ fun PrivacyScreen(
                     }
                 }
                 return@LazyColumn
+            }
+
+            if (audit.posture.isNotEmpty()) {
+                item { SectionLabel(stringResource(R.string.privacy_device_heading)) }
+                item { PostureCard(audit.posture) }
             }
 
             item {
@@ -237,10 +245,90 @@ private fun CategoryCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    val tags = listOfNotNull(
+                        stringResource(R.string.privacy_tag_sideloaded).takeIf { app.sideloaded },
+                        stringResource(R.string.privacy_tag_hidden).takeIf { app.hiddenFromLauncher }
+                    )
+                    if (tags.isNotEmpty()) {
+                        Text(
+                            text = tags.joinToString(" · "),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (app.worthReview) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+/** Device settings that bear on privacy, each with what it currently is. */
+@Composable
+private fun PostureCard(results: List<PostureResult>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            results.forEach { result ->
+                val (title, good, other) = postureStrings(result.check)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(title),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = stringResource(if (result.state == PostureState.GOOD) good else other),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = when (result.state) {
+                            PostureState.GOOD -> MaterialTheme.colorScheme.primary
+                            PostureState.ATTENTION -> MaterialTheme.colorScheme.error
+                            PostureState.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+            }
+            Text(
+                text = stringResource(R.string.privacy_device_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/** Title, wording for the safer setting, wording for the other one. */
+private fun postureStrings(check: PostureCheck): Triple<Int, Int, Int> = when (check) {
+    PostureCheck.SCREEN_LOCK ->
+        Triple(R.string.posture_screen_lock, R.string.posture_set, R.string.posture_not_set)
+    PostureCheck.ENCRYPTION ->
+        Triple(R.string.posture_encryption, R.string.radio_on, R.string.radio_off)
+    PostureCheck.BOOTLOADER ->
+        Triple(R.string.posture_bootloader, R.string.bootloader_locked, R.string.bootloader_unlocked)
+    PostureCheck.PATCH_AGE ->
+        Triple(R.string.posture_patch, R.string.posture_recent, R.string.posture_out_of_date)
+    PostureCheck.USB_DEBUGGING ->
+        Triple(R.string.posture_usb_debugging, R.string.radio_off, R.string.radio_on)
+    PostureCheck.WIRELESS_DEBUGGING ->
+        Triple(R.string.posture_wireless_debugging, R.string.radio_off, R.string.radio_on)
+    PostureCheck.DEVELOPER_OPTIONS ->
+        Triple(R.string.posture_developer_options, R.string.radio_off, R.string.radio_on)
+    PostureCheck.PRIVATE_DNS ->
+        Triple(R.string.posture_private_dns, R.string.posture_in_use, R.string.posture_not_in_use)
+    PostureCheck.VPN ->
+        Triple(R.string.posture_vpn, R.string.posture_in_use, R.string.posture_not_in_use)
+    PostureCheck.LOCATION ->
+        Triple(R.string.posture_location, R.string.radio_off, R.string.radio_on)
+    PostureCheck.BLUETOOTH ->
+        Triple(R.string.label_bluetooth, R.string.radio_off, R.string.radio_on)
+    PostureCheck.NFC ->
+        Triple(R.string.label_nfc, R.string.radio_off, R.string.radio_on)
+    PostureCheck.SENSOR_TOGGLES ->
+        Triple(R.string.posture_sensor_toggles, R.string.posture_available, R.string.posture_not_available)
 }
 
 @Composable
@@ -299,6 +387,7 @@ private fun accessTitle(access: SensitiveAccess): Int = when (access) {
     SensitiveAccess.NEARBY_DEVICES -> R.string.privacy_cat_nearby
     SensitiveAccess.PHOTOS_MEDIA -> R.string.privacy_cat_media
     SensitiveAccess.ACCESSIBILITY -> R.string.privacy_cat_accessibility
+    SensitiveAccess.KEYBOARD -> R.string.privacy_cat_keyboard
     SensitiveAccess.NOTIFICATION_LISTENER -> R.string.privacy_cat_notifications
     SensitiveAccess.DEVICE_ADMIN -> R.string.privacy_cat_admin
 }

@@ -6,6 +6,65 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows a practical semantic versioning scheme for a single-app
 Android project (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Added
+- Hardware and platform screen: every screen the phone has, biometric
+  readers, NFC / UWB / eSIM / infrared, Wi-Fi bands, positioning chip model,
+  SIM slots, Vulkan and OpenGL ES versions, audio latency, vibration motor,
+  memory page size, Treble and seamless-update support. Included in reports.
+- Sensors: all 42 standard sensor types are named (hinge angle, heading,
+  uncalibrated and limited-axes variants ...) and vendor sensors take their
+  name from the type string instead of showing "Type 65587". Readings carry
+  units, a card shows which standard sensors are fitted or missing, and the
+  live view shows the measured event rate and every value the sensor reports.
+- CPU: chip maker and model, core designs decoded from the CPU ID registers
+  (e.g. 4× Cortex-A510 + 3× Cortex-A710 + 1× Cortex-X2) and instruction-set
+  features.
+- Battery: time to full, remaining energy and Battery Saver state.
+- Privacy audit: device checks (screen lock, encryption, bootloader, patch
+  age, USB and wireless debugging, developer options, VPN, Private DNS,
+  location services, camera/mic switches); enabled keyboards listed as
+  special access; apps not installed from a store or without a launcher icon
+  are marked, and listed first when they also hold special access.
+- Settings: "Hide network addresses" masks IPs, DNS servers, Wi-Fi name and
+  carrier on the Network screen until tapped; "Keep history" can be turned
+  off, which deletes stored samples.
+- Themed (monochrome) launcher icon.
+
+### Fixed
+- Exported reports contained the router's IP address when the latency check
+  targeted the router, and a failed check could put the probed address in
+  the report's status line. Reports now never contain an IP address.
+- Live CPU clocks were labelled with the wrong core number whenever a core
+  was offline, and every core's bar was scaled to the little cluster's peak,
+  so big cores read as permanently maxed out. The frequency range likewise
+  showed the little cluster's maximum rather than the chip's.
+- Opening a sensor whose wake-up and non-wake-up variants share a name
+  could stream the wrong one.
+- Thermal zones below 0 °C reported in millidegrees were dropped.
+- The copied report is now cleared from the clipboard after a minute even if
+  the app has been closed in the meantime.
+- A cancelled latency burst no longer counts the probes that never ran as
+  packet loss.
+
+### Changed
+- With Shizuku or root enabled, nodes the device does not have are no longer
+  re-read through the elevated shell on every refresh. This removed a couple
+  of dozen process launches every three seconds.
+- Fuel-gauge capacity and cycle count are read at most once a minute, and not
+  at all by the background monitor, load test and Quick Settings tile.
+- Sensors are only sampled while the sensor list is on screen, not behind
+  the live sensor view.
+- Redacted reports also leave out the app's own storage paths.
+- A report shared as a file is deleted from the cache on next launch.
+- Log lines carry the date as well as the time.
+- Cleartext HTTP is disabled for the app (it never used any).
+
+### Internal
+- Lint runs again and is part of CI; dropped unused instrumentation-test
+  dependencies and SDK checks that minSdk 26 made unreachable.
+
 ## [1.4.0] — 2026-10-28
 
 ### Added

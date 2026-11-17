@@ -68,6 +68,36 @@ class DeviceInfoCollector(private val context: Context) {
      */
     @Volatile
     var elevated: ElevatedShell? = null
+        set(value) {
+            if (field !== value) {
+                // A different shell can reach different nodes, and the gauge may
+                // now be readable where it was not a moment ago.
+                elevatedMisses.clear()
+                gaugeCapsCache = null
+                gaugeCyclesCache = null
+            }
+            field = value
+        }
+
+    /**
+     * Paths the elevated shell could not read, with when it last failed. Every
+     * elevated read is a process spawn (`su -c cat …`) or a binder round trip,
+     * and most misses are nodes this device simply does not have — retrying
+     * two dozen of them on every three-second tick was the single most
+     * expensive thing the app did with elevated access on.
+     */
+    private val elevatedMisses = ConcurrentHashMap<String, Long>()
+
+    private class Timed<T>(val value: T, val atMs: Long)
+
+    /** Fuel-gauge capacity and cycle count move over weeks, not seconds. */
+    @Volatile
+    private var gaugeCapsCache: Timed<GaugeCaps>? = null
+
+    @Volatile
+    private var gaugeCyclesCache: Timed<CycleRead?>? = null
+
+    private val hardwareProbe = HardwareProbe(context) { readSystemProperty(it) }
 
     /** Where the latency probe connects; set from the user's preference. */
     @Volatile
@@ -89,8 +119,16 @@ class DeviceInfoCollector(private val context: Context) {
         }
         val e = elevated
         if (e != null) {
-            val v = e.readFileOrNull(path)
-            if (!v.isNullOrBlank()) return NodeRead(v, e.tier)
+            val now = SystemClock.elapsedRealtime()
+            val missedAt = elevatedMisses[path]
+            if (missedAt == null || now - missedAt > ELEVATED_RETRY_MS) {
+                val v = e.readFileOrNull(path)
+                if (!v.isNullOrBlank()) {
+                    elevatedMisses.remove(path)
+                    return NodeRead(v, e.tier)
+                }
+                elevatedMisses[path] = now
+            }
         }
         return NodeRead(null, null)
     }
@@ -125,6 +163,10 @@ class DeviceInfoCollector(private val context: Context) {
         private const val SENSOR_SAMPLE_MS = 250L
         private const val PROPERTY_TIMEOUT_MS = 500L
         private const val LATENCY_GAP_MS = 120L
+        private const val ELEVATED_RETRY_MS = 5 * 60_000L
+        private const val GAUGE_CACHE_MS = 60_000L
+        private const val MAX_LIVE_SENSORS = 24
+        private const val MAX_CORES = 64
 
         /**
          * `ro.*` build properties cannot change while the process lives, and
@@ -143,11 +185,14 @@ class DeviceInfoCollector(private val context: Context) {
      *   the readings are actually on screen.
      */
     fun collect(networkProbe: Boolean = true, sampleSensors: Boolean = false): FullDeviceReport {
+        // A full collect is what Refresh triggers, so give every gated node a
+        // fresh chance rather than waiting out the retry window.
+        elevatedMisses.clear()
         return FullDeviceReport(
             overview = collectOverview(),
             cpu = collectCpu(),
             gpu = collectGpu(),
-            battery = collectBattery(),
+            battery = collectBattery(GaugeRead.FRESH),
             memory = collectMemory(),
             storage = collectStorage(),
             display = collectDisplay(),
@@ -161,7 +206,8 @@ class DeviceInfoCollector(private val context: Context) {
             security = collectSecurity(),
             system = collectSystemState(),
             mediaCodecs = MediaCodecs.collect(),
-            thermalState = collectThermalState()
+            thermalState = collectThermalState(),
+            hardware = hardwareProbe.collect()
         )
     }
 
@@ -177,10 +223,11 @@ class DeviceInfoCollector(private val context: Context) {
             // tick could mean an elevated-shell round trip for ZRAM each time.
             memory = collectMemory(kernelExtras = false).withKernelExtrasFrom(previous.memory),
             network = collectNetworkLight(previous.network, networkProbe),
-            cpu = readCpuFrequenciesMhz().let { (freqs, source) ->
+            cpu = readCpuFrequenciesMhz(previous.cpu.cores).let { clocks ->
                 previous.cpu.copy(
-                    currentFreqMhz = freqs,
-                    clockSource = source?.name ?: previous.cpu.clockSource
+                    currentFreqMhz = clocks.mhz,
+                    freqCoreIndices = clocks.cores,
+                    clockSource = clocks.source?.name ?: previous.cpu.clockSource
                 )
             },
             // Keep the previously captured readings when we are not re-sampling.
@@ -201,7 +248,7 @@ class DeviceInfoCollector(private val context: Context) {
      * which sample often and must not pay for cameras, sensors, GPU or storage.
      */
     fun collectSample(): MetricSample {
-        val battery = collectBattery()
+        val battery = collectBattery(GaugeRead.SKIP)
         val memory = collectMemory(kernelExtras = false)
         return MetricSample(
             timestampMs = System.currentTimeMillis(),
@@ -213,11 +260,17 @@ class DeviceInfoCollector(private val context: Context) {
         )
     }
 
+    /** Everything but uptime is fixed until reboot, and this runs on every live tick. */
     private fun collectOverview(): DeviceOverview {
         val uptimeMillis = SystemClock.elapsedRealtime()
         val hours = TimeUnit.MILLISECONDS.toHours(uptimeMillis)
         val minutes = TimeUnit.MILLISECONDS.toMinutes(uptimeMillis) % 60
-        val uptimeStr = "${hours}h ${minutes}m"
+        return staticOverview.copy(uptime = "${hours}h ${minutes}m")
+    }
+
+    private val staticOverview: DeviceOverview by lazy { readStaticOverview() }
+
+    private fun readStaticOverview(): DeviceOverview {
         val kernel = try {
             File("/proc/version").readText().trim().take(120)
         } catch (_: Exception) {
@@ -233,12 +286,8 @@ class DeviceInfoCollector(private val context: Context) {
             androidVersion = Build.VERSION.RELEASE,
             apiLevel = Build.VERSION.SDK_INT,
             buildId = Build.ID,
-            securityPatch = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                Build.VERSION.SECURITY_PATCH
-            } else {
-                "N/A"
-            },
-            uptime = uptimeStr,
+            securityPatch = Build.VERSION.SECURITY_PATCH,
+            uptime = "",
             fingerprint = Build.FINGERPRINT.orEmpty(),
             board = Build.BOARD.orEmpty(),
             bootloader = Build.BOOTLOADER.orEmpty(),
@@ -267,25 +316,44 @@ class DeviceInfoCollector(private val context: Context) {
             .ifBlank { readSystemProperty("ro.soc.model") }
             .ifBlank { readSystemProperty("ro.product.board") }
             .ifBlank { hardware }
-        val processor = resolveProcessorName(hardware, boardPlatform)
-        val (freqs, freqSource) = readCpuFrequenciesMhz()
+        val cpuinfo = try { File("/proc/cpuinfo").readText() } catch (_: Exception) { "" }
+        val processor = resolveProcessorName(cpuinfo.lines(), hardware, boardPlatform)
+        val clocks = readCpuFrequenciesMhz(cores)
         val (minF, maxF, rangeSource) = readCpuFreqRangeMhz()
         val clusters = DeepProbes.cpuClusters(::readNode, cores)
         val online = DeepProbes.onlineCores(::readNode)
+        val coreMax = DeepProbes.coreMaxMhz(clusters)
+        // cpu0 is normally a little core, so its policy alone understates the
+        // peak; take the fastest cluster's.
+        val peak = listOfNotNull(maxF, coreMax.values.maxOrNull()).maxOrNull()
+        val soc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            knownValue(Build.SOC_MANUFACTURER) to knownValue(Build.SOC_MODEL)
+        } else {
+            "" to ""
+        }
         return CpuInfo(
             cores = cores, architecture = arch, supportedAbis = abis,
             hardware = hardware, processor = processor, boardPlatform = boardPlatform,
-            currentFreqMhz = freqs, minFreqMhz = minF, maxFreqMhz = maxF,
-            clockSource = (freqSource ?: rangeSource)?.name,
+            currentFreqMhz = clocks.mhz, minFreqMhz = minF, maxFreqMhz = peak,
+            clockSource = (clocks.source ?: rangeSource)?.name,
             governors = DeepProbes.cpuGovernors(clusters),
             availableFreqMhz = DeepProbes.availableFreqMhz(clusters),
             onlineCores = online,
-            topologyHint = DeepProbes.topologyHint(clusters, cores)
+            topologyHint = DeepProbes.topologyHint(clusters, cores),
+            freqCoreIndices = clocks.cores,
+            coreMaxMhz = coreMax,
+            coreNames = DeepProbes.cpuCoreNames(cpuinfo),
+            features = DeepProbes.cpuFeatures(cpuinfo),
+            socManufacturer = soc.first,
+            socModel = soc.second
         )
     }
 
-    private fun resolveProcessorName(hardware: String, boardPlatform: String): String {
-        val cpuinfo = try { File("/proc/cpuinfo").readLines() } catch (_: Exception) { emptyList() }
+    /** Build fields read "unknown" when the vendor left them unset. */
+    private fun knownValue(value: String?): String =
+        value.orEmpty().takeUnless { it.isBlank() || it.equals(Build.UNKNOWN, ignoreCase = true) }.orEmpty()
+
+    private fun resolveProcessorName(cpuinfo: List<String>, hardware: String, boardPlatform: String): String {
         fun valueFor(prefix: String): String? {
             val line = cpuinfo.firstOrNull { it.startsWith(prefix) } ?: return null
             return line.substringAfter(":").trim().takeIf { it.isNotBlank() }
@@ -335,17 +403,25 @@ class DeviceInfoCollector(private val context: Context) {
         }
     }
 
-    /** Per-core clocks in MHz, plus the elevated tier that produced them if any. */
-    private fun readCpuFrequenciesMhz(): Pair<List<Int>, AccessTier?> {
-        val result = ArrayList<Int>()
+    /** Current clocks in MHz with the core each belongs to, and the elevated tier used if any. */
+    private class CoreClocks(val mhz: List<Int>, val cores: List<Int>, val source: AccessTier?)
+
+    /**
+     * Reads each core's current clock. Offline cores have no cpufreq node and
+     * are skipped, so the core numbers are returned alongside the readings.
+     */
+    private fun readCpuFrequenciesMhz(coreCount: Int): CoreClocks {
+        val mhz = ArrayList<Int>()
+        val cores = ArrayList<Int>()
         var source: AccessTier? = null
-        for (i in 0 until 16) {
+        for (i in 0 until coreCount.coerceIn(1, MAX_CORES)) {
             val r = readNodeSourced("/sys/devices/system/cpu/cpu$i/cpufreq/scaling_cur_freq")
             val khz = r.value?.toLongOrNull() ?: continue
             if (r.source != null) source = r.source
-            result.add((khz / 1000L).toInt())
+            mhz.add((khz / 1000L).toInt())
+            cores.add(i)
         }
-        return result to source
+        return CoreClocks(mhz, cores, source)
     }
 
     private fun readCpuFreqRangeMhz(): Triple<Int?, Int?, AccessTier?> {
@@ -403,8 +479,21 @@ class DeviceInfoCollector(private val context: Context) {
         return info
     }
 
+    /** How much effort [collectBattery] spends on the fuel gauge's sysfs nodes. */
+    enum class GaugeRead {
+        /** Level, temperature and current only — for samplers that show nothing else. */
+        SKIP,
+
+        /** Capacity and cycle count, re-read at most once a minute. */
+        CACHED,
+
+        /** Capacity and cycle count, read now. */
+        FRESH
+    }
+
     /** Public so the background monitor can sample it without a full collect. */
-    fun collectBattery(): BatteryInfo {
+    fun collectBattery(gauge: GaugeRead = GaugeRead.CACHED): BatteryInfo {
+        val freshGauge = gauge == GaugeRead.FRESH
         val batteryStatus = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
@@ -451,7 +540,12 @@ class DeviceInfoCollector(private val context: Context) {
             readSystemProperty("persist.sys.battery.capacity")
         ).firstNotNullOfOrNull { it.toIntOrNull()?.takeIf { n -> n > 500 } }
 
-        val caps = readBatteryGaugeCaps()
+        val now = SystemClock.elapsedRealtime()
+        val caps = when {
+            gauge == GaugeRead.SKIP -> GaugeCaps(null, null, null)
+            else -> gaugeCapsCache?.takeIf { !freshGauge && now - it.atMs < GAUGE_CACHE_MS }?.value
+                ?: readBatteryGaugeCaps().also { gaugeCapsCache = Timed(it, now) }
+        }
         val fullMah = caps.fullMah
         val designGaugeMah = caps.designMah
         // Only claim a health figure when the gauge gives both halves of it and
@@ -471,7 +565,14 @@ class DeviceInfoCollector(private val context: Context) {
         val broadcastCycles = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             batteryStatus?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, -1)?.takeIf { it > 0 }
         } else null
-        val gaugeCycles = if (broadcastCycles == null) readBatteryCycleCount() else null
+        val gaugeCycles = if (broadcastCycles == null && gauge != GaugeRead.SKIP) {
+            val cached = gaugeCyclesCache?.takeIf { !freshGauge && now - it.atMs < GAUGE_CACHE_MS }
+            if (cached != null) {
+                cached.value
+            } else {
+                readBatteryCycleCount().also { gaugeCyclesCache = Timed(it, now) }
+            }
+        } else null
         val cycleCount = broadcastCycles ?: gaugeCycles?.count
         val cycleSource = if (broadcastCycles == null) gaugeCycles?.source?.name else null
 
@@ -495,7 +596,20 @@ class DeviceInfoCollector(private val context: Context) {
             fullChargeMah = fullMah, designChargeMah = designGaugeMah,
             capacityHealthPercent = healthPct, cycleCount = cycleCount,
             healthSource = healthSource, cycleSource = cycleSource,
-            chargerMaxWatts = chargerWatts
+            chargerMaxWatts = chargerWatts,
+            chargeTimeRemainingMs = if (isCharging && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                // -1 when the system has no estimate yet; 0 once full.
+                try { bm?.computeChargeTimeRemaining()?.takeIf { it > 0L } } catch (_: Exception) { null }
+            } else null,
+            powerSaveMode = try {
+                (context.getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
+            } catch (_: Exception) {
+                false
+            },
+            energyMwh = bm?.getLongProperty(BatteryManager.BATTERY_PROPERTY_ENERGY_COUNTER)
+                ?.takeIf { it != Long.MIN_VALUE && it > 0L }
+                ?.let { (it / 1_000_000L).toInt() }
+                ?.takeIf { it in 1..200_000 }
         )
     }
 
@@ -786,7 +900,7 @@ class DeviceInfoCollector(private val context: Context) {
     private fun collectVolumes(): List<StorageVolumeInfo> {
         val result = ArrayList<StorageVolumeInfo>()
         val sm = context.getSystemService(Context.STORAGE_SERVICE) as? StorageManager
-        if (sm != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        if (sm != null) {
             for (volume in sm.storageVolumes) {
                 val desc = try { volume.getDescription(context) } catch (_: Exception) {
                     if (volume.isPrimary) "Internal shared storage" else "Storage"
@@ -1068,10 +1182,13 @@ class DeviceInfoCollector(private val context: Context) {
                 val tempRaw = try { File(dir, "temp").readText().trim().toLongOrNull() } catch (_: Exception) { null }
                 if (tempRaw != null) {
                     // milli-C or deci-C depending on vendor; 0 often means unread/disabled
+                    // Magnitude, not value: a sub-zero reading in milli-C is a
+                    // large negative number and was being read as whole degrees.
+                    val magnitude = abs(tempRaw)
                     val tempC = when {
                         tempRaw == 0L -> null
-                        tempRaw > 1000 -> tempRaw / 1000f
-                        tempRaw > 200 -> tempRaw / 10f
+                        magnitude > 1000 -> tempRaw / 1000f
+                        magnitude > 200 -> tempRaw / 10f
                         else -> tempRaw.toFloat()
                     }
                     if (tempC != null && tempC in -40f..150f) {
@@ -1094,27 +1211,35 @@ class DeviceInfoCollector(private val context: Context) {
         if (sensors.isEmpty()) return emptyList()
         val liveMap = if (live) sampleLiveSensors(sm, sensors) else emptyMap()
         return sensors.map { s ->
+            val kind = SensorCatalog.describe(s.type, s.stringType)
             SensorEntry(
-                name = s.name ?: "Unknown", type = sensorTypeName(s.type), vendor = s.vendor ?: "",
+                name = s.name ?: "Unknown", type = kind.name, vendor = s.vendor ?: "",
                 powerMa = s.power, resolution = s.resolution, maxRange = s.maximumRange,
                 minDelayUs = s.minDelay, liveValues = liveMap[s] ?: "",
                 maxDelayUs = s.maxDelay, isWakeUp = s.isWakeUpSensor,
                 fifoMaxEventCount = s.fifoMaxEventCount,
-                reportingMode = DeepProbes.sensorReportingMode(s.reportingMode)
+                reportingMode = DeepProbes.sensorReportingMode(s.reportingMode),
+                typeId = s.type, stringType = s.stringType.orEmpty(), unit = kind.unit,
+                category = kind.category, version = s.version
             )
-        }.sortedWith(compareBy({ it.type }, { it.name }))
+        }.sortedWith(compareBy({ it.category }, { it.type }, { it.name }, { it.isWakeUp }))
     }
 
+    /**
+     * Briefly listens to every sensor that streams or reports on change, so the
+     * list shows a current reading for each. One-shot triggers are left alone
+     * (registering would arm them), as are body sensors, which need a
+     * permission this app does not hold. Where a wake-up and a non-wake-up
+     * variant both exist only the non-wake-up one is sampled.
+     */
     private fun sampleLiveSensors(sm: SensorManager, sensors: List<Sensor>): Map<Sensor, String> {
         val interesting = sensors.filter { s ->
-            s.type in setOf(
-                Sensor.TYPE_ACCELEROMETER, Sensor.TYPE_GYROSCOPE, Sensor.TYPE_MAGNETIC_FIELD,
-                Sensor.TYPE_LIGHT, Sensor.TYPE_PROXIMITY, Sensor.TYPE_PRESSURE,
-                Sensor.TYPE_AMBIENT_TEMPERATURE, Sensor.TYPE_RELATIVE_HUMIDITY,
-                Sensor.TYPE_GRAVITY, Sensor.TYPE_LINEAR_ACCELERATION, Sensor.TYPE_ROTATION_VECTOR,
-                Sensor.TYPE_STEP_COUNTER, Sensor.TYPE_HEART_RATE
-            )
-        }.take(12)
+            (s.reportingMode == Sensor.REPORTING_MODE_CONTINUOUS ||
+                s.reportingMode == Sensor.REPORTING_MODE_ON_CHANGE) &&
+                SensorCatalog.canSample(s.type)
+        }.sortedBy { it.isWakeUpSensor }
+            .distinctBy { it.type to it.name }
+            .take(MAX_LIVE_SENSORS)
         if (interesting.isEmpty()) return emptyMap()
         val results = mutableMapOf<Sensor, String>()
         val latch = CountDownLatch(interesting.size)
@@ -1123,8 +1248,8 @@ class DeviceInfoCollector(private val context: Context) {
             val listener = object : SensorEventListener {
                 override fun onSensorChanged(event: SensorEvent?) {
                     if (event == null) return
-                    val values = event.values?.take(3)
-                        ?.joinToString(", ") { String.format(Locale.US, "%.3f", it) } ?: return
+                    val raw = event.values ?: return
+                    val values = SensorCatalog.formatValues(sensor.type, sensor.stringType, raw)
                     synchronized(results) {
                         if (!results.containsKey(sensor)) {
                             results[sensor] = values
@@ -1148,27 +1273,6 @@ class DeviceInfoCollector(private val context: Context) {
         try { latch.await(SENSOR_SAMPLE_MS, TimeUnit.MILLISECONDS) } catch (_: Exception) {}
         listeners.forEach { try { sm.unregisterListener(it) } catch (_: Exception) {} }
         return results
-    }
-
-    /** TYPE_ORIENTATION is deprecated but still reported by some devices, so it is named here. */
-    @Suppress("DEPRECATION")
-    private fun sensorTypeName(type: Int): String = when (type) {
-        Sensor.TYPE_ACCELEROMETER -> "Accelerometer"
-        Sensor.TYPE_GYROSCOPE -> "Gyroscope"
-        Sensor.TYPE_MAGNETIC_FIELD -> "Magnetic field"
-        Sensor.TYPE_LIGHT -> "Light"
-        Sensor.TYPE_PROXIMITY -> "Proximity"
-        Sensor.TYPE_PRESSURE -> "Pressure"
-        Sensor.TYPE_AMBIENT_TEMPERATURE -> "Ambient temperature"
-        Sensor.TYPE_RELATIVE_HUMIDITY -> "Humidity"
-        Sensor.TYPE_GRAVITY -> "Gravity"
-        Sensor.TYPE_LINEAR_ACCELERATION -> "Linear acceleration"
-        Sensor.TYPE_ROTATION_VECTOR -> "Rotation vector"
-        Sensor.TYPE_STEP_COUNTER -> "Step counter"
-        Sensor.TYPE_STEP_DETECTOR -> "Step detector"
-        Sensor.TYPE_HEART_RATE -> "Heart rate"
-        Sensor.TYPE_ORIENTATION -> "Orientation"
-        else -> "Type $type"
     }
 
     private fun collectCameras(): List<CameraEntry> {
@@ -1224,15 +1328,19 @@ class DeviceInfoCollector(private val context: Context) {
         return Triple(down, up, validated to metered)
     }
 
-    private fun collectNetworkLight(previous: NetworkInfo, networkProbe: Boolean): NetworkInfo {
+    /** Connection state from the active network: cheap enough for the live tick. */
+    private class LinkState(
+        val isConnected: Boolean,
+        val networkType: String,
+        val downMbps: Int?,
+        val upMbps: Int?,
+        val validated: Boolean,
+        val metered: Boolean
+    )
+
+    private fun readLinkState(): LinkState {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val capabilities = cm.activeNetwork?.let { cm.getNetworkCapabilities(it) }
-        val isConnected = capabilities != null && (
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ||
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
-        )
         val networkType = when {
             capabilities == null -> "None"
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
@@ -1242,64 +1350,42 @@ class DeviceInfoCollector(private val context: Context) {
             else -> "Unknown"
         }
         val (down, up, flags) = networkMeta(capabilities)
-        if (!networkProbe) {
-            return previous.copy(
-                isConnected = isConnected, networkType = networkType,
-                latencyMs = null, latencyStatus = "Disabled in Settings",
-                downstreamMbps = down, upstreamMbps = up,
-                validated = flags.first, metered = flags.second
-            )
-        }
-        return previous.copy(
-            isConnected = isConnected, networkType = networkType,
-            downstreamMbps = down, upstreamMbps = up,
+        return LinkState(
+            isConnected = capabilities != null && networkType != "Unknown",
+            networkType = networkType,
+            downMbps = down, upMbps = up,
             validated = flags.first, metered = flags.second
         )
     }
 
-    private fun collectNetwork(networkProbe: Boolean): NetworkInfo {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val capabilities = cm.activeNetwork?.let { cm.getNetworkCapabilities(it) }
-        val isConnected = capabilities != null && (
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ||
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+    /** Refreshes link state only; the last latency result is kept unless the probe is off. */
+    private fun collectNetworkLight(previous: NetworkInfo, networkProbe: Boolean): NetworkInfo {
+        val link = readLinkState()
+        val updated = previous.copy(
+            isConnected = link.isConnected, networkType = link.networkType,
+            downstreamMbps = link.downMbps, upstreamMbps = link.upMbps,
+            validated = link.validated, metered = link.metered
         )
-        val networkType = when {
-            capabilities == null -> "None"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Cellular"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
-            else -> "Unknown"
-        }
-        val (down, up, flags) = networkMeta(capabilities)
-        val target = latencyTargetLabel(latencyHost())
-        if (!networkProbe) {
-            return NetworkInfo(isConnected, networkType, null, target, "Disabled in Settings", down, up, flags.first, flags.second)
-        }
-        if (!isConnected) {
-            return NetworkInfo(false, networkType, null, target, "No network", down, up, flags.first, flags.second)
-        }
-        return measureLatency(networkType, down, up, flags.first, flags.second)
+        return if (networkProbe) updated else updated.copy(latencyMs = null, latencyStatus = "Disabled in Settings")
     }
 
-    private fun measureLatency(
-        networkType: String,
-        down: Int?,
-        up: Int?,
-        validated: Boolean,
-        metered: Boolean
-    ): NetworkInfo {
+    private fun collectNetwork(networkProbe: Boolean): NetworkInfo {
+        val link = readLinkState()
         val host = latencyHost()
-        val target = latencyTargetLabel(host)
-        return when (val probe = singleLatency(host)) {
-            is LatencyProbe.Ok ->
-                NetworkInfo(true, networkType, probe.millis, target, "OK", down, up, validated, metered)
-            is LatencyProbe.Failed ->
-                NetworkInfo(true, networkType, null, target, probe.reason, down, up, validated, metered)
+        val (latency, status) = when {
+            !networkProbe -> null to "Disabled in Settings"
+            !link.isConnected -> null to "No network"
+            else -> when (val probe = singleLatency(host)) {
+                is LatencyProbe.Ok -> probe.millis to "OK"
+                is LatencyProbe.Failed -> null to probe.reason
+            }
         }
+        return NetworkInfo(
+            isConnected = link.isConnected, networkType = link.networkType,
+            latencyMs = latency, latencyTarget = latencyTargetLabel(host), latencyStatus = status,
+            downstreamMbps = link.downMbps, upstreamMbps = link.upMbps,
+            validated = link.validated, metered = link.metered
+        )
     }
 
     private sealed interface LatencyProbe {
@@ -1341,8 +1427,14 @@ class DeviceInfoCollector(private val context: Context) {
             }
         } catch (_: java.net.SocketTimeoutException) {
             LatencyProbe.Failed("Timeout")
+        } catch (_: java.net.ConnectException) {
+            LatencyProbe.Failed("Connection refused")
+        } catch (_: java.net.NoRouteToHostException) {
+            LatencyProbe.Failed("No route to host")
         } catch (e: Exception) {
-            LatencyProbe.Failed("Error: ${e.message ?: e.javaClass.simpleName}")
+            // The class name only: the message embeds the address being probed,
+            // and this string ends up in exported reports.
+            LatencyProbe.Failed("Error: ${e.javaClass.simpleName}")
         }
     }
 
@@ -1355,7 +1447,9 @@ class DeviceInfoCollector(private val context: Context) {
         val host = latencyHost()
         val samples = ArrayList<Long>(attempts)
         var lastError: String? = null
-        repeat(attempts) { index ->
+        var made = 0
+        for (index in 0 until attempts) {
+            made++
             when (val probe = singleLatency(host)) {
                 is LatencyProbe.Ok -> samples.add(probe.millis)
                 is LatencyProbe.Failed -> lastError = probe.reason
@@ -1364,12 +1458,13 @@ class DeviceInfoCollector(private val context: Context) {
                 try {
                     Thread.sleep(LATENCY_GAP_MS)
                 } catch (_: InterruptedException) {
+                    // Cancelled: stop probing, and do not count what never ran as lost.
                     Thread.currentThread().interrupt()
-                    return@repeat
+                    break
                 }
             }
         }
-        val lost = attempts - samples.size
+        val lost = made - samples.size
         val avg = if (samples.isEmpty()) null else samples.sum() / samples.size
         // Mean absolute deviation from the average — a readable stand-in for jitter.
         val jitter = if (samples.size < 2 || avg == null) {
@@ -1380,12 +1475,12 @@ class DeviceInfoCollector(private val context: Context) {
         return LatencyStats(
             target = latencyTargetLabel(host),
             samplesMs = samples,
-            attempts = attempts,
+            attempts = made,
             minMs = samples.minOrNull(),
             avgMs = avg,
             maxMs = samples.maxOrNull(),
             jitterMs = jitter,
-            lossPercent = if (attempts == 0) 0 else (lost * 100) / attempts,
+            lossPercent = if (made == 0) 0 else (lost * 100) / made,
             lastError = if (samples.isEmpty()) lastError else null
         )
     }

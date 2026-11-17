@@ -7,13 +7,14 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
+import android.view.inputmethod.InputMethodManager
 import androidx.core.app.NotificationManagerCompat
 
 /**
  * Sensitive things another app can do. The runtime-permission groups come
- * from what the app has been *granted*, not merely requested; the last three
+ * from what the app has been *granted*, not merely requested; the last four
  * are special access the user switched on in system settings, which is how
- * stalkerware usually operates.
+ * stalkerware usually operates. A keyboard sees everything typed into it.
  */
 enum class SensitiveAccess(val isSpecialAccess: Boolean = false) {
     CAMERA,
@@ -29,6 +30,7 @@ enum class SensitiveAccess(val isSpecialAccess: Boolean = false) {
     NEARBY_DEVICES,
     PHOTOS_MEDIA,
     ACCESSIBILITY(isSpecialAccess = true),
+    KEYBOARD(isSpecialAccess = true),
     NOTIFICATION_LISTENER(isSpecialAccess = true),
     DEVICE_ADMIN(isSpecialAccess = true)
 }
@@ -37,8 +39,20 @@ data class AppPrivacyEntry(
     val packageName: String,
     val label: String,
     val isSystem: Boolean,
-    val access: Set<SensitiveAccess>
-)
+    val access: Set<SensitiveAccess>,
+    /** Installed from a file or over adb rather than through an app store. */
+    val sideloaded: Boolean = false,
+    /** Has no launcher icon, so it does not appear among the user's apps. */
+    val hiddenFromLauncher: Boolean = false
+) {
+    /**
+     * Special access held by an app the user cannot see or did not get from a
+     * store is the pattern stalkerware fits. Not proof of anything — plenty of
+     * legitimate tools match — just the entries worth reading first.
+     */
+    val worthReview: Boolean
+        get() = !isSystem && (sideloaded || hiddenFromLauncher) && access.any { it.isSpecialAccess }
+}
 
 /** One of this app's own manifest permissions and whether it is currently granted. */
 data class OwnPermission(val name: String, val granted: Boolean)
@@ -46,15 +60,24 @@ data class OwnPermission(val name: String, val granted: Boolean)
 data class PrivacyAudit(
     /** Apps holding at least one sensitive grant, most access first. */
     val apps: List<AppPrivacyEntry>,
-    val ownPermissions: List<OwnPermission>
+    val ownPermissions: List<OwnPermission>,
+    /** Device settings that bear on privacy. */
+    val posture: List<PostureResult> = emptyList()
 )
 
 class PrivacyAuditor(private val context: Context) {
 
     private val pm: PackageManager = context.packageManager
 
-    /** Blocking — reads every installed package. Call from a background dispatcher. */
-    fun collect(): PrivacyAudit {
+    /**
+     * Blocking — reads every installed package. Call from a background dispatcher.
+     * The security and radio state come from the device report when one exists.
+     */
+    fun collect(
+        security: SecurityInfo? = null,
+        nfc: NfcInfo? = null,
+        bluetooth: BluetoothInfo? = null
+    ): PrivacyAudit {
         val accessibility = enabledAccessibilityPackages(
             Settings.Secure.getString(
                 context.contentResolver,
@@ -63,6 +86,12 @@ class PrivacyAuditor(private val context: Context) {
         )
         val listeners = try {
             NotificationManagerCompat.getEnabledListenerPackages(context)
+        } catch (_: Exception) {
+            emptySet()
+        }
+        val keyboards = try {
+            (context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
+                ?.enabledInputMethodList.orEmpty().map { it.packageName }.toSet()
         } catch (_: Exception) {
             emptySet()
         }
@@ -81,17 +110,47 @@ class PrivacyAuditor(private val context: Context) {
             if (pkg in accessibility) access += SensitiveAccess.ACCESSIBILITY
             if (pkg in listeners) access += SensitiveAccess.NOTIFICATION_LISTENER
             if (pkg in admins) access += SensitiveAccess.DEVICE_ADMIN
+            if (pkg in keyboards) access += SensitiveAccess.KEYBOARD
             if (access.isEmpty()) return@mapNotNull null
             val app = info.applicationInfo
+            val isSystem = app != null && (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0
             AppPrivacyEntry(
                 packageName = pkg,
                 label = app?.let { labelFor(it) } ?: pkg,
-                isSystem = app != null && (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0,
-                access = access
+                isSystem = isSystem,
+                access = access,
+                // System apps are preinstalled and often icon-less by design.
+                sideloaded = !isSystem && isSideloaded(installerOf(pkg)),
+                hiddenFromLauncher = !isSystem && !hasLauncherIcon(pkg)
             )
-        }.sortedWith(compareByDescending<AppPrivacyEntry> { it.access.size }.thenBy { it.label.lowercase() })
+        }.sortedWith(
+            compareByDescending<AppPrivacyEntry> { it.worthReview }
+                .thenByDescending { it.access.size }
+                .thenBy { it.label.lowercase() }
+        )
 
-        return PrivacyAudit(apps = apps, ownPermissions = ownPermissions())
+        return PrivacyAudit(
+            apps = apps,
+            ownPermissions = ownPermissions(),
+            posture = PrivacyPosture.evaluate(PrivacyPosture.snapshot(context, security, nfc, bluetooth))
+        )
+    }
+
+    private fun installerOf(packageName: String): String? = try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            pm.getInstallSourceInfo(packageName).installingPackageName
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getInstallerPackageName(packageName)
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun hasLauncherIcon(packageName: String): Boolean = try {
+        pm.getLaunchIntentForPackage(packageName) != null
+    } catch (_: Exception) {
+        true
     }
 
     private fun installedPackages(): List<PackageInfo> = try {
@@ -177,6 +236,16 @@ class PrivacyAuditor(private val context: Context) {
             }
             return result
         }
+
+        /**
+         * No installer on record, the system's own package installer (a file
+         * the user opened) or the adb shell all mean the app did not come
+         * through a store. Any other installer is taken to be one.
+         */
+        fun isSideloaded(installer: String?): Boolean =
+            installer.isNullOrBlank() ||
+                installer == "com.android.shell" ||
+                installer.endsWith(".packageinstaller")
 
         /** Secure setting format: "pkg/.Service:pkg2/com.other.Service". */
         fun enabledAccessibilityPackages(setting: String?): Set<String> =

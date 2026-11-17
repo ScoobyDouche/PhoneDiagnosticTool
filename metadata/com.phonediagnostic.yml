@@ -21,9 +21,9 @@ RepoType: git
 Repo: https://github.com/ScoobyDouche/PhoneDiagnosticTool.git
 
 Builds:
-  - versionName: 1.1.0
-    versionCode: 27
-    commit: v1.1.0
+  - versionName: 1.4.0
+    versionCode: 36
+    commit: v1.4.0
     subdir: app
     gradle:
       - yes
@@ -34,8 +34,8 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.1.0
-CurrentVersionCode: 27
+CurrentVersion: 1.4.0
+CurrentVersionCode: 36
 
 Summary: On-device phone diagnostics without accounts or analytics
 Description: |-

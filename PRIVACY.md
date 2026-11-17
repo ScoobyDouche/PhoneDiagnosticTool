@@ -1,6 +1,6 @@
 # Privacy Policy — Phone Diagnostic Tool
 
-**Last updated:** 2026-10-28
+**Last updated:** 2026-11-17
 
 Phone Diagnostic Tool is designed to be privacy-first.
 
@@ -27,6 +27,17 @@ The app reads standard Android system APIs on-device to show:
   audit screen)
 - Cellular generation and signal strength, read without any phone or location
   permission and without cell tower or location identifiers
+- Hardware features (biometric readers, NFC, UWB, eSIM, Wi‑Fi bands, infrared),
+  the number of screens and SIM slots, audio and graphics capabilities, and the
+  model of the satellite-positioning chip. The chip model is a device fact
+  Android reports without a location permission; **no position is ever
+  requested or read**
+- Device settings that affect privacy (Privacy audit screen): whether a screen
+  lock is set, whether USB or wireless debugging and developer options are on,
+  whether location services, a VPN or Private DNS are in use. Only the on/off
+  state is read
+- Which keyboards are enabled, and for apps you installed, whether they came
+  from an app store and whether they have a launcher icon
 
 That information stays on your phone unless **you** choose to share or export a report.
 
@@ -47,7 +58,9 @@ an exported report, and not transmitted anywhere.
 
 The Network screen reads this device's own interface addresses and the active
 network's DNS settings. That is displayed locally and never uploaded. MAC
-addresses are deliberately not shown. The Wi‑Fi network name is only visible if
+addresses are deliberately not shown. With **Hide network addresses** on in
+Settings, IP addresses, DNS servers, the Wi‑Fi name and the carrier are masked
+on that screen until you tap to reveal them. The Wi‑Fi network name is only visible if
 you have granted a location permission to this app — it does not request one, so
 it normally shows as hidden.
 
@@ -82,7 +95,8 @@ Two files are kept in the app's private internal storage:
 - a **metric history** of battery, temperature and RAM samples, capped at 24 hours
 
 Both can be cleared from inside the app, and both are removed when the app is
-uninstalled. The app sets `allowBackup="false"` and excludes all of its data
+uninstalled. Turning off **Keep history** in Settings deletes the metric
+history and stops samples being stored. The app sets `allowBackup="false"` and excludes all of its data
 from cloud backup and device-to-device transfer, so neither file leaves the
 phone through Android's backup system.
 
@@ -91,18 +105,20 @@ phone through Android's backup system.
 If you use Share, Save or Copy, a text or JSON report is handed to the Android
 share sheet, the system file picker, or the clipboard. "Share as file" writes
 one report into the app's private cache and grants the app you choose temporary
-read access to that single file; the previous export is deleted each time.
+read access to that single file; the previous export is deleted each time, and
+the last one is deleted the next time the app is opened.
 Where that data goes next is controlled by **you** and the app you pick.
 
 By default, exported reports leave out the build fingerprint, bootloader and
-baseband versions, build host and the kernel build line, which together
-identify one exact device build. You can turn this off in Settings. Reports
-never contain IP addresses, Wi‑Fi network names, DNS servers, carrier details
-or the list of installed apps.
+baseband versions, build host, the kernel build line and the app's own storage
+paths, which together identify one exact device build. You can turn this off in
+Settings. Reports never contain IP addresses (including your router's, when the
+latency check targets it), Wi‑Fi network names, DNS servers, carrier details,
+the list of installed apps or the results of the Privacy audit.
 
 A copied report is marked sensitive, so Android 13+ hides it from the copy
 preview and keyboard suggestions, and the app clears it from the clipboard
-after a minute if it is still there.
+after a minute if it is still there, even if you have left the app.
 
 An optional **Block screenshots** setting stops screenshots and screen
 recording of the app and hides its preview in Recents.

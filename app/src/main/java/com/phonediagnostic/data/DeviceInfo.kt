@@ -47,7 +47,22 @@ data class CpuInfo(
     /** Online core indices when /sys topology is readable. */
     val onlineCores: List<Int> = emptyList(),
     /** Cluster layout from peak clocks when detectable (e.g. "4 + 3 + 1 cores · 2.0 / 2.8 / 3.3 GHz"). */
-    val topologyHint: String = ""
+    val topologyHint: String = "",
+    /**
+     * Core number of each [currentFreqMhz] entry. An offline core has no clock
+     * to read, so without this the readings after it would be labelled one core
+     * too low.
+     */
+    val freqCoreIndices: List<Int> = emptyList(),
+    /** Peak clock of each core's own cluster, so a big core is not measured against a little one. */
+    val coreMaxMhz: Map<Int, Int> = emptyMap(),
+    /** Core designs from the CPU ID registers, e.g. "4× Cortex-A55", "1× Cortex-X3". */
+    val coreNames: List<String> = emptyList(),
+    /** Instruction-set extensions the kernel reports (aes, sha2, sve ...). */
+    val features: List<String> = emptyList(),
+    /** Chip maker and part as the platform names them (API 31+), e.g. "Qualcomm" / "SM8475". */
+    val socManufacturer: String = "",
+    val socModel: String = ""
 )
 
 data class GpuInfo(
@@ -101,7 +116,13 @@ data class BatteryInfo(
      * What the plugged-in charger offers, in watts, from the battery broadcast's
      * max charging current and voltage. Null when unplugged or not reported.
      */
-    val chargerMaxWatts: Float? = null
+    val chargerMaxWatts: Float? = null,
+    /** Android's estimate of time until full, in ms; null when not charging or unknown. */
+    val chargeTimeRemainingMs: Long? = null,
+    /** Whether Battery Saver is on. */
+    val powerSaveMode: Boolean = false,
+    /** Remaining energy in mWh from the fuel gauge's energy counter, when exposed. */
+    val energyMwh: Int? = null
 ) {
     /**
      * Instantaneous power in watts: positive charging, negative discharging.
@@ -298,8 +319,23 @@ data class SensorEntry(
     /** FIFO max event count when the sensor supports batching. */
     val fifoMaxEventCount: Int = 0,
     /** Reporting mode string (continuous / on-change / one-shot / special). */
-    val reportingMode: String = ""
-)
+    val reportingMode: String = "",
+    /** `Sensor.TYPE_*` number; vendor sensors start at 65536. */
+    val typeId: Int = 0,
+    /** The platform's dotted type string, e.g. "android.sensor.accelerometer". */
+    val stringType: String = "",
+    /** Unit of the readings ("m/s²", "lx" ...); blank when the values are unitless. */
+    val unit: String = "",
+    val category: SensorCategory = SensorCategory.OTHER,
+    /** Driver version the sensor reports. */
+    val version: Int = 0
+) {
+    /**
+     * Identifies one sensor for the detail screen. The name alone is not enough:
+     * vendors ship wake-up and non-wake-up variants under the same name.
+     */
+    val key: String get() = "$typeId|${if (isWakeUp) 1 else 0}|$name"
+}
 
 data class CameraEntry(
     val id: String,
@@ -411,6 +447,66 @@ data class ThermalState(
     val headroom: Float? = null
 )
 
+/** One screen the system knows about; a foldable reports its cover screen here too. */
+data class DisplayEntry(
+    val id: Int,
+    val name: String,
+    val widthPx: Int,
+    val heightPx: Int,
+    val refreshRate: Float,
+    /** The screen the system treats as primary. */
+    val isDefault: Boolean
+)
+
+/** A hardware capability and whether this device has it. */
+data class HardwareFeature(val name: String, val present: Boolean)
+
+/**
+ * Hardware and platform facts that do not change while the app runs. All from
+ * public APIs that need no permission; nothing here identifies the device or
+ * its owner.
+ */
+data class HardwareInfo(
+    val displays: List<DisplayEntry> = emptyList(),
+    val features: List<HardwareFeature> = emptyList(),
+    /** OpenGL ES version the device declares, e.g. "3.2". */
+    val glEsVersion: String = "",
+    /** Vulkan API version, e.g. "1.3"; blank when Vulkan is unsupported. */
+    val vulkanVersion: String = "",
+    val hasVibrator: Boolean = false,
+    /** Whether vibration strength can be varied, not just switched on and off. */
+    val vibratorAmplitudeControl: Boolean = false,
+    /** Native output sample rate in Hz. */
+    val audioSampleRate: Int? = null,
+    /** Native output buffer size in frames; smaller means lower latency. */
+    val audioFramesPerBuffer: Int? = null,
+    val audioLowLatency: Boolean = false,
+    val audioPro: Boolean = false,
+    /** Satellite-positioning chip model and year; read without a location permission. */
+    val gnssModel: String = "",
+    val gnssYear: Int? = null,
+    /** Number of SIM slots the modem can use at once. */
+    val simSlots: Int? = null,
+    /** Kernel memory page size in KB (4 or 16). */
+    val pageSizeKb: Int? = null,
+    /** Kernel architecture from uname, e.g. "aarch64". */
+    val kernelArch: String = "",
+    /** True when the device cannot run 32-bit apps at all. */
+    val is64BitOnly: Boolean = false,
+    val isLowRamDevice: Boolean = false,
+    /** Per-app Java heap limits in MB. */
+    val heapLimitMb: Int? = null,
+    val largeHeapLimitMb: Int? = null,
+    /** Android runtime (ART) version. */
+    val runtimeVersion: String = "",
+    /** API level the device originally shipped with. */
+    val firstApiLevel: Int? = null,
+    val trebleEnabled: Boolean? = null,
+    /** Seamless (A/B) updates. */
+    val abUpdates: Boolean? = null,
+    val dynamicPartitions: Boolean? = null
+)
+
 data class FullDeviceReport(
     val overview: DeviceOverview,
     val cpu: CpuInfo,
@@ -429,5 +525,6 @@ data class FullDeviceReport(
     val security: SecurityInfo = SecurityInfo(),
     val system: SystemState = SystemState(),
     val mediaCodecs: List<CodecSupport> = emptyList(),
-    val thermalState: ThermalState = ThermalState()
+    val thermalState: ThermalState = ThermalState(),
+    val hardware: HardwareInfo = HardwareInfo()
 )

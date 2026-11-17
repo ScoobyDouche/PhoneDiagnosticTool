@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -24,6 +26,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -35,6 +41,8 @@ import com.phonediagnostic.data.NetworkInfo
 import com.phonediagnostic.ui.components.InfoCard
 import com.phonediagnostic.ui.components.InfoRow
 
+private const val MASK = "••••••"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NetworkScreen(
@@ -44,10 +52,17 @@ fun NetworkScreen(
     probeEnabled: Boolean,
     latency: LatencyStats?,
     latencyRunning: Boolean,
+    hideAddresses: Boolean = false,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onRunLatency: () -> Unit
 ) {
+    // With "Hide network addresses" on, identifying values stay masked until
+    // the eye is tapped, and are masked again each time the screen is opened.
+    var revealed by remember { mutableStateOf(false) }
+    val masked = hideAddresses && !revealed
+    fun shown(value: String) = if (masked) MASK else value
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
@@ -62,6 +77,16 @@ fun NetworkScreen(
                     }
                 },
                 actions = {
+                    if (hideAddresses) {
+                        IconButton(onClick = { revealed = !revealed }) {
+                            Icon(
+                                imageVector = if (revealed) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                contentDescription = stringResource(
+                                    if (revealed) R.string.network_hide_cd else R.string.network_reveal_cd
+                                )
+                            )
+                        }
+                    }
                     IconButton(onClick = onRefresh, enabled = !isLoading) {
                         Icon(
                             Icons.Filled.Refresh,
@@ -141,7 +166,7 @@ fun NetworkScreen(
                 item(key = "wifi") {
                     InfoCard(title = stringResource(R.string.network_section_wifi)) {
                         Column {
-                            InfoRow(stringResource(R.string.label_network_name), wifi.ssid)
+                            InfoRow(stringResource(R.string.label_network_name), shown(wifi.ssid))
                             InfoRow(stringResource(R.string.label_band), wifi.band)
                             if (wifi.standard.isNotBlank()) {
                                 InfoRow(stringResource(R.string.label_wifi_standard), wifi.standard)
@@ -173,11 +198,11 @@ fun NetworkScreen(
                 item(key = "cellular") {
                     InfoCard(title = stringResource(R.string.network_section_cellular)) {
                         Column {
-                            InfoRow(stringResource(R.string.label_carrier), cell.carrier)
+                            InfoRow(stringResource(R.string.label_carrier), shown(cell.carrier))
                             if (cell.simOperator.isNotBlank()) {
                                 InfoRow(
                                     stringResource(R.string.label_sim_operator),
-                                    cell.simOperator
+                                    shown(cell.simOperator)
                                 )
                             }
                             if (cell.countryIso.isNotBlank()) {
@@ -304,7 +329,7 @@ fun NetworkScreen(
                                 detail.dnsServers.forEachIndexed { index, server ->
                                     InfoRow(
                                         stringResource(R.string.label_server_n, index + 1),
-                                        server
+                                        shown(server)
                                     )
                                 }
                             }
@@ -314,7 +339,7 @@ fun NetworkScreen(
                                     detail.privateDnsServer != null ->
                                         stringResource(
                                             R.string.private_dns_on_named,
-                                            detail.privateDnsServer
+                                            shown(detail.privateDnsServer)
                                         )
                                     detail.privateDnsActive ->
                                         stringResource(R.string.private_dns_on_auto)
@@ -324,7 +349,7 @@ fun NetworkScreen(
                             if (detail.domains.isNotBlank()) {
                                 InfoRow(
                                     stringResource(R.string.label_search_domains),
-                                    detail.domains
+                                    shown(detail.domains)
                                 )
                             }
                         }
@@ -399,7 +424,7 @@ fun NetworkScreen(
                                     parts.getOrElse(0) {
                                         stringResource(R.string.label_address)
                                     },
-                                    parts.getOrElse(1) { address }
+                                    shown(parts.getOrElse(1) { address })
                                 )
                             }
                         }

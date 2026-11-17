@@ -127,6 +127,23 @@ fun BatteryScreen(
                                 )
                             }
                         }
+                        battery.chargeTimeRemainingMs?.let { ms ->
+                            val minutes = (ms / 60_000L).toInt()
+                            InfoRow(
+                                stringResource(R.string.label_time_to_full),
+                                stringResource(R.string.battery_time_left_value, minutes / 60, minutes % 60)
+                            )
+                        }
+                        battery.energyMwh?.let {
+                            InfoRow(
+                                stringResource(R.string.label_energy_left),
+                                String.format(Locale.US, "%.1f Wh", it / 1000f)
+                            )
+                        }
+                        InfoRow(
+                            stringResource(R.string.label_battery_saver),
+                            stringResource(if (battery.powerSaveMode) R.string.radio_on else R.string.radio_off)
+                        )
                         InfoRow(stringResource(R.string.label_health), battery.health)
                         InfoRow(stringResource(R.string.label_technology), battery.technology)
                     }

@@ -145,7 +145,6 @@ class UsageCollector(private val context: Context) {
     }
 
     fun collectAppStorage(): List<AppStorageEntry> {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return emptyList()
         if (!hasUsageStatsPermission()) return emptyList()
 
         val statsManager =

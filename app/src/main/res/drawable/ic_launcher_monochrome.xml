@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Themed-icon layer: the system keeps only the shape and tints it, so the
+         screen is cut out of the body instead of being drawn in a second colour. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M36,28c0,-3.3 2.7,-6 6,-6h24c3.3,0 6,2.7 6,6v52c0,3.3 -2.7,6 -6,6H42c-3.3,0 -6,-2.7 -6,-6V28zM40,32h28v42H40z" />
+    <!-- Signal bars -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,62h4v8h-4zM51,54h4v16h-4zM58,46h4v24h-4z" />
+</vector>
