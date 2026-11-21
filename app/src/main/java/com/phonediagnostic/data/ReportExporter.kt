@@ -56,7 +56,11 @@ object ReportExporter {
         Regex("Linux version (\\S+)").find(procVersion)?.groupValues?.get(1)
             ?: procVersion.substringBefore(' ')
 
-    fun toShareText(report: FullDeviceReport, redact: Boolean = false): String {
+    fun toShareText(
+        report: FullDeviceReport,
+        redact: Boolean = false,
+        checkup: CheckupResults? = null
+    ): String {
         val shown = (if (redact) redact(report) else report).let {
             it.copy(network = withoutAddresses(it.network))
         }
@@ -67,7 +71,33 @@ object ReportExporter {
                 appendLine("Device identifiers removed (fingerprint, bootloader, baseband, build host, app paths).")
             }
             append(reportBody(shown))
+            if (checkup != null && !checkup.isEmpty) {
+                appendLine()
+                appendLine("PHONE CHECKUP")
+                appendLine("  ${checkup.passed} passed, ${checkup.failed} failed of ${CheckupTest.entries.size}")
+                CheckupTest.entries.forEach { t ->
+                    val st = checkup.status(t)
+                    if (st != CheckStatus.NOT_RUN) appendLine("  ${checkupName(t)}: ${st.name.lowercase().replace('_', ' ')}")
+                }
+            }
         }
+    }
+
+    /** English names for the report; the screen uses string resources. */
+    internal fun checkupName(t: CheckupTest): String = when (t) {
+        CheckupTest.TOUCH -> "Touchscreen"
+        CheckupTest.MULTITOUCH -> "Multi-touch"
+        CheckupTest.DISPLAY -> "Display colours / dead pixels"
+        CheckupTest.SPEAKER -> "Loudspeaker"
+        CheckupTest.EARPIECE -> "Earpiece"
+        CheckupTest.VIBRATION -> "Vibration"
+        CheckupTest.FLASHLIGHT -> "Flashlight"
+        CheckupTest.BUTTONS -> "Volume buttons"
+        CheckupTest.PROXIMITY -> "Proximity sensor"
+        CheckupTest.LIGHT -> "Light sensor"
+        CheckupTest.MOTION -> "Motion sensor"
+        CheckupTest.CHARGING -> "Charging port"
+        CheckupTest.HEADPHONES -> "Headphones"
     }
 
     private fun reportBody(report: FullDeviceReport): String {
@@ -348,7 +378,11 @@ object ReportExporter {
         appendLine()
     }
 
-    fun toJson(report: FullDeviceReport, redact: Boolean = false): String {
+    fun toJson(
+        report: FullDeviceReport,
+        redact: Boolean = false,
+        checkup: CheckupResults? = null
+    ): String {
         @Suppress("NAME_SHADOWING")
         val report = (if (redact) redact(report) else report).let {
             it.copy(network = withoutAddresses(it.network))
@@ -646,6 +680,14 @@ object ReportExporter {
                 })
             }
         })
+        if (checkup != null && !checkup.isEmpty) {
+            root.put("checkup", JSONObject().apply {
+                CheckupTest.entries.forEach { t ->
+                    val st = checkup.status(t)
+                    if (st != CheckStatus.NOT_RUN) put(t.name.lowercase(), st.name.lowercase())
+                }
+            })
+        }
         return root.toString(2)
     }
 

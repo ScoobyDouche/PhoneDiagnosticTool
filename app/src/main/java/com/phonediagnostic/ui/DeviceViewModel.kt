@@ -35,6 +35,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import com.phonediagnostic.data.StabilityProbe
+import com.phonediagnostic.data.CheckStatus
+import com.phonediagnostic.data.CheckupResults
+import com.phonediagnostic.data.CheckupTest
 import com.phonediagnostic.data.StabilityReport
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -59,7 +62,8 @@ enum class AppScreen {
     PRIVACY,
     CODECS,
     HARDWARE,
-    STABILITY
+    STABILITY,
+    CHECKUP
 }
 
 fun AppScreen.isMainTab(): Boolean = when (this) {
@@ -372,6 +376,41 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                 _appStorageLoading.value = false
             }
         }
+    }
+
+    // ------------------------------------------------------------------ checkup
+
+    private val _checkup = MutableStateFlow(CheckupResults())
+    val checkup: StateFlow<CheckupResults> = _checkup.asStateFlow()
+
+    private val _volumeKeysSeen = MutableStateFlow<Set<Int>>(emptySet())
+    val volumeKeysSeen: StateFlow<Set<Int>> = _volumeKeysSeen.asStateFlow()
+
+    @Volatile
+    var captureVolumeKeys = false
+        private set
+
+    fun openCheckup() = navigateTo(AppScreen.CHECKUP)
+
+    fun setCheckupResult(test: CheckupTest, status: CheckStatus) {
+        _checkup.value = _checkup.value.with(test, status)
+        log.append("Checkup: ${test.name.lowercase()} ${status.name.lowercase()}")
+    }
+
+    fun resetCheckup() {
+        _checkup.value = CheckupResults()
+    }
+
+    fun setCaptureVolumeKeys(capture: Boolean) {
+        captureVolumeKeys = capture
+        if (capture) _volumeKeysSeen.value = emptySet()
+    }
+
+    /** Returns true when the key was taken by the button check. */
+    fun onVolumeKey(keyCode: Int): Boolean {
+        if (!captureVolumeKeys) return false
+        _volumeKeysSeen.value = _volumeKeysSeen.value + keyCode
+        return true
     }
 
     private val _stability = MutableStateFlow<StabilityReport?>(null)

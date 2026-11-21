@@ -532,6 +532,7 @@ private fun ownPermissionPurpose(name: String): Int = when (name.substringAfterL
     "ACCESS_NETWORK_STATE" -> R.string.purpose_network_state
     "ACCESS_WIFI_STATE" -> R.string.purpose_wifi_state
     "VIBRATE" -> R.string.purpose_vibrate
+    "MODIFY_AUDIO_SETTINGS" -> R.string.purpose_audio_settings
     "PACKAGE_USAGE_STATS" -> R.string.purpose_usage_stats
     "QUERY_ALL_PACKAGES" -> R.string.purpose_query_packages
     "REQUEST_DELETE_PACKAGES" -> R.string.purpose_delete_packages

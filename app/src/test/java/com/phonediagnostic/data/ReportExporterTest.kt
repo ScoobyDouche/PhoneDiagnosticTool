@@ -249,4 +249,18 @@ class ReportExporterTest {
         // A report built before hardware was collected has no section at all.
         assertFalse(ReportExporter.toShareText(report()).contains("HARDWARE"))
     }
+
+    @Test
+    fun `checkup results appear in text and json only when something was run`() {
+        assertFalse(ReportExporter.toShareText(report(), checkup = CheckupResults()).contains("PHONE CHECKUP"))
+        val results = CheckupResults()
+            .with(CheckupTest.TOUCH, CheckStatus.PASS)
+            .with(CheckupTest.SPEAKER, CheckStatus.FAIL)
+        val text = ReportExporter.toShareText(report(), checkup = results)
+        assertTrue(text.contains("PHONE CHECKUP"))
+        assertTrue(text.contains("1 passed, 1 failed"))
+        assertTrue(text.contains("Loudspeaker: fail"))
+        val json = org.json.JSONObject(ReportExporter.toJson(report(), checkup = results))
+        assertEquals("pass", json.getJSONObject("checkup").getString("touch"))
+    }
 }

@@ -21,7 +21,7 @@ Captured on a Galaxy Z Flip4 running Android 16.
 - **Overview** — model, Android version, security patch, fingerprint, board, bootloader, kernel, uptime
 - **CPU / SoC** — chip, core designs (Cortex-A / X, Kryo), cluster layout and peak clocks, governors, available frequencies, instruction-set features, live per-core clocks
 - **GPU** — OpenGL ES renderer and version
-- **Battery** — charge, health, temperature, voltage, charging power, charger rating, time to full, drain rate and time left, remaining energy, capacity wear and cycle count (where available)
+- **Battery** — real full capacity measured over a charge (no special access), charge, health, temperature, voltage, charging power, charger rating, time to full, drain rate and time left, remaining energy, capacity wear and cycle count (where available)
 - **RAM** — usage, kernel stats (cached, buffers, swap, ZRAM) and process detail (system-wide with Shizuku/root)
 - **Storage** — volumes, per-app breakdown (requires Usage Access), flash type and wear (UFS / eMMC)
 - **Display** — resolution modes, refresh rates, HDR formats and peak brightness, wide colour gamut
@@ -31,7 +31,7 @@ Captured on a Galaxy Z Flip4 running Android 16.
 - **Media codecs** — every video and audio format, hardware vs software playback and recording, max resolution and frame rate
 - **Thermals** — every zone with readable names, Android's thermal status and throttling headroom
 - **System activity** — awake vs deep-sleep time since boot, last wake reason, top wakeup sources
-- **Network** — IPs, DNS / private DNS, Wi-Fi standard (4 to 7, 6E) / band / signal, cellular generation (2G to 5G) and signal, latency probe with burst stats
+- **Network** — IPs, DNS / private DNS, Wi-Fi standard (4 to 7, 6E) / band / signal, cellular generation (2G to 5G) and signal, latency probe with burst stats, IPv6 / captive-portal / Private DNS checks
 - **Security** — verified boot, bootloader lock, encryption, SELinux, patch age, StrongBox / hardware keystore
 - **Connectivity** — NFC / Bluetooth state, connected audio devices
 
@@ -48,6 +48,8 @@ Captured on a Galaxy Z Flip4 running Android 16.
 - **Block screenshots** (optional) — no screenshots, screen recording or Recents preview
 
 **Tools**
+- **Phone checkup** — guided hardware tests for buying or selling a used phone: touch grid, multi-touch, display colours / dead pixels, loudspeaker, earpiece, vibration, flashlight, volume buttons, proximity, light and motion sensors, charging port, headphones; results go into reports
+- **Crashes and restarts** (Shizuku / root) — app crashes, ANRs, system restarts and kernel entries from the last 7 days
 - **History** — battery, temperature and RAM trends from up to 24 h of on-device samples
 - **Load test** — 1 / 5 / 10 min CPU load with k-ops/s score and throttling detection (sustained % of peak)
 - Vibration check, storage speed test, background monitor with a rotating log (5000 lines)
@@ -123,6 +125,7 @@ CI runs tests, lint and the debug/release APK + AAB builds on every push and pul
 | `ACCESS_NETWORK_STATE` | Detect connection type; DNS and link details |
 | `ACCESS_WIFI_STATE` | Wi-Fi link speed, band, signal |
 | `VIBRATE` | Vibration hardware check under Tools |
+| `MODIFY_AUDIO_SETTINGS` | Route the Phone checkup's test tone to the earpiece |
 | `PACKAGE_USAGE_STATS` | Per-app storage (user must grant Usage Access) |
 | `QUERY_ALL_PACKAGES` | List installed apps for the storage breakdown and Privacy audit (Android 11+) |
 | `REQUEST_DELETE_PACKAGES` | Uninstall from storage detail |

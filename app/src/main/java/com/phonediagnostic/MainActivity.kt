@@ -18,6 +18,7 @@ import android.os.Looper
 import android.os.PersistableBundle
 import android.os.SystemClock
 import android.provider.Settings
+import android.view.KeyEvent
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -74,6 +75,7 @@ import com.phonediagnostic.data.ThemeMode
 import com.phonediagnostic.ui.AboutScreen
 import com.phonediagnostic.ui.AppScreen
 import com.phonediagnostic.ui.BatteryScreen
+import com.phonediagnostic.ui.CheckupScreen
 import com.phonediagnostic.ui.CodecsScreen
 import com.phonediagnostic.ui.CpuScreen
 import com.phonediagnostic.ui.DashboardScreen
@@ -189,6 +191,8 @@ class MainActivity : ComponentActivity() {
                     val historyEnabled by viewModel.historyEnabled.collectAsStateWithLifecycle()
                     val hideAddresses by viewModel.hideAddresses.collectAsStateWithLifecycle()
                     val stability by viewModel.stability.collectAsStateWithLifecycle()
+                    val checkup by viewModel.checkup.collectAsStateWithLifecycle()
+                    val volumeKeysSeen by viewModel.volumeKeysSeen.collectAsStateWithLifecycle()
                     val stabilityLoading by viewModel.stabilityLoading.collectAsStateWithLifecycle()
 
                     // Back used to leave the app from every detail screen. Intercept
@@ -306,6 +310,7 @@ class MainActivity : ComponentActivity() {
                                             onOpenCodecs = { viewModel.openCodecs() },
                                             onOpenHardware = { viewModel.openHardware() },
                                             onOpenStability = { viewModel.openStability() },
+                                            onOpenCheckup = { viewModel.openCheckup() },
                                             onOpenTools = { viewModel.openTools() },
                                             onOpenSettings = { viewModel.openSettings() },
                                             onOpenAbout = { viewModel.openAbout() },
@@ -447,6 +452,16 @@ class MainActivity : ComponentActivity() {
                                             onBack = { viewModel.navigateBack() }
                                         )
                                     }
+                                    AppScreen.CHECKUP -> {
+                                        CheckupScreen(
+                                            results = checkup,
+                                            volumeKeysSeen = volumeKeysSeen,
+                                            onResult = { test, status -> viewModel.setCheckupResult(test, status) },
+                                            onCaptureVolumeKeys = { viewModel.setCaptureVolumeKeys(it) },
+                                            onReset = { viewModel.resetCheckup() },
+                                            onBack = { viewModel.navigateBack() }
+                                        )
+                                    }
                                     AppScreen.STABILITY -> {
                                         StabilityScreen(
                                             report = stability,
@@ -484,6 +499,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /** The checkup's button test needs the volume keys before the system takes them. */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val code = event.keyCode
+        if ((code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN) &&
+            viewModel.captureVolumeKeys
+        ) {
+            if (event.action == KeyEvent.ACTION_DOWN) viewModel.onVolumeKey(code)
+            return true
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     private fun requestNotificationThenStartMonitor() {
@@ -614,7 +641,7 @@ class MainActivity : ComponentActivity() {
     private fun shareText() {
         val report = currentReport() ?: return
         startChooser(
-            text = ReportExporter.toShareText(report, redactExports()),
+            text = ReportExporter.toShareText(report, redactExports(), viewModel.checkup.value),
             mimeType = MIME_TEXT,
             subject = getString(R.string.report_subject),
             title = getString(R.string.chooser_share_report)
@@ -624,7 +651,7 @@ class MainActivity : ComponentActivity() {
     private fun shareJson() {
         val report = currentReport() ?: return
         startChooser(
-            text = ReportExporter.toJson(report, redactExports()),
+            text = ReportExporter.toJson(report, redactExports(), viewModel.checkup.value),
             mimeType = MIME_JSON,
             subject = getString(R.string.report_subject_json),
             title = getString(R.string.chooser_share_json)
@@ -684,7 +711,7 @@ class MainActivity : ComponentActivity() {
             // One file per share keeps this from growing without bound.
             clearSharedReports()
             val file = File(dir, name)
-            file.writeText(ReportExporter.toShareText(report, redactExports()))
+            file.writeText(ReportExporter.toShareText(report, redactExports(), viewModel.checkup.value))
             FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         } catch (e: Exception) {
             Toast.makeText(
@@ -719,13 +746,13 @@ class MainActivity : ComponentActivity() {
 
     private fun saveText() {
         val report = currentReport() ?: return
-        pendingExport = ReportExporter.toShareText(report, redactExports())
+        pendingExport = ReportExporter.toShareText(report, redactExports(), viewModel.checkup.value)
         launchSave(saveTextLauncher, ReportExporter.suggestedFileName(report, "txt"))
     }
 
     private fun saveJson() {
         val report = currentReport() ?: return
-        pendingExport = ReportExporter.toJson(report, redactExports())
+        pendingExport = ReportExporter.toJson(report, redactExports(), viewModel.checkup.value)
         launchSave(saveJsonLauncher, ReportExporter.suggestedFileName(report, "json"))
     }
 
@@ -761,7 +788,7 @@ class MainActivity : ComponentActivity() {
 
     private fun copyText() {
         val report = currentReport() ?: return
-        val text = ReportExporter.toShareText(report, redactExports())
+        val text = ReportExporter.toShareText(report, redactExports(), viewModel.checkup.value)
         // The application's service, so the delayed clear does not pin this activity.
         val clipboard = applicationContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         if (clipboard == null) {
