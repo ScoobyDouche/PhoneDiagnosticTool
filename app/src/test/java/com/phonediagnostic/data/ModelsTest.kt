@@ -138,3 +138,12 @@ class ModelsTest {
         assertEquals(0f, battery(voltage = 4000, currentNowMa = 0).powerWatts!!, 0.001f)
     }
 }
+
+class Ipv6StatusTest {
+    @org.junit.Test
+    fun classify() {
+        org.junit.Assert.assertEquals(Ipv6Status.WORKING, Ipv6Status.classify(true, true))
+        org.junit.Assert.assertEquals(Ipv6Status.ADDRESS_ONLY, Ipv6Status.classify(true, false))
+        org.junit.Assert.assertEquals(Ipv6Status.NONE, Ipv6Status.classify(false, true))
+    }
+}

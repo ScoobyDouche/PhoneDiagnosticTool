@@ -301,8 +301,32 @@ data class NetworkDetail(
     val domains: String = "",
     val wifi: WifiDetail? = null,
     val cellular: CellularDetail? = null,
-    val capabilities: List<String> = emptyList()
+    val capabilities: List<String> = emptyList(),
+    /** Android confirmed this network reaches the internet. */
+    val validated: Boolean? = null,
+    /** The network wants a sign-in page before it carries traffic. */
+    val captivePortal: Boolean = false,
+    val ipv6: Ipv6Status = Ipv6Status.NONE
 )
+
+/** How far IPv6 works on the active network. */
+enum class Ipv6Status {
+    /** A global address and a default route: IPv6 sites are reachable. */
+    WORKING,
+    /** A global address but no IPv6 default route. */
+    ADDRESS_ONLY,
+    /** Link-local only, or nothing. */
+    NONE;
+
+    companion object {
+        /** Pure, for tests. */
+        fun classify(hasGlobalAddress: Boolean, hasDefaultRoute: Boolean): Ipv6Status = when {
+            hasGlobalAddress && hasDefaultRoute -> WORKING
+            hasGlobalAddress -> ADDRESS_ONLY
+            else -> NONE
+        }
+    }
+}
 
 data class SensorEntry(
     val name: String,

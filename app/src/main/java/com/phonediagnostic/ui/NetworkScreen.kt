@@ -35,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.phonediagnostic.R
+import com.phonediagnostic.data.Ipv6Status
 import com.phonediagnostic.data.LatencyStats
 import com.phonediagnostic.data.NetworkDetail
 import com.phonediagnostic.data.NetworkInfo
@@ -336,6 +337,13 @@ fun NetworkScreen(
                             InfoRow(
                                 stringResource(R.string.label_private_dns),
                                 when {
+                                    // Strict mode with a hostname that never validated
+                                    // means DNS is failing on this network.
+                                    detail.privateDnsServer != null && !detail.privateDnsActive ->
+                                        stringResource(
+                                            R.string.private_dns_failing,
+                                            shown(detail.privateDnsServer)
+                                        )
                                     detail.privateDnsServer != null ->
                                         stringResource(
                                             R.string.private_dns_on_named,
@@ -352,6 +360,35 @@ fun NetworkScreen(
                                     shown(detail.domains)
                                 )
                             }
+                        }
+                    }
+                }
+
+                item(key = "checks") {
+                    InfoCard(title = stringResource(R.string.network_section_checks)) {
+                        Column {
+                            detail.validated?.let { ok ->
+                                InfoRow(
+                                    stringResource(R.string.label_internet_verified),
+                                    stringResource(if (ok) R.string.check_yes else R.string.check_no)
+                                )
+                            }
+                            InfoRow(
+                                stringResource(R.string.label_captive_portal),
+                                stringResource(
+                                    if (detail.captivePortal) R.string.captive_sign_in else R.string.check_no
+                                )
+                            )
+                            InfoRow(
+                                stringResource(R.string.label_ipv6),
+                                stringResource(
+                                    when (detail.ipv6) {
+                                        Ipv6Status.WORKING -> R.string.ipv6_working
+                                        Ipv6Status.ADDRESS_ONLY -> R.string.ipv6_address_only
+                                        Ipv6Status.NONE -> R.string.ipv6_none
+                                    }
+                                )
+                            )
                         }
                     }
                 }

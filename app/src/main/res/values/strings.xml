@@ -791,4 +791,15 @@
     <string name="battery_measured_pending">Charge the phone by 20% or more with this app open or the background monitor on, and the real capacity of the battery will be measured.</string>
     <string name="tools_storage_random_write">Random 4 KB write (synced)</string>
     <string name="tools_storage_iops">%1$.0f IOPS</string>
+    <string name="network_section_checks">Connectivity checks</string>
+    <string name="label_internet_verified">Internet verified by Android</string>
+    <string name="label_captive_portal">Sign-in page (captive portal)</string>
+    <string name="captive_sign_in">Sign-in required</string>
+    <string name="check_yes">Yes</string>
+    <string name="check_no">No</string>
+    <string name="label_ipv6">IPv6</string>
+    <string name="ipv6_working">Working</string>
+    <string name="ipv6_address_only">Address but no route</string>
+    <string name="ipv6_none">Not available</string>
+    <string name="private_dns_failing">Set to %1$s but not working</string>
 </resources>

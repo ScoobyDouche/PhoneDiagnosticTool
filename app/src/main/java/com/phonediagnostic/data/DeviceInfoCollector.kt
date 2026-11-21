@@ -1520,8 +1520,23 @@ class DeviceInfoCollector(private val context: Context) {
             domains = linkProperties?.domains.orEmpty(),
             wifi = collectWifiDetail(capabilities),
             cellular = collectCellularDetail(capabilities),
-            capabilities = describeCapabilities(capabilities)
+            capabilities = describeCapabilities(capabilities),
+            validated = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+            captivePortal = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true,
+            ipv6 = ipv6Status(linkProperties)
         )
+    }
+
+    private fun ipv6Status(link: android.net.LinkProperties?): Ipv6Status {
+        if (link == null) return Ipv6Status.NONE
+        val global = link.linkAddresses.any { la ->
+            val a = la.address
+            // Global unicast only: not link-local, not unique-local (fc00::/7).
+            a is Inet6Address && !a.isLinkLocalAddress && !a.isLoopbackAddress &&
+                (a.address[0].toInt() and 0xFE) != 0xFC
+        }
+        val route = link.routes.any { it.isDefaultRoute && it.destination.address is Inet6Address }
+        return Ipv6Status.classify(global, route)
     }
 
     private fun collectInterfaces(): List<NetworkInterfaceInfo> {
