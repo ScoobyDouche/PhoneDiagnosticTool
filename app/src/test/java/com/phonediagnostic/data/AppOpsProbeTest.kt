@@ -60,4 +60,25 @@ class AppOpsProbeTest {
         assertEquals(setOf("com.foo.bar", "com.baz.qux"), AppOpsProbe.parseQueryOp(out))
         assertTrue(AppOpsProbe.parseQueryOp(null).isEmpty())
     }
+
+    /** Captured from a Galaxy Z Flip4 on Android 16 (`dumpsys appops --op CAMERA`). */
+    @Test
+    fun realAndroid16Excerpt() {
+        val dump = """
+              Uid u0a245:
+                state=cch
+                capability=--------
+                appWidgetVisible=false
+                  CAMERA: mode=foreground
+                Package com.sec.android.app.camera:
+                  CAMERA (allow): 
+                    null=[
+                      Access: [top-s] 2026-11-20 10:00:26.956 (-1d5h52m4s43ms) duration=+2s855ms
+                    ]
+        """.trimIndent()
+        assertEquals(
+            86_400_000L + 5 * 3_600_000L + 52 * 60_000L + 4_043L,
+            AppOpsProbe.parseLastAccess(dump)["com.sec.android.app.camera"]
+        )
+    }
 }

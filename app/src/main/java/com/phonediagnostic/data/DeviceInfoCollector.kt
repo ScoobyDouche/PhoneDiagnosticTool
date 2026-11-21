@@ -1523,8 +1523,37 @@ class DeviceInfoCollector(private val context: Context) {
             capabilities = describeCapabilities(capabilities),
             validated = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
             captivePortal = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true,
-            ipv6 = ipv6Status(linkProperties)
+            ipv6 = bestIpv6Status(cm, capabilities, linkProperties)
         )
+    }
+
+    /**
+     * A split-tunnel VPN (Tailscale, WireGuard without a full route) is the
+     * "active" network while ordinary traffic still leaves over Wi-Fi or
+     * mobile data, so with a VPN up the networks underneath count too.
+     */
+    private fun bestIpv6Status(
+        cm: ConnectivityManager?,
+        capabilities: NetworkCapabilities?,
+        active: android.net.LinkProperties?
+    ): Ipv6Status {
+        val own = ipv6Status(active)
+        if (own == Ipv6Status.WORKING || cm == null ||
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true
+        ) return own
+        val others = try {
+            @Suppress("DEPRECATION")
+            cm.allNetworks.mapNotNull { n ->
+                val caps = cm.getNetworkCapabilities(n) ?: return@mapNotNull null
+                if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) ||
+                    !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                ) return@mapNotNull null
+                ipv6Status(cm.getLinkProperties(n))
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+        return (others + own).minByOrNull { it.ordinal } ?: own
     }
 
     private fun ipv6Status(link: android.net.LinkProperties?): Ipv6Status {

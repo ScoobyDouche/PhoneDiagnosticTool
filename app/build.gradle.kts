@@ -12,8 +12,8 @@ android {
         applicationId = "com.phonediagnostic"
         minSdk = 26
         targetSdk = 35
-        versionCode = 36
-        versionName = "1.4.0"
+        versionCode = 37
+        versionName = "1.5.0"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -45,6 +45,9 @@ android {
 
     buildTypes {
         debug {
+            // Installs alongside a store / GitHub release build instead of
+            // clashing with its signing key.
+            applicationIdSuffix = ".dev"
             val ciKeystore = rootProject.file("keystore/debug.keystore")
             if (ciKeystore.exists()) {
                 signingConfig = signingConfigs.getByName("ciDebug")

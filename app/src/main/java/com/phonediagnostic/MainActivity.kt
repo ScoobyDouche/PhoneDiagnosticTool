@@ -520,17 +520,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** The checkup's button test needs the volume keys before the system takes them. */
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        val code = event.keyCode
-        if ((code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN) &&
-            viewModel.captureVolumeKeys
-        ) {
-            if (event.action == KeyEvent.ACTION_DOWN) viewModel.onVolumeKey(code)
-            return true
-        }
-        return super.dispatchKeyEvent(event)
+    /** The checkup's button test takes the volume keys while it is open. */
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (isVolumeKey(keyCode) && viewModel.onVolumeKey(keyCode)) return true
+        return super.onKeyDown(keyCode, event)
     }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (isVolumeKey(keyCode) && viewModel.captureVolumeKeys) return true
+        return super.onKeyUp(keyCode, event)
+    }
+
+    private fun isVolumeKey(code: Int) =
+        code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN
 
     private fun requestNotificationThenStartMonitor() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

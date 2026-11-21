@@ -1,12 +1,12 @@
 package com.phonediagnostic.ui
 
-import android.app.Activity
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -60,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -252,7 +253,7 @@ fun CheckupScreen(
 /** Hides the status and navigation bars while a full-screen test is up. */
 @Composable
 private fun ImmersiveMode() {
-    val activity = LocalContext.current as? Activity ?: return
+    val activity = LocalActivity.current ?: return
     DisposableEffect(activity) {
         val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -279,27 +280,32 @@ private fun TouchGridTest(finish: (CheckStatus?) -> Unit) {
         }
     }
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    awaitEachGesture {
-                        val down = awaitFirstDown()
-                        fun mark(o: Offset) {
-                            if (cols == 0 || rows == 0) return
-                            val c = (o.x / (size.width / cols.toFloat())).toInt().coerceIn(0, cols - 1)
-                            val r = (o.y / (size.height / rows.toFloat())).toInt().coerceIn(0, rows - 1)
-                            covered[r * cols + c] = true
-                        }
-                        mark(down.position)
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            event.changes.forEach { if (it.pressed) mark(it.position) }
-                            if (event.changes.none { it.pressed }) break
-                        }
+    // Tracked on the container in the Initial pass, so squares under the
+    // give-up button still register when a finger slides across them.
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    fun mark(o: Offset) {
+                        if (cols == 0 || rows == 0) return
+                        val c = (o.x / (size.width / cols.toFloat())).toInt().coerceIn(0, cols - 1)
+                        val r = (o.y / (size.height / rows.toFloat())).toInt().coerceIn(0, rows - 1)
+                        covered[r * cols + c] = true
+                    }
+                    mark(down.position)
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        event.changes.forEach { if (it.pressed) mark(it.position) }
+                        if (event.changes.none { it.pressed }) break
                     }
                 }
+            }
+    ) {
+        Canvas(
+            modifier = Modifier.fillMaxSize()
         ) {
             if (cols == 0) {
                 cols = (size.width / cellPx).toInt().coerceAtLeast(4)
