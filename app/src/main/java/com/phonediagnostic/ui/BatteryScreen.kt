@@ -233,6 +233,32 @@ fun BatteryScreen(
                                 )
                             }
                         }
+                        // Measured over a real charge: works on phones whose gauge
+                        // nodes are locked, so it often fills the gap above.
+                        val measured = battery.measuredCapacity
+                        val designRef = design ?: battery.capacityMah
+                        if (measured != null) {
+                            InfoRow(
+                                stringResource(R.string.label_measured_capacity),
+                                if (designRef != null && designRef > 0) stringResource(
+                                    R.string.battery_measured_of_design,
+                                    measured.fullMah,
+                                    (measured.fullMah * 100 / designRef).coerceAtMost(100),
+                                    designRef
+                                ) else stringResource(R.string.battery_mah, measured.fullMah)
+                            )
+                            Text(
+                                text = stringResource(R.string.battery_measured_note, measured.spanPercent),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else if (battery.chargeCounterUah != null) {
+                            Text(
+                                text = stringResource(R.string.battery_measured_pending),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         // Cycles come from a different source than the wear
                         // percentage, so either can be present without the other.
                         if (cycles != null) {

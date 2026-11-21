@@ -588,7 +588,11 @@ class DeviceInfoCollector(private val context: Context) {
             } else null
         } else null
 
+        val tracker = BatteryCapacityTracker.get(context)
+        runCatching { tracker.observe(isCharging && status != "Full", batteryPct, chargeCounter) }
+
         return BatteryInfo(
+            measuredCapacity = tracker.latest(),
             level = batteryPct, status = status, health = health, temperature = temperature,
             voltage = voltage, technology = technology, isCharging = isCharging,
             powerSource = powerSource, currentNowMa = currentNowMa, currentAvgMa = currentAvgMa,

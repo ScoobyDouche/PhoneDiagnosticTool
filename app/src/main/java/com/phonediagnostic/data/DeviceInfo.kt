@@ -88,6 +88,8 @@ data class BatteryInfo(
     val capacityMah: Int? = null,
     /** Charge counter (µAh) when exposed. */
     val chargeCounterUah: Long? = null,
+    /** Full capacity measured over a real charge; see BatteryCapacityTracker. */
+    val measuredCapacity: MeasuredCapacity? = null,
     /** Present full-charge capacity in mAh, from the fuel gauge. Null if not exposed. */
     val fullChargeMah: Int? = null,
     /** Factory design capacity in mAh, from the fuel gauge. Null if not exposed. */

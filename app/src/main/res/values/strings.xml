@@ -784,4 +784,9 @@
         <item quantity="one">%1$d sideloaded or hidden app with special access</item>
         <item quantity="other">%1$d sideloaded or hidden apps with special access</item>
     </plurals>
+    <string name="label_measured_capacity">Measured capacity</string>
+    <string name="battery_measured_of_design">%1$d mAh (%2$d%% of %3$d)</string>
+    <string name="battery_mah">%1$d mAh</string>
+    <string name="battery_measured_note">Worked out from how much charge went in over the last %1$d%% of a real charge. Wider charges are more accurate; a charge from below 30%% to full is best.</string>
+    <string name="battery_measured_pending">Charge the phone by 20% or more with this app open or the background monitor on, and the real capacity of the battery will be measured.</string>
 </resources>

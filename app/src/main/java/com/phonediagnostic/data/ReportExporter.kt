@@ -148,6 +148,9 @@ object ReportExporter {
             }
             b.capacityHealthPercent?.let { appendLine("  Capacity health: $it% of design") }
             b.cycleCount?.let { appendLine("  Charge cycles: $it") }
+            b.measuredCapacity?.let {
+                appendLine("  Measured full capacity: ${it.fullMah} mAh (over a ${it.spanPercent}% charge)")
+            }
             appendLine("  Technology: ${b.technology}")
             appendLine("  Power Source: ${b.powerSource}")
             b.chargerMaxWatts?.let { appendLine("  Charger offers: ${String.format(Locale.US, "%.1f", it)} W") }
@@ -420,6 +423,8 @@ object ReportExporter {
             put("powerSource", b.powerSource)
             put("capacityHealthPercent", b.capacityHealthPercent ?: JSONObject.NULL)
             put("cycleCount", b.cycleCount ?: JSONObject.NULL)
+            put("measuredCapacityMah", b.measuredCapacity?.fullMah ?: JSONObject.NULL)
+            put("measuredCapacitySpanPercent", b.measuredCapacity?.spanPercent ?: JSONObject.NULL)
             put("chargerMaxWatts", b.chargerMaxWatts ?: JSONObject.NULL)
             put("chargeTimeRemainingMs", b.chargeTimeRemainingMs ?: JSONObject.NULL)
             put("powerSaveMode", b.powerSaveMode)
