@@ -23,8 +23,11 @@ The app reads standard Android system APIs on-device to show:
 - Whether NFC and Bluetooth are present and switched on (never the Bluetooth
   name or address), and which kinds of audio device are connected
 - Verified-boot, bootloader-lock and encryption state, where Android exposes it
-- Which installed apps hold sensitive permissions or special access (Privacy
-  audit screen)
+- Which installed apps hold sensitive permissions or special access, and which
+  are exempt from battery optimisation (Privacy audit screen)
+- How many user-installed CA certificates exist (only the count, never the
+  certificates), whether the device or a work profile is managed by an
+  organisation, and whether the current Wi-Fi network is encrypted
 - Cellular generation and signal strength, read without any phone or location
   permission and without cell tower or location identifiers
 - Hardware features (biometric readers, NFC, UWB, eSIM, Wi‑Fi bands, infrared),
@@ -83,7 +86,9 @@ backend:
 - **Root** — the app runs the same read-only commands through `su`.
 
 In both cases the commands are limited to reading diagnostic values (e.g.
-`cat`-ing a sysfs node for storage wear or wakeup sources), the results are shown on-device exactly like every
+`cat`-ing a sysfs node for storage wear or wakeup sources, or `cmd appops
+query-op` / `dumpsys appops` for the Privacy audit's overlay, app-install and
+usage-access lists and its recent camera / microphone / location use), the results are shown on-device exactly like every
 other reading, and **nothing about this is transmitted anywhere**. No elevated
 access is used, requested, or bound while the feature is set to Off.
 

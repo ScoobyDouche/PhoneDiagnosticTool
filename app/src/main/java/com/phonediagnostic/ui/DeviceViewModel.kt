@@ -384,7 +384,8 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                 _privacyAudit.value = privacyAuditor.collect(
                     security = report?.security,
                     nfc = report?.nfc,
-                    bluetooth = report?.bluetooth
+                    bluetooth = report?.bluetooth,
+                    elevated = elevatedManager.activeShell.value
                 )
             } catch (_: Exception) {
                 _privacyAudit.value = null

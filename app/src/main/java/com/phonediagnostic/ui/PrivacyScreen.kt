@@ -49,6 +49,8 @@ import com.phonediagnostic.data.PostureResult
 import com.phonediagnostic.data.PostureState
 import com.phonediagnostic.data.PrivacyAudit
 import com.phonediagnostic.data.SensitiveAccess
+import com.phonediagnostic.data.SensorUse
+import com.phonediagnostic.data.RecentUseEntry
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,6 +113,8 @@ fun PrivacyScreen(
                 return@LazyColumn
             }
 
+            item { SummaryCard(audit) }
+
             if (audit.posture.isNotEmpty()) {
                 item { SectionLabel(stringResource(R.string.privacy_device_heading)) }
                 item { PostureCard(audit.posture) }
@@ -141,6 +145,7 @@ fun PrivacyScreen(
                 CategoryCard(
                     access = access,
                     apps = apps,
+                    unavailable = access.needsElevation && !audit.elevatedAvailable,
                     expanded = access.name in expanded,
                     onToggle = { expanded = expanded.toggle(access.name) },
                     onOpenAppInfo = onOpenAppInfo
@@ -168,6 +173,14 @@ fun PrivacyScreen(
                 )
             }
 
+            item { SectionLabel(stringResource(R.string.privacy_recent_heading)) }
+            val recent = audit.recentUse.filter { showSystem || !it.isSystem }
+            when {
+                !audit.elevatedAvailable -> item { HintText(stringResource(R.string.privacy_recent_needs_elevated)) }
+                recent.isEmpty() -> item { HintText(stringResource(R.string.privacy_recent_none)) }
+                else -> item { RecentUseCard(recent, onOpenAppInfo) }
+            }
+
             item { SectionLabel(stringResource(R.string.privacy_this_app_heading)) }
             item { OwnPermissionsCard(audit.ownPermissions) }
         }
@@ -190,6 +203,7 @@ private fun SectionLabel(text: String) {
 private fun CategoryCard(
     access: SensitiveAccess,
     apps: List<AppPrivacyEntry>,
+    unavailable: Boolean = false,
     expanded: Boolean,
     onToggle: () -> Unit,
     onOpenAppInfo: (String) -> Unit
@@ -217,7 +231,8 @@ private fun CategoryCard(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = if (apps.isEmpty()) stringResource(R.string.privacy_none)
+                    text = if (unavailable) stringResource(R.string.privacy_needs_elevated)
+                    else if (apps.isEmpty()) stringResource(R.string.privacy_none)
                     else pluralStringResource(R.plurals.privacy_app_count, apps.size, apps.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -247,7 +262,8 @@ private fun CategoryCard(
                     )
                     val tags = listOfNotNull(
                         stringResource(R.string.privacy_tag_sideloaded).takeIf { app.sideloaded },
-                        stringResource(R.string.privacy_tag_hidden).takeIf { app.hiddenFromLauncher }
+                        stringResource(R.string.privacy_tag_hidden).takeIf { app.hiddenFromLauncher },
+                        stringResource(R.string.privacy_tag_background).takeIf { app.unrestrictedBackground }
                     )
                     if (tags.isNotEmpty()) {
                         Text(
@@ -329,6 +345,14 @@ private fun postureStrings(check: PostureCheck): Triple<Int, Int, Int> = when (c
         Triple(R.string.label_nfc, R.string.radio_off, R.string.radio_on)
     PostureCheck.SENSOR_TOGGLES ->
         Triple(R.string.posture_sensor_toggles, R.string.posture_available, R.string.posture_not_available)
+    PostureCheck.USER_CA_CERTS ->
+        Triple(R.string.posture_user_ca, R.string.posture_none, R.string.posture_installed)
+    PostureCheck.DEVICE_MANAGED ->
+        Triple(R.string.posture_device_managed, R.string.posture_no, R.string.posture_managed)
+    PostureCheck.WORK_PROFILE ->
+        Triple(R.string.posture_work_profile, R.string.posture_none, R.string.posture_present)
+    PostureCheck.WIFI_SECURITY ->
+        Triple(R.string.posture_wifi_security, R.string.posture_encrypted, R.string.posture_open)
 }
 
 @Composable
@@ -390,6 +414,116 @@ private fun accessTitle(access: SensitiveAccess): Int = when (access) {
     SensitiveAccess.KEYBOARD -> R.string.privacy_cat_keyboard
     SensitiveAccess.NOTIFICATION_LISTENER -> R.string.privacy_cat_notifications
     SensitiveAccess.DEVICE_ADMIN -> R.string.privacy_cat_admin
+    SensitiveAccess.OVERLAY -> R.string.privacy_cat_overlay
+    SensitiveAccess.INSTALL_APPS -> R.string.privacy_cat_install_apps
+    SensitiveAccess.USAGE_ACCESS -> R.string.privacy_cat_usage_access
+}
+
+@Composable
+private fun HintText(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 4.dp)
+    )
+}
+
+/**
+ * One-glance verdict: how many things on this screen are worth a look. It
+ * counts device checks in the red and apps that fit the stalkerware pattern
+ * (special access held by a sideloaded or icon-less app). Not a verdict on any
+ * single app — just where to start reading.
+ */
+@Composable
+private fun SummaryCard(audit: PrivacyAudit) {
+    val flagged = audit.appsWorthReview
+    val warnings = audit.postureWarnings
+    val total = flagged.size + warnings.size
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (total > 0) MaterialTheme.colorScheme.errorContainer
+            else MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = if (total == 0) stringResource(R.string.privacy_summary_clear)
+                else pluralStringResource(R.plurals.privacy_summary_items, total, total),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            if (warnings.isNotEmpty()) {
+                Text(
+                    text = pluralStringResource(R.plurals.privacy_summary_settings, warnings.size, warnings.size),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (flagged.isNotEmpty()) {
+                Text(
+                    text = pluralStringResource(R.plurals.privacy_summary_apps, flagged.size, flagged.size) +
+                        ": " + flagged.joinToString(", ") { it.label },
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (!audit.elevatedAvailable) {
+                Text(
+                    text = stringResource(R.string.privacy_summary_elevated_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/** Apps that used camera, microphone or location in the last week, most recent first. */
+@Composable
+private fun RecentUseCard(entries: List<RecentUseEntry>, onOpenAppInfo: (String) -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+    ) {
+        entries.forEachIndexed { index, entry ->
+            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenAppInfo(entry.packageName) }
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Text(text = entry.label, style = MaterialTheme.typography.bodyMedium)
+                val parts = SensorUse.entries.mapNotNull { use ->
+                    val ago = entry.lastUsedAgoMs[use] ?: return@mapNotNull null
+                    stringResource(sensorUseLabel(use)) + " " + formatAgo(ago)
+                }
+                Text(
+                    text = parts.joinToString(" · "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@StringRes
+private fun sensorUseLabel(use: SensorUse): Int = when (use) {
+    SensorUse.CAMERA -> R.string.privacy_cat_camera
+    SensorUse.MICROPHONE -> R.string.privacy_cat_microphone
+    SensorUse.LOCATION -> R.string.privacy_cat_location
+}
+
+@Composable
+private fun formatAgo(ms: Long): String {
+    val minutes = ms / 60_000
+    return when {
+        minutes < 1 -> stringResource(R.string.ago_just_now)
+        minutes < 60 -> stringResource(R.string.ago_minutes, minutes)
+        minutes < 48 * 60 -> stringResource(R.string.ago_hours, minutes / 60)
+        else -> stringResource(R.string.ago_days, minutes / (24 * 60))
+    }
 }
 
 @StringRes

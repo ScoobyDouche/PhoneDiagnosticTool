@@ -36,7 +36,9 @@ Captured on a Galaxy Z Flip4 running Android 16.
 - **Connectivity** — NFC / Bluetooth state, connected audio devices
 
 **Privacy**
-- **Privacy audit** — which apps hold camera, microphone, location, contacts, SMS and other sensitive permissions, and which have accessibility, keyboard, notification or device-admin access; apps that were not installed from a store or have no launcher icon are marked
+- **Privacy audit** — which apps hold camera, microphone, location, contacts, SMS and other sensitive permissions, and which have accessibility, keyboard, notification or device-admin access; apps that were not installed from a store, have no launcher icon or run unrestricted in the background are marked; a summary card says how many things are worth a look
+- **Device checks** — screen lock, encryption, debugging, VPN, Private DNS, user-installed CA certificates (can intercept "secure" traffic), organisation management / work profile, open Wi-Fi
+- **With Shizuku or root** — which apps can draw over other apps, install apps or read usage, and which used the camera, microphone or location in the last 7 days
 - **Device checks** — screen lock, encryption, bootloader, patch age, USB / wireless debugging, VPN, Private DNS, location services at a glance
 - **Redacted reports** (on by default) — exports leave out fingerprint, bootloader, baseband, build host and app paths; no report ever contains an IP address
 - **Hide network addresses** (optional) — IPs, DNS servers, Wi-Fi name and carrier stay masked on screen until tapped

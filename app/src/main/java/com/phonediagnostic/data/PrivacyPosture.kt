@@ -23,7 +23,11 @@ enum class PostureCheck {
     LOCATION,
     BLUETOOTH,
     NFC,
-    SENSOR_TOGGLES
+    SENSOR_TOGGLES,
+    USER_CA_CERTS,
+    DEVICE_MANAGED,
+    WORK_PROFILE,
+    WIFI_SECURITY
 }
 
 enum class PostureState {
@@ -56,7 +60,14 @@ data class PostureSnapshot(
     val locationEnabled: Boolean? = null,
     val bluetoothEnabled: Boolean? = null,
     val nfcEnabled: Boolean? = null,
-    val sensorToggles: Boolean? = null
+    val sensorToggles: Boolean? = null,
+    /** CA certificates the user (or an app, via the user) added. They can intercept TLS. */
+    val userCaCerts: Int? = null,
+    /** A device-owner or profile-owner app controls this device. */
+    val deviceManaged: Boolean? = null,
+    val workProfile: Boolean? = null,
+    /** True when the current Wi-Fi network is encrypted; false for open or WEP; null off Wi-Fi. */
+    val wifiEncrypted: Boolean? = null
 )
 
 object PrivacyPosture {
@@ -83,6 +94,10 @@ object PrivacyPosture {
         add(PostureCheck.BLUETOOTH, s.bluetoothEnabled, PostureState.NEUTRAL, PostureState.GOOD)
         add(PostureCheck.NFC, s.nfcEnabled, PostureState.NEUTRAL, PostureState.GOOD)
         add(PostureCheck.SENSOR_TOGGLES, s.sensorToggles, PostureState.GOOD, PostureState.NEUTRAL)
+        add(PostureCheck.USER_CA_CERTS, s.userCaCerts?.let { it == 0 }, PostureState.GOOD, PostureState.ATTENTION)
+        add(PostureCheck.DEVICE_MANAGED, s.deviceManaged, PostureState.ATTENTION, PostureState.GOOD)
+        add(PostureCheck.WORK_PROFILE, s.workProfile, PostureState.NEUTRAL, PostureState.GOOD)
+        add(PostureCheck.WIFI_SECURITY, s.wifiEncrypted, PostureState.GOOD, PostureState.ATTENTION)
         return results
     }
 
@@ -128,7 +143,11 @@ object PrivacyPosture {
             locationEnabled = locationEnabled(context),
             bluetoothEnabled = bluetooth?.takeIf { it.present }?.enabled,
             nfcEnabled = nfc?.takeIf { it.present }?.enabled,
-            sensorToggles = sensorToggles(context)
+            sensorToggles = sensorToggles(context),
+            userCaCerts = userCaCertCount(),
+            deviceManaged = deviceManaged(context),
+            workProfile = workProfile(context),
+            wifiEncrypted = wifiEncrypted(context, capabilities)
         )
     }
 
@@ -154,5 +173,68 @@ object PrivacyPosture {
         } catch (_: Exception) {
             null
         }
+    }
+
+    /**
+     * Counts CA certificates in the user store. A certificate there lets whoever
+     * installed it read this phone's "secure" traffic — legitimate on a managed
+     * work phone, and a classic sign of monitoring software anywhere else.
+     * The AndroidCAStore keystore is readable by any app; user entries are
+     * prefixed "user:".
+     */
+    fun userCaCertCount(): Int? = try {
+        val ks = java.security.KeyStore.getInstance("AndroidCAStore")
+        ks.load(null, null)
+        countUserCaAliases(ks.aliases().toList())
+    } catch (_: Exception) {
+        null
+    }
+
+    /** Pure, for tests. */
+    fun countUserCaAliases(aliases: Collection<String>): Int = aliases.count { it.startsWith("user:") }
+
+    /** Whether some app is device owner or profile owner of this user. */
+    private fun deviceManaged(context: Context): Boolean? = try {
+        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? android.app.admin.DevicePolicyManager
+            ?: return null
+        dpm.activeAdmins.orEmpty().any { admin ->
+            dpm.isDeviceOwnerApp(admin.packageName) || dpm.isProfileOwnerApp(admin.packageName)
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    /** More than one profile for this user means a work (or other managed) profile exists. */
+    private fun workProfile(context: Context): Boolean? = try {
+        (context.getSystemService(Context.USER_SERVICE) as? android.os.UserManager)
+            ?.userProfiles?.let { it.size > 1 }
+    } catch (_: Exception) {
+        null
+    }
+
+    /**
+     * Android 12+ reports the security type of the connected Wi-Fi network
+     * without any location permission. Open and WEP networks let anyone nearby
+     * see unencrypted traffic; OWE ("Enhanced Open") is encrypted.
+     */
+    private fun wifiEncrypted(context: Context, capabilities: NetworkCapabilities?): Boolean? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
+        if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) return null
+        return try {
+            val info = (capabilities.transportInfo as? android.net.wifi.WifiInfo)
+                ?: @Suppress("DEPRECATION")
+                (context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager)
+                    ?.connectionInfo
+            wifiSecurityIsEncrypted(info?.currentSecurityType ?: return null)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** Pure, for tests. Maps WifiInfo.SECURITY_TYPE_* onto encrypted / not; unknown is null. */
+    fun wifiSecurityIsEncrypted(securityType: Int): Boolean? = when (securityType) {
+        0, 1 -> false // SECURITY_TYPE_OPEN, SECURITY_TYPE_WEP
+        -1 -> null    // SECURITY_TYPE_UNKNOWN
+        else -> true
     }
 }

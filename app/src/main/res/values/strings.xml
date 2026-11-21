@@ -747,4 +747,41 @@
     <!-- 1.5 additions -->
     <string name="tools_load_test_cancel">Cancel load test</string>
     <string name="purpose_boot">Restarts the background monitor after a reboot, only if you left it on.</string>
+    <string name="posture_user_ca">User-installed CA certificates</string>
+    <string name="posture_none">None</string>
+    <string name="posture_installed">Installed</string>
+    <string name="posture_device_managed">Managed by an organisation</string>
+    <string name="posture_no">No</string>
+    <string name="posture_managed">Managed</string>
+    <string name="posture_work_profile">Work profile</string>
+    <string name="posture_present">Present</string>
+    <string name="posture_wifi_security">Current Wi-Fi</string>
+    <string name="posture_encrypted">Encrypted</string>
+    <string name="posture_open">Open (unencrypted)</string>
+    <string name="privacy_needs_elevated">Needs Shizuku or root (Settings → Elevated access)</string>
+    <string name="privacy_tag_background">Unrestricted background</string>
+    <string name="privacy_cat_overlay">Display over other apps</string>
+    <string name="privacy_cat_install_apps">Install unknown apps</string>
+    <string name="privacy_cat_usage_access">Usage access</string>
+    <string name="privacy_recent_heading">Recent camera, microphone and location use</string>
+    <string name="privacy_recent_needs_elevated">Android only shares which apps recently used the camera, microphone or location with Shizuku or root. Turn on elevated access in Settings to see the last 7 days here.</string>
+    <string name="privacy_recent_none">No app has used the camera, microphone or location in the last 7 days.</string>
+    <string name="privacy_summary_clear">Nothing stands out</string>
+    <string name="privacy_summary_elevated_hint">With Shizuku or root this screen can also show overlay, app-install and usage access, and recent sensor use.</string>
+    <string name="ago_just_now">just now</string>
+    <string name="ago_minutes">%1$d min ago</string>
+    <string name="ago_hours">%1$d h ago</string>
+    <string name="ago_days">%1$d days ago</string>
+    <plurals name="privacy_summary_items">
+        <item quantity="one">%1$d thing worth a look</item>
+        <item quantity="other">%1$d things worth a look</item>
+    </plurals>
+    <plurals name="privacy_summary_settings">
+        <item quantity="one">%1$d device setting in red below</item>
+        <item quantity="other">%1$d device settings in red below</item>
+    </plurals>
+    <plurals name="privacy_summary_apps">
+        <item quantity="one">%1$d sideloaded or hidden app with special access</item>
+        <item quantity="other">%1$d sideloaded or hidden apps with special access</item>
+    </plurals>
 </resources>

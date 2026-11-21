@@ -71,3 +71,35 @@ class PrivacyPostureTest {
         assertFalse(entry.copy(access = setOf(SensitiveAccess.CAMERA)).worthReview)
     }
 }
+
+class PrivacyPostureAdditionsTest {
+
+    private fun stateOf(snapshot: PostureSnapshot, check: PostureCheck) =
+        PrivacyPosture.evaluate(snapshot).firstOrNull { it.check == check }?.state
+
+    @org.junit.Test
+    fun userCaCertsFlagged() {
+        org.junit.Assert.assertEquals(PostureState.GOOD, stateOf(PostureSnapshot(userCaCerts = 0), PostureCheck.USER_CA_CERTS))
+        org.junit.Assert.assertEquals(PostureState.ATTENTION, stateOf(PostureSnapshot(userCaCerts = 2), PostureCheck.USER_CA_CERTS))
+        org.junit.Assert.assertNull(stateOf(PostureSnapshot(), PostureCheck.USER_CA_CERTS))
+    }
+
+    @org.junit.Test
+    fun userAliasCounting() {
+        org.junit.Assert.assertEquals(
+            2,
+            PrivacyPosture.countUserCaAliases(listOf("system:abc.0", "user:1a2b.0", "user:ffff.1"))
+        )
+    }
+
+    @org.junit.Test
+    fun openWifiAndManagementFlagged() {
+        org.junit.Assert.assertEquals(false, PrivacyPosture.wifiSecurityIsEncrypted(0))
+        org.junit.Assert.assertEquals(false, PrivacyPosture.wifiSecurityIsEncrypted(1))
+        org.junit.Assert.assertEquals(true, PrivacyPosture.wifiSecurityIsEncrypted(4))
+        org.junit.Assert.assertNull(PrivacyPosture.wifiSecurityIsEncrypted(-1))
+        org.junit.Assert.assertEquals(PostureState.ATTENTION, stateOf(PostureSnapshot(wifiEncrypted = false), PostureCheck.WIFI_SECURITY))
+        org.junit.Assert.assertEquals(PostureState.ATTENTION, stateOf(PostureSnapshot(deviceManaged = true), PostureCheck.DEVICE_MANAGED))
+        org.junit.Assert.assertEquals(PostureState.NEUTRAL, stateOf(PostureSnapshot(workProfile = true), PostureCheck.WORK_PROFILE))
+    }
+}
