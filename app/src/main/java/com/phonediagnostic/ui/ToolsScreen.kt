@@ -389,6 +389,12 @@ fun ToolsScreen(
                                 stringResource(R.string.tools_storage_read),
                                 stringResource(R.string.tools_storage_mbps, r.readMbPerSec)
                             )
+                            r.randomWriteIops?.let { iops ->
+                                MetricRow(
+                                    stringResource(R.string.tools_storage_random_write),
+                                    stringResource(R.string.tools_storage_iops, iops)
+                                )
+                            }
                         }
                         storageError?.let { msg ->
                             Box(modifier = Modifier.height(8.dp))

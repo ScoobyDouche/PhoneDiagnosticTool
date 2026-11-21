@@ -195,7 +195,7 @@
     <string name="battery_watts_charging">%1$.2f W in</string>
     <string name="battery_watts_discharging">%1$.2f W out</string>
     <string name="tools_storage_title">Storage speed</string>
-    <string name="tools_storage_body">Writes and reads back a %1$d MB file in the app cache, then deletes it. Sequential throughput, not random access. The file was only just written, so the read figure can include memory cache and run higher than the flash itself.</string>
+    <string name="tools_storage_body">Writes and reads back a %1$d MB file in the app cache, then deletes it. Sequential throughput, plus up to 3 seconds of synced random 4 KB writes (the pattern app databases use). The file was only just written, so the read figure can include memory cache and run higher than the flash itself.</string>
     <string name="tools_storage_run">Run storage test</string>
     <string name="tools_storage_running">Testing…</string>
     <string name="tools_storage_write">Write</string>
@@ -789,4 +789,6 @@
     <string name="battery_mah">%1$d mAh</string>
     <string name="battery_measured_note">Worked out from how much charge went in over the last %1$d%% of a real charge. Wider charges are more accurate; a charge from below 30%% to full is best.</string>
     <string name="battery_measured_pending">Charge the phone by 20% or more with this app open or the background monitor on, and the real capacity of the battery will be measured.</string>
+    <string name="tools_storage_random_write">Random 4 KB write (synced)</string>
+    <string name="tools_storage_iops">%1$.0f IOPS</string>
 </resources>
