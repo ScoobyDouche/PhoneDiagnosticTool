@@ -1,0 +1,68 @@
+name: Download stats
+
+# GitHub only keeps lifetime download totals per asset and 14 days of page
+# traffic. A daily snapshot turns that into a time series, so spikes can be
+# matched to whatever caused them. Data goes to the `stats` branch, never main.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: download-stats
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record downloads and traffic
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git clone --quiet --depth 1 --branch stats "$remote" stats 2>/dev/null; then
+            cd stats
+          else
+            git init --quiet stats && cd stats
+            git checkout --quiet -b stats
+            git remote add origin "$remote"
+            printf '# Download stats\n\nDaily snapshots written by `.github/workflows/download-stats.yml` on main.\n' > README.md
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          day=$(date -u +%F)
+
+          [ -f downloads.csv ] || echo "date,tag,asset,downloads" > downloads.csv
+          gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate \
+            -q '.[] | .tag_name as $t | .assets[] | [$t, .name, .download_count] | @csv' \
+            | sed "s/^/${day},/" >> downloads.csv
+
+          # Traffic needs push access; if the workflow token is refused, skip it
+          # rather than failing the download snapshot.
+          [ -f traffic.csv ] || echo "date,views,unique_views,clones,unique_clones" > traffic.csv
+          if views=$(gh api "repos/${GITHUB_REPOSITORY}/traffic/views" -q '"\(.count),\(.uniques)"' 2>/dev/null) &&
+             clones=$(gh api "repos/${GITHUB_REPOSITORY}/traffic/clones" -q '"\(.count),\(.uniques)"' 2>/dev/null); then
+            echo "${day},${views},${clones}" >> traffic.csv
+          else
+            echo "Traffic API not available to the workflow token; skipped."
+          fi
+
+          [ -f referrers.csv ] || echo "date,referrer,views,unique_views" > referrers.csv
+          gh api "repos/${GITHUB_REPOSITORY}/traffic/popular/referrers" \
+            -q '.[] | [.referrer, .count, .uniques] | @csv' 2>/dev/null \
+            | sed "s/^/${day},/" >> referrers.csv || true
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing new."
+          else
+            git commit --quiet -m "Stats ${day}"
+            git push --quiet origin stats
+          fi
