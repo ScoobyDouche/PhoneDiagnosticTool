@@ -87,6 +87,7 @@ import com.phonediagnostic.ui.RamDetailScreen
 import com.phonediagnostic.ui.SensorDetailScreen
 import com.phonediagnostic.ui.SensorsScreen
 import com.phonediagnostic.ui.SettingsScreen
+import com.phonediagnostic.ui.StabilityScreen
 import com.phonediagnostic.ui.StorageDetailScreen
 import com.phonediagnostic.ui.ThermalsScreen
 import com.phonediagnostic.ui.ToolsScreen
@@ -187,6 +188,8 @@ class MainActivity : ComponentActivity() {
                     val elevatedStatus by viewModel.elevatedStatus.collectAsStateWithLifecycle()
                     val historyEnabled by viewModel.historyEnabled.collectAsStateWithLifecycle()
                     val hideAddresses by viewModel.hideAddresses.collectAsStateWithLifecycle()
+                    val stability by viewModel.stability.collectAsStateWithLifecycle()
+                    val stabilityLoading by viewModel.stabilityLoading.collectAsStateWithLifecycle()
 
                     // Back used to leave the app from every detail screen. Intercept
                     // while there is somewhere to return to, and hold it entirely
@@ -302,6 +305,7 @@ class MainActivity : ComponentActivity() {
                                             onOpenPrivacy = { viewModel.openPrivacy() },
                                             onOpenCodecs = { viewModel.openCodecs() },
                                             onOpenHardware = { viewModel.openHardware() },
+                                            onOpenStability = { viewModel.openStability() },
                                             onOpenTools = { viewModel.openTools() },
                                             onOpenSettings = { viewModel.openSettings() },
                                             onOpenAbout = { viewModel.openAbout() },
@@ -441,6 +445,14 @@ class MainActivity : ComponentActivity() {
                                         CodecsScreen(
                                             codecs = report?.mediaCodecs.orEmpty(),
                                             onBack = { viewModel.navigateBack() }
+                                        )
+                                    }
+                                    AppScreen.STABILITY -> {
+                                        StabilityScreen(
+                                            report = stability,
+                                            isLoading = stabilityLoading,
+                                            onBack = { viewModel.navigateBack() },
+                                            onRefresh = { viewModel.loadStability() }
                                         )
                                     }
                                     AppScreen.HARDWARE -> {

@@ -34,6 +34,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import com.phonediagnostic.data.StabilityProbe
+import com.phonediagnostic.data.StabilityReport
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -56,7 +58,8 @@ enum class AppScreen {
     SENSOR_DETAIL,
     PRIVACY,
     CODECS,
-    HARDWARE
+    HARDWARE,
+    STABILITY
 }
 
 fun AppScreen.isMainTab(): Boolean = when (this) {
@@ -367,6 +370,31 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                 }
             } finally {
                 _appStorageLoading.value = false
+            }
+        }
+    }
+
+    private val _stability = MutableStateFlow<StabilityReport?>(null)
+    val stability: StateFlow<StabilityReport?> = _stability.asStateFlow()
+
+    private val _stabilityLoading = MutableStateFlow(false)
+    val stabilityLoading: StateFlow<Boolean> = _stabilityLoading.asStateFlow()
+
+    fun openStability() {
+        navigateTo(AppScreen.STABILITY)
+        loadStability()
+    }
+
+    fun loadStability() {
+        if (_stabilityLoading.value) return
+        viewModelScope.launch(Dispatchers.IO) {
+            _stabilityLoading.value = true
+            try {
+                _stability.value = StabilityProbe.collect(elevatedManager.activeShell.value)
+            } catch (_: Exception) {
+                _stability.value = StabilityReport(emptyList(), available = elevatedManager.activeShell.value != null)
+            } finally {
+                _stabilityLoading.value = false
             }
         }
     }

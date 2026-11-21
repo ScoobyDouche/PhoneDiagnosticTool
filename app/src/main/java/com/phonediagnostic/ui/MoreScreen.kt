@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.DeveloperBoard
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
@@ -66,6 +67,7 @@ fun MoreScreen(
     onOpenPrivacy: () -> Unit,
     onOpenCodecs: () -> Unit,
     onOpenHardware: () -> Unit,
+    onOpenStability: () -> Unit,
     onOpenTools: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAbout: () -> Unit,
@@ -158,6 +160,13 @@ fun MoreScreen(
                             ?.joinToString(" · ") { it.name.substringBefore(" (") }
                             ?: stringResource(R.string.more_codecs_sub),
                         onClick = onOpenCodecs
+                    )
+                    GroupDivider()
+                    MoreLink(
+                        icon = Icons.Filled.BugReport,
+                        title = stringResource(R.string.more_stability),
+                        subtitle = stringResource(R.string.more_stability_sub),
+                        onClick = onOpenStability
                     )
                     GroupDivider()
                     MoreLink(

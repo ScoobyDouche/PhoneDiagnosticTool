@@ -802,4 +802,19 @@
     <string name="ipv6_address_only">Address but no route</string>
     <string name="ipv6_none">Not available</string>
     <string name="private_dns_failing">Set to %1$s but not working</string>
+    <!-- Stability -->
+    <string name="stability_title">Crashes and restarts</string>
+    <string name="stability_intro">Crashes, freezes (ANRs) and system restarts that Android recorded in the last 7 days. A few app crashes are normal; repeated system restarts or kernel entries point at a hardware or firmware problem.</string>
+    <string name="stability_needs_elevated">Android only lets the shell user or root read its crash log. Turn on Shizuku or root under Settings → Elevated access to see this.</string>
+    <string name="stability_last_7_days">Last 7 days</string>
+    <string name="stability_top">Most frequent</string>
+    <string name="stability_recent">Recent events</string>
+    <string name="stability_none">Nothing recorded in the last 7 days.</string>
+    <string name="stability_app_crash">App crashes</string>
+    <string name="stability_native_crash">Native crashes</string>
+    <string name="stability_anr">App not responding</string>
+    <string name="stability_system_restart">System restarts / watchdog</string>
+    <string name="stability_kernel">Kernel / boot problems</string>
+    <string name="more_stability">Crashes and restarts</string>
+    <string name="more_stability_sub">Last 7 days · Shizuku or root</string>
 </resources>
