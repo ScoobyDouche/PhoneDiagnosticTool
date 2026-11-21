@@ -881,4 +881,35 @@
     <string name="checkup_skip_or_fail">Skip (no such hardware)</string>
     <string name="checkup_mark_failed">Mark as failed</string>
     <string name="purpose_audio_settings">Routes the Phone checkup test chime to the earpiece.</string>
+    <!-- Health -->
+    <string name="health_title">Overall health</string>
+    <string name="health_score">%1$d / 100 · %2$s</string>
+    <string name="health_grade_good">Good</string>
+    <string name="health_grade_fair">Fair</string>
+    <string name="health_grade_poor">Poor</string>
+    <string name="health_no_issues">No problems found in what this phone reports.</string>
+    <string name="health_note">Starts at 100 and loses a fixed amount per problem, so every point is listed above. Tap to collapse.</string>
+    <string name="health_battery_worn">Battery below 90% of design</string>
+    <string name="health_battery_very_worn">Battery below 80% of design</string>
+    <string name="health_battery_fault">Battery reports a fault</string>
+    <string name="health_storage_nearly_full">Storage over 90% full</string>
+    <string name="health_storage_full">Storage over 95% full</string>
+    <string name="health_flash_wear">Flash storage heavily worn</string>
+    <string name="health_flash_spare_warning">Flash spare blocks running low</string>
+    <string name="health_flash_spare_urgent">Flash spare blocks nearly gone</string>
+    <string name="health_thermal_moderate">Running warm</string>
+    <string name="health_thermal_severe">Overheating</string>
+    <string name="health_patch_old">Security patch over 4 months old (days)</string>
+    <string name="health_patch_very_old">Security patch over a year old (days)</string>
+    <string name="health_checkup_failures">Phone checkup failures</string>
+    <string name="health_battery_unknown">Battery wear not readable yet: charge 20%+ with the app open to measure it</string>
+    <string name="baseline_none">Save a baseline to compare against later, for example before a repair or when you get the phone.</string>
+    <string name="baseline_save">Save baseline</string>
+    <string name="baseline_replace">Save new baseline</string>
+    <string name="baseline_clear">Clear</string>
+    <string name="baseline_since">Since %1$s</string>
+    <string name="baseline_score">Health score</string>
+    <string name="baseline_battery">Battery capacity</string>
+    <string name="baseline_storage">Storage used</string>
+    <string name="baseline_load">Load test score</string>
 </resources>

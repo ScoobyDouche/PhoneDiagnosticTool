@@ -70,6 +70,13 @@ object ReportExporter {
             if (redact) {
                 appendLine("Device identifiers removed (fingerprint, bootloader, baseband, build host, app paths).")
             }
+            val health = HealthScore.compute(shown, checkup)
+            appendLine("Health score: ${health.score}/100")
+            health.deductions.filter { it.points > 0 }.forEach {
+                appendLine("  -${it.points} ${it.factor.name.lowercase().replace('_', ' ')}" +
+                    if (it.detail.isNotEmpty()) " (${it.detail})" else "")
+            }
+            appendLine()
             append(reportBody(shown))
             if (checkup != null && !checkup.isEmpty) {
                 appendLine()
@@ -680,6 +687,7 @@ object ReportExporter {
                 })
             }
         })
+        root.put("healthScore", HealthScore.compute(report, checkup).score)
         if (checkup != null && !checkup.isEmpty) {
             root.put("checkup", JSONObject().apply {
                 CheckupTest.entries.forEach { t ->

@@ -68,6 +68,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.phonediagnostic.data.FullDeviceReport
+import com.phonediagnostic.data.HealthScore
 import com.phonediagnostic.data.MetricHistory
 import com.phonediagnostic.data.ReportExporter
 import com.phonediagnostic.data.ThermalState
@@ -81,6 +82,7 @@ import com.phonediagnostic.ui.CpuScreen
 import com.phonediagnostic.ui.DashboardScreen
 import com.phonediagnostic.ui.DeviceViewModel
 import com.phonediagnostic.ui.HardwareScreen
+import com.phonediagnostic.ui.HealthCard
 import com.phonediagnostic.ui.HistoryScreen
 import com.phonediagnostic.ui.MoreScreen
 import com.phonediagnostic.ui.NetworkScreen
@@ -192,6 +194,7 @@ class MainActivity : ComponentActivity() {
                     val hideAddresses by viewModel.hideAddresses.collectAsStateWithLifecycle()
                     val stability by viewModel.stability.collectAsStateWithLifecycle()
                     val checkup by viewModel.checkup.collectAsStateWithLifecycle()
+                    val baseline by viewModel.baseline.collectAsStateWithLifecycle()
                     val volumeKeysSeen by viewModel.volumeKeysSeen.collectAsStateWithLifecycle()
                     val stabilityLoading by viewModel.stabilityLoading.collectAsStateWithLifecycle()
 
@@ -263,7 +266,23 @@ class MainActivity : ComponentActivity() {
                                             onOpenRamDetail = { viewModel.openRamDetail() },
                                             onOpenStorageDetail = { viewModel.openStorageDetail() },
                                             onOpenNetwork = { viewModel.openNetwork() },
-                                            onOpenHistory = { viewModel.openHistory() }
+                                            onOpenHistory = { viewModel.openHistory() },
+                                            healthSlot = {
+                                                val r = report
+                                                if (r != null) {
+                                                    val health = remember(r, checkup) { HealthScore.compute(r, checkup) }
+                                                    HealthCard(
+                                                        health = health,
+                                                        baseline = baseline,
+                                                        currentBatteryHealth = HealthScore.batteryHealthPercent(r.battery),
+                                                        currentCycles = r.battery.cycleCount,
+                                                        currentStorageUsedGb = r.storage.usedInternalGb,
+                                                        currentLoadScore = lastLoadResult?.score,
+                                                        onSaveBaseline = { viewModel.saveBaseline() },
+                                                        onClearBaseline = { viewModel.clearBaseline() }
+                                                    )
+                                                }
+                                            }
                                         )
                                     }
                                     AppScreen.CPU -> {

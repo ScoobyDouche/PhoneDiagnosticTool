@@ -35,6 +35,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import com.phonediagnostic.data.StabilityProbe
+import com.phonediagnostic.data.HealthBaseline
+import com.phonediagnostic.data.HealthScore
 import com.phonediagnostic.data.CheckStatus
 import com.phonediagnostic.data.CheckupResults
 import com.phonediagnostic.data.CheckupTest
@@ -411,6 +413,28 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         if (!captureVolumeKeys) return false
         _volumeKeysSeen.value = _volumeKeysSeen.value + keyCode
         return true
+    }
+
+    // ------------------------------------------------------------------ baseline
+
+    private val _baseline = MutableStateFlow(HealthBaseline.load(appContext))
+    val baseline: StateFlow<HealthBaseline?> = _baseline.asStateFlow()
+
+    fun saveBaseline() {
+        val report = _report.value ?: return
+        val b = HealthBaseline.of(
+            report,
+            HealthScore.compute(report, _checkup.value),
+            _lastLoadResult.value?.score
+        )
+        HealthBaseline.save(appContext, b)
+        _baseline.value = b
+        log.append("Health baseline saved")
+    }
+
+    fun clearBaseline() {
+        HealthBaseline.save(appContext, null)
+        _baseline.value = null
     }
 
     private val _stability = MutableStateFlow<StabilityReport?>(null)
