@@ -55,9 +55,19 @@ jobs:
           fi
 
           [ -f referrers.csv ] || echo "date,referrer,views,unique_views" > referrers.csv
-          gh api "repos/${GITHUB_REPOSITORY}/traffic/popular/referrers" \
-            -q '.[] | [.referrer, .count, .uniques] | @csv' 2>/dev/null \
-            | sed "s/^/${day},/" >> referrers.csv || true
+          # A refused request prints its error body on stdout, so only append
+          # when the call itself succeeded. Also drop any error rows an earlier
+          # version of this workflow wrote.
+          grep -v '"message"' referrers.csv > referrers.tmp || true
+          mv referrers.tmp referrers.csv
+          if refs=$(gh api "repos/${GITHUB_REPOSITORY}/traffic/popular/referrers" \
+              -q '.[] | [.referrer, .count, .uniques] | @csv' 2>/dev/null); then
+            if [ -n "$refs" ]; then
+              printf '%s\n' "$refs" | sed "s/^/${day},/" >> referrers.csv
+            fi
+          else
+            echo "Referrers not available to the workflow token; skipped."
+          fi
 
           git add -A
           if git diff --cached --quiet; then
