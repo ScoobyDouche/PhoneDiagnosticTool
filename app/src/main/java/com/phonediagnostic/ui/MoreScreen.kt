@@ -21,6 +21,9 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.DeveloperBoard
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
@@ -64,6 +67,9 @@ fun MoreScreen(
     onOpenThermals: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onOpenCodecs: () -> Unit,
+    onOpenHardware: () -> Unit,
+    onOpenStability: () -> Unit,
+    onOpenCheckup: () -> Unit,
     onOpenTools: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAbout: () -> Unit,
@@ -142,6 +148,13 @@ fun MoreScreen(
                     )
                     GroupDivider()
                     MoreLink(
+                        icon = Icons.Filled.DeveloperBoard,
+                        title = stringResource(R.string.more_hardware),
+                        subtitle = stringResource(R.string.more_hardware_sub),
+                        onClick = onOpenHardware
+                    )
+                    GroupDivider()
+                    MoreLink(
                         icon = Icons.Filled.Movie,
                         title = stringResource(R.string.more_codecs),
                         subtitle = report?.mediaCodecs?.filter { it.isVideo && it.hardwareDecode }
@@ -149,6 +162,20 @@ fun MoreScreen(
                             ?.joinToString(" · ") { it.name.substringBefore(" (") }
                             ?: stringResource(R.string.more_codecs_sub),
                         onClick = onOpenCodecs
+                    )
+                    GroupDivider()
+                    MoreLink(
+                        icon = Icons.AutoMirrored.Filled.FactCheck,
+                        title = stringResource(R.string.more_checkup),
+                        subtitle = stringResource(R.string.more_checkup_sub),
+                        onClick = onOpenCheckup
+                    )
+                    GroupDivider()
+                    MoreLink(
+                        icon = Icons.Filled.BugReport,
+                        title = stringResource(R.string.more_stability),
+                        subtitle = stringResource(R.string.more_stability_sub),
+                        onClick = onOpenStability
                     )
                     GroupDivider()
                     MoreLink(

@@ -78,24 +78,16 @@ jobs:
             echo "Release secrets not fully set — release builds will be unsigned (R8 still verified)"
           fi
 
-      - name: Grant execute (if wrapper present)
-        run: |
-          if [ -f gradlew ]; then chmod +x gradlew; fi
-
-      - name: Pick Gradle command
-        id: gradle
-        run: |
-          if [ -f gradlew ]; then
-            echo "cmd=./gradlew" >> "$GITHUB_OUTPUT"
-          else
-            echo "cmd=gradle" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Unit tests
-        run: ${{ steps.gradle.outputs.cmd }} test --no-daemon --stacktrace
+        run: ./gradlew test --no-daemon --stacktrace
+
+      # Catches what the compiler does not: API calls above minSdk, unused
+      # resources, missing translations of format arguments.
+      - name: Lint
+        run: ./gradlew lintDebug --no-daemon --stacktrace
 
       - name: Build debug APK
-        run: ${{ steps.gradle.outputs.cmd }} assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       # The release variant runs R8 and resource shrinking, which the debug
       # variant does not. Without this it was never compiled, so a broken keep
@@ -107,7 +99,7 @@ jobs:
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: ${{ steps.gradle.outputs.cmd }} assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       # Android App Bundle for Google Play (and other bundle-aware stores).
       - name: Build release AAB
@@ -116,14 +108,16 @@ jobs:
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: ${{ steps.gradle.outputs.cmd }} bundleRelease --no-daemon --stacktrace
+        run: ./gradlew bundleRelease --no-daemon --stacktrace
 
-      - name: Upload test report on failure
+      - name: Upload test and lint reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
-          path: app/build/reports/tests/
+          path: |
+            app/build/reports/tests/
+            app/build/reports/lint-results-debug.*
           if-no-files-found: ignore
           retention-days: 7
 

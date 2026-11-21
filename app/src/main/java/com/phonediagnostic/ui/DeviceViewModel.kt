@@ -33,6 +33,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import com.phonediagnostic.data.StabilityProbe
+import com.phonediagnostic.data.HealthBaseline
+import com.phonediagnostic.data.HealthScore
+import com.phonediagnostic.data.CheckStatus
+import com.phonediagnostic.data.CheckupResults
+import com.phonediagnostic.data.CheckupTest
+import com.phonediagnostic.data.StabilityReport
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -53,7 +62,10 @@ enum class AppScreen {
     NETWORK,
     SENSOR_DETAIL,
     PRIVACY,
-    CODECS
+    CODECS,
+    HARDWARE,
+    STABILITY,
+    CHECKUP
 }
 
 fun AppScreen.isMainTab(): Boolean = when (this) {
@@ -128,6 +140,12 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     private val _secureScreens = MutableStateFlow(prefs.secureScreens)
     val secureScreens: StateFlow<Boolean> = _secureScreens.asStateFlow()
 
+    private val _historyEnabled = MutableStateFlow(prefs.historyEnabled)
+    val historyEnabled: StateFlow<Boolean> = _historyEnabled.asStateFlow()
+
+    private val _hideAddresses = MutableStateFlow(prefs.hideAddresses)
+    val hideAddresses: StateFlow<Boolean> = _hideAddresses.asStateFlow()
+
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
@@ -189,7 +207,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
      */
     private val _inForeground = MutableStateFlow(true)
 
-    /** Name of the sensor opened in the live detail view, if any. */
+    /** [com.phonediagnostic.data.SensorEntry.key] of the sensor opened in the live detail view, if any. */
     private val _selectedSensor = MutableStateFlow<String?>(null)
     val selectedSensor: StateFlow<String?> = _selectedSensor.asStateFlow()
 
@@ -298,6 +316,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     fun openAbout() = navigateTo(AppScreen.ABOUT)
     fun openThermals() = navigateTo(AppScreen.THERMALS)
     fun openCodecs() = navigateTo(AppScreen.CODECS)
+    fun openHardware() = navigateTo(AppScreen.HARDWARE)
 
     fun openTools() {
         refreshLog()
@@ -327,8 +346,8 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         loadNetworkDetail()
     }
 
-    fun openSensorDetail(sensorName: String) {
-        _selectedSensor.value = sensorName
+    fun openSensorDetail(sensorKey: String) {
+        _selectedSensor.value = sensorKey
         navigateTo(AppScreen.SENSOR_DETAIL)
     }
 
@@ -361,6 +380,88 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    // ------------------------------------------------------------------ checkup
+
+    private val _checkup = MutableStateFlow(CheckupResults())
+    val checkup: StateFlow<CheckupResults> = _checkup.asStateFlow()
+
+    private val _volumeKeysSeen = MutableStateFlow<Set<Int>>(emptySet())
+    val volumeKeysSeen: StateFlow<Set<Int>> = _volumeKeysSeen.asStateFlow()
+
+    @Volatile
+    var captureVolumeKeys = false
+        private set
+
+    fun openCheckup() = navigateTo(AppScreen.CHECKUP)
+
+    fun setCheckupResult(test: CheckupTest, status: CheckStatus) {
+        _checkup.value = _checkup.value.with(test, status)
+        log.append("Checkup: ${test.name.lowercase()} ${status.name.lowercase()}")
+    }
+
+    fun resetCheckup() {
+        _checkup.value = CheckupResults()
+    }
+
+    fun setCaptureVolumeKeys(capture: Boolean) {
+        captureVolumeKeys = capture
+        if (capture) _volumeKeysSeen.value = emptySet()
+    }
+
+    /** Returns true when the key was taken by the button check. */
+    fun onVolumeKey(keyCode: Int): Boolean {
+        if (!captureVolumeKeys) return false
+        _volumeKeysSeen.value = _volumeKeysSeen.value + keyCode
+        return true
+    }
+
+    // ------------------------------------------------------------------ baseline
+
+    private val _baseline = MutableStateFlow(HealthBaseline.load(appContext))
+    val baseline: StateFlow<HealthBaseline?> = _baseline.asStateFlow()
+
+    fun saveBaseline() {
+        val report = _report.value ?: return
+        val b = HealthBaseline.of(
+            report,
+            HealthScore.compute(report, _checkup.value),
+            _lastLoadResult.value?.score
+        )
+        HealthBaseline.save(appContext, b)
+        _baseline.value = b
+        log.append("Health baseline saved")
+    }
+
+    fun clearBaseline() {
+        HealthBaseline.save(appContext, null)
+        _baseline.value = null
+    }
+
+    private val _stability = MutableStateFlow<StabilityReport?>(null)
+    val stability: StateFlow<StabilityReport?> = _stability.asStateFlow()
+
+    private val _stabilityLoading = MutableStateFlow(false)
+    val stabilityLoading: StateFlow<Boolean> = _stabilityLoading.asStateFlow()
+
+    fun openStability() {
+        navigateTo(AppScreen.STABILITY)
+        loadStability()
+    }
+
+    fun loadStability() {
+        if (_stabilityLoading.value) return
+        viewModelScope.launch(Dispatchers.IO) {
+            _stabilityLoading.value = true
+            try {
+                _stability.value = StabilityProbe.collect(elevatedManager.activeShell.value)
+            } catch (_: Exception) {
+                _stability.value = StabilityReport(emptyList(), available = elevatedManager.activeShell.value != null)
+            } finally {
+                _stabilityLoading.value = false
+            }
+        }
+    }
+
     fun openPrivacy() {
         navigateTo(AppScreen.PRIVACY)
         loadPrivacyAudit()
@@ -370,7 +471,13 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.Default) {
             _privacyLoading.value = true
             try {
-                _privacyAudit.value = privacyAuditor.collect()
+                val report = _report.value
+                _privacyAudit.value = privacyAuditor.collect(
+                    security = report?.security,
+                    nfc = report?.nfc,
+                    bluetooth = report?.bluetooth,
+                    elevated = elevatedManager.activeShell.value
+                )
             } catch (_: Exception) {
                 _privacyAudit.value = null
             } finally {
@@ -472,6 +579,21 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
         _secureScreens.value = enabled
     }
 
+    /** Turning history off also discards what was already kept. */
+    fun setHistoryEnabled(enabled: Boolean) {
+        prefs.historyEnabled = enabled
+        _historyEnabled.value = enabled
+        if (!enabled) {
+            history.clear()
+            refreshHistory()
+        }
+    }
+
+    fun setHideAddresses(enabled: Boolean) {
+        prefs.hideAddresses = enabled
+        _hideAddresses.value = enabled
+    }
+
     // ------------------------------------------------------------ elevated access
 
     fun setAccessTier(tier: AccessTier) {
@@ -497,9 +619,16 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     // ----------------------------------------------------------------- load test
 
+    private var loadJob: Job? = null
+
+    /** Stops a running load test; the workers are torn down by LoadTester's finally. */
+    fun cancelLoadTest() {
+        loadJob?.cancel()
+    }
+
     fun runLoadTest(durationSec: Int, thermal: Boolean = false) {
         if (_loadTesting.value) return
-        viewModelScope.launch(Dispatchers.Default) {
+        loadJob = viewModelScope.launch(Dispatchers.Default) {
             _loadTesting.value = true
             _loadProgress.value = null
             try {
@@ -518,6 +647,10 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                 _lastLoadResult.value = result
                 refreshLog()
                 runCollection(full = true)
+            } catch (e: CancellationException) {
+                log.append("Load test cancelled")
+                refreshLog()
+                throw e
             } catch (e: Exception) {
                 log.append("Load test failed: ${e.message ?: e.javaClass.simpleName}")
                 refreshLog()
@@ -540,8 +673,9 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 val probe = _networkProbeEnabled.value
                 val current = _report.value
-                val sampleSensors = _screen.value == AppScreen.SENSORS ||
-                    _screen.value == AppScreen.SENSOR_DETAIL
+                // Only the list shows these snapshots; the detail screen runs
+                // its own stream, so sampling every sensor behind it is waste.
+                val sampleSensors = _screen.value == AppScreen.SENSORS
                 val next = if (full || current == null) {
                     collector.collect(networkProbe = probe, sampleSensors = sampleSensors)
                 } else {
@@ -560,6 +694,7 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun recordHistory(report: FullDeviceReport) {
+        if (!_historyEnabled.value) return
         val stored = history.record(
             MetricSample(
                 timestampMs = System.currentTimeMillis(),

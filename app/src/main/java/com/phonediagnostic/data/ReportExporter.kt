@@ -34,24 +34,77 @@ object ReportExporter {
             host = "",
             radioVersion = "",
             kernelVersion = kernelRelease(report.overview.kernelVersion)
-        )
+        ),
+        // App-private paths carry the Android user number and help nobody else.
+        storage = report.storage.copy(dataDirectory = "", filesDirectory = "", cacheDirectory = "")
     )
+
+    /**
+     * Applied to every export, redacted or not: the router's address is shown
+     * on screen when the latency probe targets it, but PRIVACY.md promises
+     * reports never contain an IP address.
+     */
+    internal fun withoutAddresses(network: NetworkInfo): NetworkInfo =
+        if (network.latencyTarget.startsWith("Router")) {
+            network.copy(latencyTarget = "Router (address withheld)")
+        } else {
+            network
+        }
 
     /** "Linux version 5.15.104-android14 (builder@host) ..." → "5.15.104-android14". */
     internal fun kernelRelease(procVersion: String): String =
         Regex("Linux version (\\S+)").find(procVersion)?.groupValues?.get(1)
             ?: procVersion.substringBefore(' ')
 
-    fun toShareText(report: FullDeviceReport, redact: Boolean = false): String {
-        val shown = if (redact) redact(report) else report
+    fun toShareText(
+        report: FullDeviceReport,
+        redact: Boolean = false,
+        checkup: CheckupResults? = null
+    ): String {
+        val shown = (if (redact) redact(report) else report).let {
+            it.copy(network = withoutAddresses(it.network))
+        }
         return buildString {
             appendLine("Phone Diagnostic Report")
             appendLine("========================")
             if (redact) {
-                appendLine("Device identifiers removed (fingerprint, bootloader, baseband, build host).")
+                appendLine("Device identifiers removed (fingerprint, bootloader, baseband, build host, app paths).")
             }
+            val health = HealthScore.compute(shown, checkup)
+            appendLine("Health score: ${health.score}/100")
+            health.deductions.filter { it.points > 0 }.forEach {
+                appendLine("  -${it.points} ${it.factor.name.lowercase().replace('_', ' ')}" +
+                    if (it.detail.isNotEmpty()) " (${it.detail})" else "")
+            }
+            appendLine()
             append(reportBody(shown))
+            if (checkup != null && !checkup.isEmpty) {
+                appendLine()
+                appendLine("PHONE CHECKUP")
+                appendLine("  ${checkup.passed} passed, ${checkup.failed} failed of ${CheckupTest.entries.size}")
+                CheckupTest.entries.forEach { t ->
+                    val st = checkup.status(t)
+                    if (st != CheckStatus.NOT_RUN) appendLine("  ${checkupName(t)}: ${st.name.lowercase().replace('_', ' ')}")
+                }
+            }
         }
+    }
+
+    /** English names for the report; the screen uses string resources. */
+    internal fun checkupName(t: CheckupTest): String = when (t) {
+        CheckupTest.TOUCH -> "Touchscreen"
+        CheckupTest.MULTITOUCH -> "Multi-touch"
+        CheckupTest.DISPLAY -> "Display colours / dead pixels"
+        CheckupTest.SPEAKER -> "Loudspeaker"
+        CheckupTest.EARPIECE -> "Earpiece"
+        CheckupTest.VIBRATION -> "Vibration"
+        CheckupTest.FLASHLIGHT -> "Flashlight"
+        CheckupTest.BUTTONS -> "Volume buttons"
+        CheckupTest.PROXIMITY -> "Proximity sensor"
+        CheckupTest.LIGHT -> "Light sensor"
+        CheckupTest.MOTION -> "Motion sensor"
+        CheckupTest.CHARGING -> "Charging port"
+        CheckupTest.HEADPHONES -> "Headphones"
     }
 
     private fun reportBody(report: FullDeviceReport): String {
@@ -107,6 +160,11 @@ object ReportExporter {
             if (c.topologyHint.isNotBlank()) {
                 appendLine("  Topology: ${c.topologyHint}")
             }
+            if (c.socModel.isNotBlank()) {
+                appendLine("  SoC: ${listOf(c.socManufacturer, c.socModel).filter { it.isNotBlank() }.joinToString(" ")}")
+            }
+            if (c.coreNames.isNotEmpty()) appendLine("  Core types: ${c.coreNames.joinToString(" + ")}")
+            if (c.features.isNotEmpty()) appendLine("  Features: ${c.features.joinToString(" ")}")
             appendLine()
             appendLine("GPU")
             appendLine("  Renderer: ${g.renderer}")
@@ -127,9 +185,15 @@ object ReportExporter {
             }
             b.capacityHealthPercent?.let { appendLine("  Capacity health: $it% of design") }
             b.cycleCount?.let { appendLine("  Charge cycles: $it") }
+            b.measuredCapacity?.let {
+                appendLine("  Measured full capacity: ${it.fullMah} mAh (over a ${it.spanPercent}% charge)")
+            }
             appendLine("  Technology: ${b.technology}")
             appendLine("  Power Source: ${b.powerSource}")
             b.chargerMaxWatts?.let { appendLine("  Charger offers: ${String.format(Locale.US, "%.1f", it)} W") }
+            b.chargeTimeRemainingMs?.let { appendLine("  Time to full: ${it / 60_000} min") }
+            b.energyMwh?.let { appendLine("  Energy remaining: $it mWh") }
+            appendLine("  Battery Saver: ${if (b.powerSaveMode) "On" else "Off"}")
             appendLine()
             appendLine("MEMORY (RAM)")
             appendLine("  Total: ${m.totalRamMb} MB")
@@ -159,9 +223,9 @@ object ReportExporter {
             appendLine("  Internal total: ${String.format(Locale.US, "%.2f", s.totalInternalGb)} GB")
             appendLine("  Internal free: ${String.format(Locale.US, "%.2f", s.freeInternalGb)} GB")
             appendLine("  Internal used: ${String.format(Locale.US, "%.2f", s.usedInternalGb)} GB (${s.usagePercent}%)")
-            appendLine("  Data path: ${s.dataDirectory}")
-            appendLine("  Files path: ${s.filesDirectory}")
-            appendLine("  Cache path: ${s.cacheDirectory}")
+            if (s.dataDirectory.isNotBlank()) appendLine("  Data path: ${s.dataDirectory}")
+            if (s.filesDirectory.isNotBlank()) appendLine("  Files path: ${s.filesDirectory}")
+            if (s.cacheDirectory.isNotBlank()) appendLine("  Cache path: ${s.cacheDirectory}")
             appendLine("  External state: ${s.externalStorageState}")
             appendLine("  Emulated external: ${s.emulatedExternal}")
             if (s.storageType.isNotBlank()) appendLine("  Flash type: ${s.storageType}")
@@ -247,9 +311,16 @@ object ReportExporter {
                 }
                 appendLine()
             }
+            appendHardware(report.hardware)
             appendLine("SENSORS (${report.sensors.size})")
+            val missing = SensorCatalog.coverage(report.sensors.map { it.typeId })
+                .filter { !it.second }.map { it.first }
+            if (missing.isNotEmpty() && report.sensors.isNotEmpty()) {
+                appendLine("  Not present: ${missing.joinToString(", ")}")
+            }
             report.sensors.take(40).forEach { sens ->
-                appendLine("  ${sens.type}: ${sens.name} (${sens.vendor})")
+                val wake = if (sens.isWakeUp) ", wake-up" else ""
+                appendLine("  ${sens.type}: ${sens.name} (${sens.vendor}$wake)")
                 if (sens.liveValues.isNotBlank()) {
                     appendLine("    Live: ${sens.liveValues}")
                 }
@@ -274,9 +345,55 @@ object ReportExporter {
         }
     }
 
-    fun toJson(report: FullDeviceReport, redact: Boolean = false): String {
+    private fun StringBuilder.appendHardware(h: HardwareInfo) {
+        if (h == HardwareInfo()) return
+        fun yesNo(value: Boolean) = if (value) "Yes" else "No"
+        appendLine("HARDWARE")
+        h.displays.forEach { d ->
+            val role = if (d.isDefault) "main" else "additional"
+            appendLine(
+                "  Screen ${d.id} ($role): ${d.widthPx} × ${d.heightPx} @ " +
+                    "${String.format(Locale.US, "%.0f", d.refreshRate)} Hz"
+            )
+        }
+        if (h.glEsVersion.isNotBlank()) appendLine("  OpenGL ES: ${h.glEsVersion}")
+        appendLine("  Vulkan: ${h.vulkanVersion.ifBlank { "Not supported" }}")
+        val vibration = when {
+            !h.hasVibrator -> "None"
+            h.vibratorAmplitudeControl -> "Yes, variable strength"
+            else -> "Yes, on/off only"
+        }
+        appendLine("  Vibration motor: $vibration")
+        h.audioSampleRate?.let { appendLine("  Audio output: $it Hz, ${h.audioFramesPerBuffer ?: "?"} frames/buffer") }
+        appendLine("  Low-latency audio: ${yesNo(h.audioLowLatency)} · Pro audio: ${yesNo(h.audioPro)}")
+        if (h.gnssModel.isNotBlank() || h.gnssYear != null) {
+            appendLine("  GNSS chip: ${listOfNotNull(h.gnssModel.takeIf { it.isNotBlank() }, h.gnssYear?.toString()).joinToString(", ")}")
+        }
+        h.simSlots?.let { appendLine("  SIM slots: $it") }
+        h.pageSizeKb?.let { appendLine("  Memory page size: $it KB") }
+        if (h.kernelArch.isNotBlank()) appendLine("  Kernel architecture: ${h.kernelArch}")
+        appendLine("  64-bit only: ${yesNo(h.is64BitOnly)} · Low-RAM device: ${yesNo(h.isLowRamDevice)}")
+        h.heapLimitMb?.let { appendLine("  App heap limit: $it MB (large: ${h.largeHeapLimitMb ?: "?"} MB)") }
+        if (h.runtimeVersion.isNotBlank()) appendLine("  ART version: ${h.runtimeVersion}")
+        h.firstApiLevel?.let { appendLine("  Shipped with API: $it") }
+        h.trebleEnabled?.let { appendLine("  Project Treble: ${yesNo(it)}") }
+        h.abUpdates?.let { appendLine("  Seamless (A/B) updates: ${yesNo(it)}") }
+        h.dynamicPartitions?.let { appendLine("  Dynamic partitions: ${yesNo(it)}") }
+        val (present, absent) = h.features.partition { it.present }
+        if (present.isNotEmpty()) appendLine("  Has: ${present.joinToString(", ") { it.name }}")
+        if (absent.isNotEmpty()) appendLine("  Lacks: ${absent.joinToString(", ") { it.name }}")
+        appendLine()
+    }
+
+    fun toJson(
+        report: FullDeviceReport,
+        redact: Boolean = false,
+        checkup: CheckupResults? = null
+    ): String {
         @Suppress("NAME_SHADOWING")
-        val report = if (redact) redact(report) else report
+        val report = (if (redact) redact(report) else report).let {
+            it.copy(network = withoutAddresses(it.network))
+        }
         val o = report.overview
         val c = report.cpu
         val g = report.gpu
@@ -322,6 +439,11 @@ object ReportExporter {
             put("availableFreqMhz", JSONArray(c.availableFreqMhz))
             put("onlineCores", JSONArray(c.onlineCores))
             put("topologyHint", c.topologyHint)
+            put("freqCoreIndices", JSONArray(c.freqCoreIndices))
+            put("coreNames", JSONArray(c.coreNames))
+            put("features", JSONArray(c.features))
+            put("socManufacturer", c.socManufacturer)
+            put("socModel", c.socModel)
         })
         root.put("gpu", JSONObject().apply {
             put("renderer", g.renderer)
@@ -342,7 +464,12 @@ object ReportExporter {
             put("powerSource", b.powerSource)
             put("capacityHealthPercent", b.capacityHealthPercent ?: JSONObject.NULL)
             put("cycleCount", b.cycleCount ?: JSONObject.NULL)
+            put("measuredCapacityMah", b.measuredCapacity?.fullMah ?: JSONObject.NULL)
+            put("measuredCapacitySpanPercent", b.measuredCapacity?.spanPercent ?: JSONObject.NULL)
             put("chargerMaxWatts", b.chargerMaxWatts ?: JSONObject.NULL)
+            put("chargeTimeRemainingMs", b.chargeTimeRemainingMs ?: JSONObject.NULL)
+            put("powerSaveMode", b.powerSaveMode)
+            put("energyMwh", b.energyMwh ?: JSONObject.NULL)
         })
         root.put("memory", JSONObject().apply {
             put("totalRamMb", m.totalRamMb)
@@ -465,6 +592,45 @@ object ReportExporter {
                 })
             }
         })
+        val h = report.hardware
+        root.put("hardware", JSONObject().apply {
+            put("displays", JSONArray().apply {
+                h.displays.forEach { d ->
+                    put(JSONObject().apply {
+                        put("id", d.id)
+                        put("widthPx", d.widthPx)
+                        put("heightPx", d.heightPx)
+                        put("refreshRate", d.refreshRate.toDouble())
+                        put("isDefault", d.isDefault)
+                    })
+                }
+            })
+            put("features", JSONObject().apply {
+                h.features.forEach { put(it.name, it.present) }
+            })
+            put("glEsVersion", h.glEsVersion)
+            put("vulkanVersion", h.vulkanVersion.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+            put("hasVibrator", h.hasVibrator)
+            put("vibratorAmplitudeControl", h.vibratorAmplitudeControl)
+            put("audioSampleRate", h.audioSampleRate ?: JSONObject.NULL)
+            put("audioFramesPerBuffer", h.audioFramesPerBuffer ?: JSONObject.NULL)
+            put("audioLowLatency", h.audioLowLatency)
+            put("audioPro", h.audioPro)
+            put("gnssModel", h.gnssModel)
+            put("gnssYear", h.gnssYear ?: JSONObject.NULL)
+            put("simSlots", h.simSlots ?: JSONObject.NULL)
+            put("pageSizeKb", h.pageSizeKb ?: JSONObject.NULL)
+            put("kernelArch", h.kernelArch)
+            put("is64BitOnly", h.is64BitOnly)
+            put("isLowRamDevice", h.isLowRamDevice)
+            put("heapLimitMb", h.heapLimitMb ?: JSONObject.NULL)
+            put("largeHeapLimitMb", h.largeHeapLimitMb ?: JSONObject.NULL)
+            put("runtimeVersion", h.runtimeVersion)
+            put("firstApiLevel", h.firstApiLevel ?: JSONObject.NULL)
+            put("trebleEnabled", h.trebleEnabled ?: JSONObject.NULL)
+            put("abUpdates", h.abUpdates ?: JSONObject.NULL)
+            put("dynamicPartitions", h.dynamicPartitions ?: JSONObject.NULL)
+        })
         root.put("thermalState", JSONObject().apply {
             put("status", report.thermalState.status.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
             put("headroom", report.thermalState.headroom?.toDouble() ?: JSONObject.NULL)
@@ -494,6 +660,11 @@ object ReportExporter {
                     put("isWakeUp", sens.isWakeUp)
                     put("fifoMaxEventCount", sens.fifoMaxEventCount)
                     put("reportingMode", sens.reportingMode)
+                    put("typeId", sens.typeId)
+                    put("stringType", sens.stringType)
+                    put("unit", sens.unit)
+                    put("category", sens.category.name)
+                    put("version", sens.version)
                 })
             }
         })
@@ -516,6 +687,15 @@ object ReportExporter {
                 })
             }
         })
+        root.put("healthScore", HealthScore.compute(report, checkup).score)
+        if (checkup != null && !checkup.isEmpty) {
+            root.put("checkup", JSONObject().apply {
+                CheckupTest.entries.forEach { t ->
+                    val st = checkup.status(t)
+                    if (st != CheckStatus.NOT_RUN) put(t.name.lowercase(), st.name.lowercase())
+                }
+            })
+        }
         return root.toString(2)
     }
 

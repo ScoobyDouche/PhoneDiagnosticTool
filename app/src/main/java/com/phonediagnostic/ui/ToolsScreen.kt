@@ -83,7 +83,8 @@ fun ToolsScreen(
     onRefreshLog: () -> Unit,
     onClearLog: () -> Unit,
     onShareLog: () -> Unit,
-    onRunLoadTest: (durationSec: Int, thermal: Boolean) -> Unit
+    onRunLoadTest: (durationSec: Int, thermal: Boolean) -> Unit,
+    onCancelLoadTest: () -> Unit = {}
 ) {
     val listState = rememberLazyListState()
     val context = LocalContext.current
@@ -205,6 +206,11 @@ fun ToolsScreen(
 
                         if (loadTesting && loadProgress != null) {
                             LiveLoadPanel(progress = loadProgress)
+                            Box(modifier = Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = onCancelLoadTest,
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(stringResource(R.string.tools_load_test_cancel)) }
                         } else {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -383,6 +389,12 @@ fun ToolsScreen(
                                 stringResource(R.string.tools_storage_read),
                                 stringResource(R.string.tools_storage_mbps, r.readMbPerSec)
                             )
+                            r.randomWriteIops?.let { iops ->
+                                MetricRow(
+                                    stringResource(R.string.tools_storage_random_write),
+                                    stringResource(R.string.tools_storage_iops, iops)
+                                )
+                            }
                         }
                         storageError?.let { msg ->
                             Box(modifier = Modifier.height(8.dp))
@@ -507,11 +519,7 @@ private fun vibrateShort(context: Context) {
             )
         } else {
             val v = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                v.vibrate(VibrationEffect.createOneShot(80, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                v.vibrate(80)
-            }
+            v.vibrate(VibrationEffect.createOneShot(80, VibrationEffect.DEFAULT_AMPLITUDE))
         }
     } catch (_: Exception) {
         // no vibrator

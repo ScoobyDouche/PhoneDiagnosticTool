@@ -19,29 +19,39 @@ Captured on a Galaxy Z Flip4 running Android 16.
 
 **Device and hardware**
 - **Overview** — model, Android version, security patch, fingerprint, board, bootloader, kernel, uptime
-- **CPU / SoC** — cluster layout and peak clocks, governors, available frequencies, live per-core clocks
+- **CPU / SoC** — chip, core designs (Cortex-A / X, Kryo), cluster layout and peak clocks, governors, available frequencies, instruction-set features, live per-core clocks
 - **GPU** — OpenGL ES renderer and version
-- **Battery** — charge, health, temperature, voltage, charging power, charger rating, drain rate and time left, capacity wear and cycle count (where available)
+- **Battery** — real full capacity measured over a charge (no special access), charge, health, temperature, voltage, charging power, charger rating, time to full, drain rate and time left, remaining energy, capacity wear and cycle count (where available)
 - **RAM** — usage, kernel stats (cached, buffers, swap, ZRAM) and process detail (system-wide with Shizuku/root)
 - **Storage** — volumes, per-app breakdown (requires Usage Access), flash type and wear (UFS / eMMC)
 - **Display** — resolution modes, refresh rates, HDR formats and peak brightness, wide colour gamut
-- **Sensors** — list, reporting mode / wake-up / batching, live streaming with per-axis charts
+- **Sensors** — every sensor named with its unit (including hinge angle, heading and vendor sensors), which standard sensors are fitted or missing, reporting mode / wake-up / batching, live streaming with per-axis charts and measured rate
+- **Hardware and platform** — every screen (cover screens included), biometric readers, NFC / UWB / eSIM / infrared, Wi-Fi bands, positioning chip, SIM slots, Vulkan and OpenGL ES versions, audio latency class, vibration motor, memory page size, Treble / seamless updates
 - **Cameras** — facing, pixel array, focal lengths, hardware level, ISO / exposure ranges, flash, capabilities (no camera permission)
 - **Media codecs** — every video and audio format, hardware vs software playback and recording, max resolution and frame rate
 - **Thermals** — every zone with readable names, Android's thermal status and throttling headroom
 - **System activity** — awake vs deep-sleep time since boot, last wake reason, top wakeup sources
-- **Network** — IPs, DNS / private DNS, Wi-Fi standard (4 to 7, 6E) / band / signal, cellular generation (2G to 5G) and signal, latency probe with burst stats
+- **Network** — IPs, DNS / private DNS, Wi-Fi standard (4 to 7, 6E) / band / signal, cellular generation (2G to 5G) and signal, latency probe with burst stats, IPv6 / captive-portal / Private DNS checks
 - **Security** — verified boot, bootloader lock, encryption, SELinux, patch age, StrongBox / hardware keystore
 - **Connectivity** — NFC / Bluetooth state, connected audio devices
 
 **Privacy**
-- **Privacy audit** — which apps hold camera, microphone, location, contacts, SMS and other sensitive permissions, and which have accessibility, notification or device-admin access
-- **Redacted reports** (on by default) — exports leave out fingerprint, bootloader, baseband and build host
+- **Privacy audit** — which apps hold camera, microphone, location, contacts, SMS and other sensitive permissions, and which have accessibility, keyboard, notification or device-admin access; apps that were not installed from a store, have no launcher icon or run unrestricted in the background are marked; a summary card says how many things are worth a look
+- **Device checks** — screen lock, encryption, debugging, VPN, Private DNS, user-installed CA certificates (can intercept "secure" traffic), organisation management / work profile, open Wi-Fi
+- **With Shizuku or root** — which apps can draw over other apps, install apps or read usage, and which used the camera, microphone or location in the last 7 days
+- **Device checks** — screen lock, encryption, bootloader, patch age, USB / wireless debugging, VPN, Private DNS, location services at a glance
+- **Redacted reports** (on by default) — exports leave out fingerprint, bootloader, baseband, build host and app paths; no report ever contains an IP address
+- **Hide network addresses** (optional) — IPs, DNS servers, Wi-Fi name and carrier stay masked on screen until tapped
+- **Keep history** (on by default) — switch off to store no trend samples at all
 - **Latency target of your choice** — Cloudflare, Quad9, Google, or your router only
-- **Sensitive clipboard** — copied reports are hidden from the copy preview and cleared after a minute
+- **Sensitive clipboard** — copied reports are hidden from the copy preview and cleared after a minute (or when you next return to the app)
 - **Block screenshots** (optional) — no screenshots, screen recording or Recents preview
 
 **Tools**
+- **Phone checkup** — guided hardware tests for buying or selling a used phone: touch grid, multi-touch, display colours / dead pixels, loudspeaker, earpiece, vibration, flashlight, volume buttons, proximity, light and motion sensors, charging port, headphones; results go into reports
+- **Crashes and restarts** (Shizuku / root) — app crashes, ANRs, system restarts and kernel entries from the last 7 days
+- **Health score** — 0–100 with every deduction listed (battery wear, storage, flash wear, heat, patch age, checkup failures), plus a saved baseline to compare against later
+- **Home-screen widget** — battery level and temperature, charging state and RAM in use
 - **History** — battery, temperature and RAM trends from up to 24 h of on-device samples
 - **Load test** — 1 / 5 / 10 min CPU load with k-ops/s score and throttling detection (sustained % of peak)
 - Vibration check, storage speed test, background monitor with a rotating log (5000 lines)
@@ -107,7 +117,7 @@ cd PhoneDiagnosticTool
 ./gradlew bundleRelease     # AAB for Play
 ```
 
-CI runs tests + debug/release APK + AAB on every push and pull request.
+CI runs tests, lint and the debug/release APK + AAB builds on every push and pull request.
 
 ## Permissions
 
@@ -117,11 +127,13 @@ CI runs tests + debug/release APK + AAB on every push and pull request.
 | `ACCESS_NETWORK_STATE` | Detect connection type; DNS and link details |
 | `ACCESS_WIFI_STATE` | Wi-Fi link speed, band, signal |
 | `VIBRATE` | Vibration hardware check under Tools |
+| `MODIFY_AUDIO_SETTINGS` | Route the Phone checkup's test tone to the earpiece |
 | `PACKAGE_USAGE_STATS` | Per-app storage (user must grant Usage Access) |
 | `QUERY_ALL_PACKAGES` | List installed apps for the storage breakdown and Privacy audit (Android 11+) |
 | `REQUEST_DELETE_PACKAGES` | Uninstall from storage detail |
 | `FOREGROUND_SERVICE` / `SPECIAL_USE` | Optional background monitor |
 | `POST_NOTIFICATIONS` | Background monitor notification (Android 13+) |
+| `RECEIVE_BOOT_COMPLETED` | Resume the background monitor after a reboot, only if it was on |
 | `moe.shizuku.manager.permission.API_V23` | Optional elevated access via Shizuku (off by default) |
 
 Camera and sensors use system APIs without requesting the CAMERA permission (characteristics only; no capture).
@@ -131,7 +143,7 @@ Camera and sensors use system APIs without requesting the CAMERA permission (cha
 - Kotlin · Jetpack Compose · Material 3
 - ViewModel + StateFlow
 - Min SDK 26 · Target / compile SDK 35
-- Version **1.4.0**
+- Version **1.5.0**
 
 Diagnostics stay on-device only: a rotating log and 24 h metric history live in internal storage. The app opts out of Android cloud backup and device transfer (`allowBackup="false"`).
 

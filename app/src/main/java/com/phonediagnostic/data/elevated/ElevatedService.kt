@@ -1,7 +1,6 @@
 package com.phonediagnostic.data.elevated
 
 import android.content.Context
-import java.util.concurrent.TimeUnit
 import kotlin.system.exitProcess
 
 /**
@@ -25,19 +24,7 @@ class ElevatedService() : IElevatedService.Stub() {
 
     override fun exec(command: String?): String? {
         if (command.isNullOrBlank()) return null
-        var process: Process? = null
-        return try {
-            process = ProcessBuilder("sh", "-c", command)
-                .redirectErrorStream(false)
-                .start()
-            val out = process.inputStream.bufferedReader().use { it.readText() }
-            val finished = process.waitFor(EXEC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-            if (!finished) null else out
-        } catch (_: Exception) {
-            null
-        } finally {
-            process?.let { runCatching { it.destroy() } }
-        }
+        return ProcessRunner.run(listOf("sh", "-c", command), EXEC_TIMEOUT_MS)
     }
 
     private companion object {

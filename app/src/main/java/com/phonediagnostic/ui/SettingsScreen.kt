@@ -48,11 +48,15 @@ fun SettingsScreen(
     latencyTarget: LatencyTarget,
     redactReports: Boolean,
     secureScreens: Boolean,
+    historyEnabled: Boolean,
+    hideAddresses: Boolean,
     elevatedStatus: ElevatedStatus,
     onNetworkProbeChange: (Boolean) -> Unit,
     onLatencyTargetChange: (LatencyTarget) -> Unit,
     onRedactReportsChange: (Boolean) -> Unit,
     onSecureScreensChange: (Boolean) -> Unit,
+    onHistoryEnabledChange: (Boolean) -> Unit,
+    onHideAddressesChange: (Boolean) -> Unit,
     onBackgroundMonitorChange: (Boolean) -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
     onAccessTierChange: (AccessTier) -> Unit,
@@ -147,6 +151,20 @@ fun SettingsScreen(
                 description = stringResource(R.string.settings_secure_description),
                 checked = secureScreens,
                 onCheckedChange = onSecureScreensChange
+            )
+            Box(modifier = Modifier.height(12.dp))
+            SettingSwitch(
+                title = stringResource(R.string.settings_hide_addresses_title),
+                description = stringResource(R.string.settings_hide_addresses_description),
+                checked = hideAddresses,
+                onCheckedChange = onHideAddressesChange
+            )
+            Box(modifier = Modifier.height(12.dp))
+            SettingSwitch(
+                title = stringResource(R.string.settings_history_title),
+                description = stringResource(R.string.settings_history_description),
+                checked = historyEnabled,
+                onCheckedChange = onHistoryEnabledChange
             )
 
             Box(modifier = Modifier.height(24.dp))

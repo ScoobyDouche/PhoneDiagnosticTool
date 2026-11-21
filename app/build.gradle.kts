@@ -12,10 +12,9 @@ android {
         applicationId = "com.phonediagnostic"
         minSdk = 26
         targetSdk = 35
-        versionCode = 36
-        versionName = "1.4.0"
+        versionCode = 37
+        versionName = "1.5.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -46,6 +45,9 @@ android {
 
     buildTypes {
         debug {
+            // Installs alongside a store / GitHub release build instead of
+            // clashing with its signing key.
+            applicationIdSuffix = ".dev"
             val ciKeystore = rootProject.file("keystore/debug.keystore")
             if (ciKeystore.exists()) {
                 signingConfig = signingConfigs.getByName("ciDebug")
@@ -94,11 +96,13 @@ android {
         }
     }
 
-    // lifecycle-lint's NonNullableMutableLiveDataDetector crashes under Kotlin
-    // 2.1's analysis API (IncompatibleClassChangeError on KaCallableMemberCall).
-    // Safe to disable: this app uses StateFlow, not MutableLiveData.
+    // These detectors crash under Kotlin 2.1's analysis API
+    // (IncompatibleClassChangeError on the Ka*Call classes), which fails the
+    // whole lint task rather than one check. NullSafeMutableLiveData is moot
+    // anyway: this app uses StateFlow, not MutableLiveData. The two Compose
+    // runtime checks can come back once the Compose BOM moves past AGP 8.7.
     lint {
-        disable += "NullSafeMutableLiveData"
+        disable += listOf("NullSafeMutableLiveData", "FrequentlyChangingValue", "RememberInComposition", "AutoboxingStateCreation")
     }
 }
 
@@ -107,7 +111,6 @@ dependencies {
     // BOM that still targets SDK 35 while AGP is on 8.7.2.
     val composeBom = platform("androidx.compose:compose-bom:2025.10.01")
     implementation(composeBom)
-    androidTestImplementation(composeBom)
 
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
@@ -133,9 +136,5 @@ dependencies {
     // The android.jar stub throws on every org.json call, so unit tests need the
     // real implementation to exercise the JSON export.
     testImplementation("org.json:json:20250517")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

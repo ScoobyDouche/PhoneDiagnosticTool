@@ -12,6 +12,9 @@ import java.util.Locale
  */
 object DeepProbes {
 
+    /** Compiled once: several parsers below split on whitespace per line. */
+    private val WHITESPACE = Regex("\\s+")
+
     data class MemExtras(
         val cachedMb: Long?,
         val buffersMb: Long?,
@@ -116,6 +119,94 @@ object DeepProbes {
         }
     }
 
+    /** Peak clock of each core's own cluster, keyed by core number. */
+    fun coreMaxMhz(clusters: List<CpuCluster>): Map<Int, Int> =
+        clusters.flatMap { c -> c.cpus.mapNotNull { cpu -> c.maxMhz?.let { cpu to it } } }.toMap()
+
+    /**
+     * Core designs from /proc/cpuinfo's per-core "CPU implementer" and "CPU
+     * part" lines (the ARM MIDR register), grouped and counted in core order:
+     * ["4× Cortex-A510", "3× Cortex-A710", "1× Cortex-X2"]. Unknown parts keep
+     * their hex ID rather than being dropped. Empty on x86, which has no such lines.
+     */
+    fun cpuCoreNames(cpuinfo: String): List<String> {
+        val names = ArrayList<String>()
+        var implementer: Int? = null
+        for (line in cpuinfo.lineSequence()) {
+            val value = line.substringAfter(':', "").trim()
+            when {
+                line.startsWith("CPU implementer") -> implementer = parseHex(value)
+                line.startsWith("CPU part") -> {
+                    val part = parseHex(value) ?: continue
+                    names += CPU_PARTS[(implementer ?: 0) to part]
+                        ?: String.format(Locale.US, "Part 0x%03x", part)
+                }
+            }
+        }
+        // Group consecutive identical cores, keeping cluster order.
+        val grouped = ArrayList<Pair<String, Int>>()
+        for (name in names) {
+            val last = grouped.lastOrNull()
+            if (last != null && last.first == name) {
+                grouped[grouped.size - 1] = name to last.second + 1
+            } else {
+                grouped += name to 1
+            }
+        }
+        return grouped.map { (name, count) -> "$count× $name" }
+    }
+
+    /** The kernel's "Features" (ARM) or "flags" (x86) line; identical on every core. */
+    fun cpuFeatures(cpuinfo: String): List<String> {
+        val line = cpuinfo.lineSequence().firstOrNull {
+            it.startsWith("Features") || it.startsWith("flags")
+        } ?: return emptyList()
+        return line.substringAfter(':', "").trim().split(WHITESPACE).filter { it.isNotEmpty() }
+    }
+
+    private fun parseHex(value: String): Int? =
+        value.removePrefix("0x").removePrefix("0X").toIntOrNull(16)
+
+    private const val ARM = 0x41
+    private const val QUALCOMM = 0x51
+    private const val SAMSUNG = 0x53
+
+    /** (implementer, part) from the MIDR register to the core's marketing name. */
+    private val CPU_PARTS: Map<Pair<Int, Int>, String> = mapOf(
+        (ARM to 0xd03) to "Cortex-A53",
+        (ARM to 0xd04) to "Cortex-A35",
+        (ARM to 0xd05) to "Cortex-A55",
+        (ARM to 0xd07) to "Cortex-A57",
+        (ARM to 0xd08) to "Cortex-A72",
+        (ARM to 0xd09) to "Cortex-A73",
+        (ARM to 0xd0a) to "Cortex-A75",
+        (ARM to 0xd0b) to "Cortex-A76",
+        (ARM to 0xd0d) to "Cortex-A77",
+        (ARM to 0xd41) to "Cortex-A78",
+        (ARM to 0xd44) to "Cortex-X1",
+        (ARM to 0xd46) to "Cortex-A510",
+        (ARM to 0xd47) to "Cortex-A710",
+        (ARM to 0xd48) to "Cortex-X2",
+        (ARM to 0xd4d) to "Cortex-A715",
+        (ARM to 0xd4e) to "Cortex-X3",
+        (ARM to 0xd80) to "Cortex-A520",
+        (ARM to 0xd81) to "Cortex-A720",
+        (ARM to 0xd82) to "Cortex-X4",
+        (ARM to 0xd85) to "Cortex-X925",
+        (ARM to 0xd87) to "Cortex-A725",
+        (QUALCOMM to 0x001) to "Oryon",
+        (QUALCOMM to 0x800) to "Kryo 2xx Gold",
+        (QUALCOMM to 0x801) to "Kryo 2xx Silver",
+        (QUALCOMM to 0x802) to "Kryo 3xx Gold",
+        (QUALCOMM to 0x803) to "Kryo 3xx Silver",
+        (QUALCOMM to 0x804) to "Kryo 4xx Gold",
+        (QUALCOMM to 0x805) to "Kryo 4xx Silver",
+        (SAMSUNG to 0x001) to "Exynos M1",
+        (SAMSUNG to 0x002) to "Exynos M3",
+        (SAMSUNG to 0x003) to "Exynos M4",
+        (SAMSUNG to 0x004) to "Exynos M5"
+    )
+
     /** Parses kernel CPU lists in both "0-3,6" (online) and "0 1 2 3" (related_cpus) forms. */
     internal fun parseCpuList(raw: String): List<Int> {
         val cores = ArrayList<Int>()
@@ -135,7 +226,7 @@ object DeepProbes {
 
     /** kHz list from scaling_available_frequencies to distinct ascending MHz. */
     internal fun parseFreqListMhz(raw: String?): List<Int> =
-        raw?.trim()?.split(Regex("\\s+"))
+        raw?.trim()?.split(WHITESPACE)
             ?.mapNotNull { it.toLongOrNull()?.div(1000)?.toInt() }
             ?.filter { it > 0 }
             ?.distinct()
@@ -151,7 +242,7 @@ object DeepProbes {
         var active: Long? = null
         val text = readNode("/proc/meminfo") ?: return MemExtras.NONE
         for (line in text.lineSequence()) {
-            val parts = line.split(Regex("\\s+"))
+            val parts = line.split(WHITESPACE)
             if (parts.size < 2) continue
             val key = parts[0].trimEnd(':')
             val kb = parts[1].toLongOrNull() ?: continue
@@ -178,7 +269,7 @@ object DeepProbes {
 
     /** mm_stat fields: orig_data_size compr_data_size mem_used_total ... (bytes). */
     internal fun parseZramUsedMb(mmStat: String): Long? =
-        mmStat.trim().split(Regex("\\s+")).getOrNull(2)?.toLongOrNull()?.div(1024 * 1024)
+        mmStat.trim().split(WHITESPACE).getOrNull(2)?.toLongOrNull()?.div(1024 * 1024)
 
     fun selinuxMode(readNode: (String) -> String?): String {
         val enforce = readNode("/sys/fs/selinux/enforce")?.trim()
@@ -273,7 +364,7 @@ object DeepProbes {
      * 0x01 = 0–10% of rated erase cycles used ... 0x0A = 90–100%, 0x0B = exceeded.
      */
     fun storageLifeUsed(raw: String?): String? {
-        val values = raw.orEmpty().trim().split(Regex("\\s+"))
+        val values = raw.orEmpty().trim().split(WHITESPACE)
             .mapNotNull { it.removePrefix("0x").removePrefix("0X").toIntOrNull(16) }
             .filter { it in 1..0x0B }
         val worst = values.maxOrNull() ?: return null

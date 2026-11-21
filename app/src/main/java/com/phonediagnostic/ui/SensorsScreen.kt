@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.phonediagnostic.R
 import com.phonediagnostic.data.CameraEntry
+import com.phonediagnostic.data.SensorCatalog
 import com.phonediagnostic.data.SensorEntry
 import java.util.Locale
 
@@ -46,7 +47,7 @@ fun SensorsScreen(
     isRefreshing: Boolean,
     onBack: (() -> Unit)? = null,
     onRefresh: () -> Unit,
-    onOpenSensor: (String) -> Unit = {}
+    onOpenSensor: (SensorEntry) -> Unit = {}
 ) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -98,6 +99,10 @@ fun SensorsScreen(
                 )
             }
 
+            if (sensors.isNotEmpty()) {
+                item { CoverageCard(sensors) }
+            }
+
             if (cameras.isNotEmpty()) {
                 item {
                     Text(
@@ -137,7 +142,7 @@ fun SensorsScreen(
                     // LazyColumn does not reject the list.
                     key = { index, sensor -> "sensor-$index-${sensor.type}-${sensor.name}" }
                 ) { _, sensor ->
-                    SensorCard(sensor = sensor, onClick = { onOpenSensor(sensor.name) })
+                    SensorCard(sensor = sensor, onClick = { onOpenSensor(sensor) })
                 }
             }
         }
@@ -179,7 +184,7 @@ private fun SensorCard(sensor: SensorEntry, onClick: () -> Unit) {
             )
             MetaRow(
                 stringResource(R.string.label_max_range),
-                String.format(Locale.US, "%.2f", sensor.maxRange)
+                String.format(Locale.US, "%.2f %s", sensor.maxRange, sensor.unit).trim()
             )
             if (sensor.minDelayUs > 0) {
                 MetaRow(
@@ -205,6 +210,40 @@ private fun SensorCard(sensor: SensorEntry, onClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+/** Which of the sensors people expect a phone to have are actually fitted. */
+@Composable
+private fun CoverageCard(sensors: List<SensorEntry>) {
+    val (present, missing) = SensorCatalog.coverage(sensors.map { it.typeId }).partition { it.second }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = stringResource(R.string.sensors_coverage_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            if (present.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.sensors_coverage_present, present.joinToString(", ") { it.first }),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (missing.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.sensors_coverage_missing, missing.joinToString(", ") { it.first }),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

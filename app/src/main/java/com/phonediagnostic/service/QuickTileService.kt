@@ -1,5 +1,6 @@
 package com.phonediagnostic.service
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
@@ -63,7 +64,7 @@ class QuickTileService : TileService() {
 
     private fun sample(): String? = try {
         val collector = DeviceInfoCollector(applicationContext)
-        val b = collector.collectBattery()
+        val b = collector.collectBattery(DeviceInfoCollector.GaugeRead.SKIP)
         val m = collector.collectMemory(kernelExtras = false)
         getString(
             R.string.tile_subtitle,
@@ -74,6 +75,8 @@ class QuickTileService : TileService() {
         null
     }
 
+    // Lint flags the Intent overload regardless of the SDK check guarding it.
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     override fun onClick() {
         super.onClick()
         val intent = Intent(this, MainActivity::class.java)

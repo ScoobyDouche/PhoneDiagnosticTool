@@ -6,6 +6,101 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows a practical semantic versioning scheme for a single-app
 Android project (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+## [1.5.0] — 2026-11-21
+
+### Added
+- Hardware and platform screen: every screen the phone has, biometric
+  readers, NFC / UWB / eSIM / infrared, Wi-Fi bands, positioning chip model,
+  SIM slots, Vulkan and OpenGL ES versions, audio latency, vibration motor,
+  memory page size, Treble and seamless-update support. Included in reports.
+- Sensors: all 42 standard sensor types are named (hinge angle, heading,
+  uncalibrated and limited-axes variants ...) and vendor sensors take their
+  name from the type string instead of showing "Type 65587". Readings carry
+  units, a card shows which standard sensors are fitted or missing, and the
+  live view shows the measured event rate and every value the sensor reports.
+- CPU: chip maker and model, core designs decoded from the CPU ID registers
+  (e.g. 4× Cortex-A510 + 3× Cortex-A710 + 1× Cortex-X2) and instruction-set
+  features.
+- Battery: time to full, remaining energy and Battery Saver state.
+- Privacy audit: device checks (screen lock, encryption, bootloader, patch
+  age, USB and wireless debugging, developer options, VPN, Private DNS,
+  location services, camera/mic switches); enabled keyboards listed as
+  special access; apps not installed from a store or without a launcher icon
+  are marked, and listed first when they also hold special access.
+- Settings: "Hide network addresses" masks IPs, DNS servers, Wi-Fi name and
+  carrier on the Network screen until tapped; "Keep history" can be turned
+  off, which deletes stored samples.
+- Themed (monochrome) launcher icon.
+- **Phone checkup** (More → Phone checkup): guided hardware tests for buying
+  or selling a used phone — touch grid, multi-touch, display colours and dead
+  pixels, loudspeaker, earpiece, vibration, flashlight, volume buttons,
+  proximity, light and motion sensors, charging port and headphones. Results
+  go into reports. The microphone is deliberately not tested (it would need
+  the microphone permission).
+- **Health score** on the Overview: 0–100 with every deduction listed
+  (battery wear, storage, flash wear, heat, patch age, checkup failures), and
+  a saved baseline to compare against later. Included in reports.
+- **Measured battery capacity**: the real full capacity, worked out from the
+  charge counter over a 20 %+ charge. No special access needed.
+- **Crashes and restarts** (Shizuku / root): app crashes, native crashes,
+  ANRs, system restarts and kernel entries from the last 7 days.
+- Privacy audit: user-installed CA certificates, organisation management and
+  work profile, open Wi-Fi, apps exempt from battery optimisation, and a
+  summary card. With Shizuku / root: apps that can draw over other apps,
+  install apps or read usage, and which apps used the camera, microphone or
+  location in the last 7 days.
+- Network: internet-verified, captive-portal and IPv6 checks; a Private DNS
+  hostname that is set but not working is called out.
+- Storage test: synced random 4 KB write IOPS.
+- Load tests can be cancelled.
+- Home-screen widget with battery, temperature and RAM.
+- The background monitor resumes after a reboot or app update if it was on.
+
+### Fixed
+- Exported reports contained the router's IP address when the latency check
+  targeted the router, and a failed check could put the probed address in
+  the report's status line. Reports now never contain an IP address.
+- Live CPU clocks were labelled with the wrong core number whenever a core
+  was offline, and every core's bar was scaled to the little cluster's peak,
+  so big cores read as permanently maxed out. The frequency range likewise
+  showed the little cluster's maximum rather than the chip's.
+- Opening a sensor whose wake-up and non-wake-up variants share a name
+  could stream the wrong one.
+- Thermal zones below 0 °C reported in millidegrees were dropped.
+- Clearing a copied report used to do nothing once you had left the app,
+  because Android 10+ hides the clipboard from background apps. It is now
+  cleared after a minute if the app can still see it, or the next time you
+  return to the app — never by wiping something you copied since.
+- A Shizuku or root command that hung (for example `su` waiting on its
+  grant prompt) could stall every refresh; the 4-second timeout now applies.
+- A cancelled latency burst no longer counts the probes that never ran as
+  packet loss.
+
+### Changed
+- With Shizuku or root enabled, nodes the device does not have are no longer
+  re-read through the elevated shell on every refresh. This removed a couple
+  of dozen process launches every three seconds.
+- Fuel-gauge capacity and cycle count are read at most once a minute, and not
+  at all by the background monitor, load test and Quick Settings tile.
+- Sensors are only sampled while the sensor list is on screen, not behind
+  the live sensor view.
+- Redacted reports also leave out the app's own storage paths.
+- A report shared as a file is deleted from the cache on next launch.
+- Log lines carry the date as well as the time.
+- Cleartext HTTP is disabled for the app (it never used any).
+
+### Permissions
+- `RECEIVE_BOOT_COMPLETED` — only to resume the background monitor if it
+  was on.
+- `MODIFY_AUDIO_SETTINGS` (normal, no prompt) — routes the checkup's test
+  chime to the earpiece.
+
+### Internal
+- Lint runs again and is part of CI; dropped unused instrumentation-test
+  dependencies and SDK checks that minSdk 26 made unreachable.
+
 ## [1.4.0] — 2026-10-28
 
 ### Added

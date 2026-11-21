@@ -68,8 +68,9 @@ class DiagnosticLog(context: Context) {
         io.execute { runCatching { logFile.delete() } }
     }
 
+    /** With the date: the log holds about two days, and a bare time repeats. */
     private fun timestamp(): String =
-        SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
+        SimpleDateFormat("MM-dd HH:mm:ss", Locale.US).format(Date())
 
     private fun appendToFile(line: String) {
         runCatching {

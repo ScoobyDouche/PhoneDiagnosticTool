@@ -13,8 +13,12 @@ import android.content.ComponentName
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PersistableBundle
+import android.os.SystemClock
 import android.provider.Settings
+import android.view.KeyEvent
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -63,8 +67,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.lifecycleScope
 import com.phonediagnostic.data.FullDeviceReport
+import com.phonediagnostic.data.HealthScore
 import com.phonediagnostic.data.MetricHistory
 import com.phonediagnostic.data.ReportExporter
 import com.phonediagnostic.data.ThermalState
@@ -72,10 +76,13 @@ import com.phonediagnostic.data.ThemeMode
 import com.phonediagnostic.ui.AboutScreen
 import com.phonediagnostic.ui.AppScreen
 import com.phonediagnostic.ui.BatteryScreen
+import com.phonediagnostic.ui.CheckupScreen
 import com.phonediagnostic.ui.CodecsScreen
 import com.phonediagnostic.ui.CpuScreen
 import com.phonediagnostic.ui.DashboardScreen
 import com.phonediagnostic.ui.DeviceViewModel
+import com.phonediagnostic.ui.HardwareScreen
+import com.phonediagnostic.ui.HealthCard
 import com.phonediagnostic.ui.HistoryScreen
 import com.phonediagnostic.ui.MoreScreen
 import com.phonediagnostic.ui.NetworkScreen
@@ -84,14 +91,13 @@ import com.phonediagnostic.ui.RamDetailScreen
 import com.phonediagnostic.ui.SensorDetailScreen
 import com.phonediagnostic.ui.SensorsScreen
 import com.phonediagnostic.ui.SettingsScreen
+import com.phonediagnostic.ui.StabilityScreen
 import com.phonediagnostic.ui.StorageDetailScreen
 import com.phonediagnostic.ui.ThermalsScreen
 import com.phonediagnostic.ui.ToolsScreen
 import com.phonediagnostic.ui.isMainTab
 import com.phonediagnostic.ui.theme.PhoneDiagnosticTheme
 import java.io.File
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import com.phonediagnostic.service.QuickTileService
 
 class MainActivity : ComponentActivity() {
@@ -127,6 +133,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (savedInstanceState == null) clearSharedReports()
         applySecureFlag(viewModel.secureScreens.value)
 
         setContent {
@@ -183,6 +190,13 @@ class MainActivity : ComponentActivity() {
                         shownScreen = screen
                     }
                     val elevatedStatus by viewModel.elevatedStatus.collectAsStateWithLifecycle()
+                    val historyEnabled by viewModel.historyEnabled.collectAsStateWithLifecycle()
+                    val hideAddresses by viewModel.hideAddresses.collectAsStateWithLifecycle()
+                    val stability by viewModel.stability.collectAsStateWithLifecycle()
+                    val checkup by viewModel.checkup.collectAsStateWithLifecycle()
+                    val baseline by viewModel.baseline.collectAsStateWithLifecycle()
+                    val volumeKeysSeen by viewModel.volumeKeysSeen.collectAsStateWithLifecycle()
+                    val stabilityLoading by viewModel.stabilityLoading.collectAsStateWithLifecycle()
 
                     // Back used to leave the app from every detail screen. Intercept
                     // while there is somewhere to return to, and hold it entirely
@@ -252,7 +266,23 @@ class MainActivity : ComponentActivity() {
                                             onOpenRamDetail = { viewModel.openRamDetail() },
                                             onOpenStorageDetail = { viewModel.openStorageDetail() },
                                             onOpenNetwork = { viewModel.openNetwork() },
-                                            onOpenHistory = { viewModel.openHistory() }
+                                            onOpenHistory = { viewModel.openHistory() },
+                                            healthSlot = {
+                                                val r = report
+                                                if (r != null) {
+                                                    val health = remember(r, checkup) { HealthScore.compute(r, checkup) }
+                                                    HealthCard(
+                                                        health = health,
+                                                        baseline = baseline,
+                                                        currentBatteryHealth = HealthScore.batteryHealthPercent(r.battery),
+                                                        currentCycles = r.battery.cycleCount,
+                                                        currentStorageUsedGb = r.storage.usedInternalGb,
+                                                        currentLoadScore = lastLoadResult?.score,
+                                                        onSaveBaseline = { viewModel.saveBaseline() },
+                                                        onClearBaseline = { viewModel.clearBaseline() }
+                                                    )
+                                                }
+                                            }
                                         )
                                     }
                                     AppScreen.CPU -> {
@@ -282,7 +312,7 @@ class MainActivity : ComponentActivity() {
                                             isRefreshing = isRefreshing,
                                             onBack = null,
                                             onRefresh = { viewModel.refreshNow() },
-                                            onOpenSensor = { viewModel.openSensorDetail(it) }
+                                            onOpenSensor = { viewModel.openSensorDetail(it.key) }
                                         )
                                     }
                                     AppScreen.MORE -> {
@@ -297,6 +327,9 @@ class MainActivity : ComponentActivity() {
                                             onOpenThermals = { viewModel.openThermals() },
                                             onOpenPrivacy = { viewModel.openPrivacy() },
                                             onOpenCodecs = { viewModel.openCodecs() },
+                                            onOpenHardware = { viewModel.openHardware() },
+                                            onOpenStability = { viewModel.openStability() },
+                                            onOpenCheckup = { viewModel.openCheckup() },
                                             onOpenTools = { viewModel.openTools() },
                                             onOpenSettings = { viewModel.openSettings() },
                                             onOpenAbout = { viewModel.openAbout() },
@@ -319,11 +352,15 @@ class MainActivity : ComponentActivity() {
                                             latencyTarget = latencyTarget,
                                             redactReports = redactReports,
                                             secureScreens = secureScreens,
+                                            historyEnabled = historyEnabled,
+                                            hideAddresses = hideAddresses,
                                             elevatedStatus = elevatedStatus,
                                             onNetworkProbeChange = { viewModel.setNetworkProbeEnabled(it) },
                                             onLatencyTargetChange = { viewModel.setLatencyTarget(it) },
                                             onRedactReportsChange = { viewModel.setRedactReports(it) },
                                             onSecureScreensChange = { viewModel.setSecureScreens(it) },
+                                            onHistoryEnabledChange = { viewModel.setHistoryEnabled(it) },
+                                            onHideAddressesChange = { viewModel.setHideAddresses(it) },
                                             onBackgroundMonitorChange = { enabled ->
                                                 if (enabled) {
                                                     requestNotificationThenStartMonitor()
@@ -390,7 +427,8 @@ class MainActivity : ComponentActivity() {
                                             onShareLog = { shareLog() },
                                             onRunLoadTest = { durationSec, thermal ->
                                                 viewModel.runLoadTest(durationSec, thermal)
-                                            }
+                                            },
+                                            onCancelLoadTest = { viewModel.cancelLoadTest() }
                                         )
                                     }
                                     AppScreen.THERMALS -> {
@@ -407,6 +445,7 @@ class MainActivity : ComponentActivity() {
                                         HistoryScreen(
                                             samples = metricHistory,
                                             monitorEnabled = bgMonitor,
+                                            historyEnabled = historyEnabled,
                                             onBack = { viewModel.navigateBack() },
                                             onRefresh = { viewModel.refreshHistory() },
                                             onClear = { viewModel.clearHistory() }
@@ -420,6 +459,7 @@ class MainActivity : ComponentActivity() {
                                             probeEnabled = networkProbe,
                                             latency = latencyStats,
                                             latencyRunning = latencyRunning,
+                                            hideAddresses = hideAddresses,
                                             onBack = { viewModel.navigateBack() },
                                             onRefresh = { viewModel.loadNetworkDetail() },
                                             onRunLatency = { viewModel.runLatencyTest() }
@@ -428,6 +468,30 @@ class MainActivity : ComponentActivity() {
                                     AppScreen.CODECS -> {
                                         CodecsScreen(
                                             codecs = report?.mediaCodecs.orEmpty(),
+                                            onBack = { viewModel.navigateBack() }
+                                        )
+                                    }
+                                    AppScreen.CHECKUP -> {
+                                        CheckupScreen(
+                                            results = checkup,
+                                            volumeKeysSeen = volumeKeysSeen,
+                                            onResult = { test, status -> viewModel.setCheckupResult(test, status) },
+                                            onCaptureVolumeKeys = { viewModel.setCaptureVolumeKeys(it) },
+                                            onReset = { viewModel.resetCheckup() },
+                                            onBack = { viewModel.navigateBack() }
+                                        )
+                                    }
+                                    AppScreen.STABILITY -> {
+                                        StabilityScreen(
+                                            report = stability,
+                                            isLoading = stabilityLoading,
+                                            onBack = { viewModel.navigateBack() },
+                                            onRefresh = { viewModel.loadStability() }
+                                        )
+                                    }
+                                    AppScreen.HARDWARE -> {
+                                        HardwareScreen(
+                                            hardware = report?.hardware,
                                             onBack = { viewModel.navigateBack() }
                                         )
                                     }
@@ -442,7 +506,8 @@ class MainActivity : ComponentActivity() {
                                     }
                                     AppScreen.SENSOR_DETAIL -> {
                                         SensorDetailScreen(
-                                            sensorName = selectedSensor,
+                                            sensorKey = selectedSensor,
+                                            entry = report?.sensors?.firstOrNull { it.key == selectedSensor },
                                             onBack = { viewModel.navigateBack() }
                                         )
                                     }
@@ -454,6 +519,20 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    /** The checkup's button test takes the volume keys while it is open. */
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (isVolumeKey(keyCode) && viewModel.onVolumeKey(keyCode)) return true
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (isVolumeKey(keyCode) && viewModel.captureVolumeKeys) return true
+        return super.onKeyUp(keyCode, event)
+    }
+
+    private fun isVolumeKey(code: Int) =
+        code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN
 
     private fun requestNotificationThenStartMonitor() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -583,7 +662,7 @@ class MainActivity : ComponentActivity() {
     private fun shareText() {
         val report = currentReport() ?: return
         startChooser(
-            text = ReportExporter.toShareText(report, redactExports()),
+            text = ReportExporter.toShareText(report, redactExports(), viewModel.checkup.value),
             mimeType = MIME_TEXT,
             subject = getString(R.string.report_subject),
             title = getString(R.string.chooser_share_report)
@@ -593,7 +672,7 @@ class MainActivity : ComponentActivity() {
     private fun shareJson() {
         val report = currentReport() ?: return
         startChooser(
-            text = ReportExporter.toJson(report, redactExports()),
+            text = ReportExporter.toJson(report, redactExports(), viewModel.checkup.value),
             mimeType = MIME_JSON,
             subject = getString(R.string.report_subject_json),
             title = getString(R.string.chooser_share_json)
@@ -636,15 +715,24 @@ class MainActivity : ComponentActivity() {
      * some targets silently truncate or drop `EXTRA_TEXT`, so this route writes a
      * file and hands over a content URI instead.
      */
+    /**
+     * A report shared as a file stays in the cache so the receiving app can
+     * read it. Drop it on the next fresh launch instead of keeping a copy of
+     * the last report around until the user happens to share again.
+     */
+    private fun clearSharedReports() {
+        runCatching { File(cacheDir, SHARE_DIR).listFiles()?.forEach { it.delete() } }
+    }
+
     private fun shareAsFile() {
         val report = currentReport() ?: return
         val name = ReportExporter.suggestedFileName(report, "txt")
         val uri = try {
             val dir = File(cacheDir, SHARE_DIR).apply { mkdirs() }
             // One file per share keeps this from growing without bound.
-            dir.listFiles()?.forEach { it.delete() }
+            clearSharedReports()
             val file = File(dir, name)
-            file.writeText(ReportExporter.toShareText(report, redactExports()))
+            file.writeText(ReportExporter.toShareText(report, redactExports(), viewModel.checkup.value))
             FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         } catch (e: Exception) {
             Toast.makeText(
@@ -679,13 +767,13 @@ class MainActivity : ComponentActivity() {
 
     private fun saveText() {
         val report = currentReport() ?: return
-        pendingExport = ReportExporter.toShareText(report, redactExports())
+        pendingExport = ReportExporter.toShareText(report, redactExports(), viewModel.checkup.value)
         launchSave(saveTextLauncher, ReportExporter.suggestedFileName(report, "txt"))
     }
 
     private fun saveJson() {
         val report = currentReport() ?: return
-        pendingExport = ReportExporter.toJson(report, redactExports())
+        pendingExport = ReportExporter.toJson(report, redactExports(), viewModel.checkup.value)
         launchSave(saveJsonLauncher, ReportExporter.suggestedFileName(report, "json"))
     }
 
@@ -721,8 +809,9 @@ class MainActivity : ComponentActivity() {
 
     private fun copyText() {
         val report = currentReport() ?: return
-        val text = ReportExporter.toShareText(report, redactExports())
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        val text = ReportExporter.toShareText(report, redactExports(), viewModel.checkup.value)
+        // The application's service, so the delayed clear does not pin this activity.
+        val clipboard = applicationContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         if (clipboard == null) {
             Toast.makeText(this, R.string.toast_clipboard_unavailable, Toast.LENGTH_SHORT).show()
             return
@@ -744,21 +833,60 @@ class MainActivity : ComponentActivity() {
     /**
      * Clears the copied report after [CLIPBOARD_CLEAR_MS] if it is still on the
      * clipboard. Only our own clip is touched; anything copied since is left alone.
+     *
+     * Android 10+ hides the clipboard from apps that are not in front, so once
+     * the user has switched away the label check reads null and we cannot tell
+     * whether our report is still there. Clearing blind could wipe something
+     * copied since, so in that case the clear is deferred to [onResume], where
+     * the clipboard is readable again.
      */
     private fun scheduleClipboardClear(clipboard: ClipboardManager) {
-        lifecycleScope.launch {
-            delay(CLIPBOARD_CLEAR_MS)
-            try {
-                if (clipboard.primaryClipDescription?.label == CLIP_LABEL) {
+        clipCopiedAt = SystemClock.elapsedRealtime()
+        clipboardHandler.removeCallbacksAndMessages(null)
+        clipboardHandler.postDelayed({ clearOwnClip(clipboard) }, CLIPBOARD_CLEAR_MS)
+    }
+
+    /** Returns true once the pending clear is settled (cleared, or our clip is gone). */
+    private fun clearOwnClip(clipboard: ClipboardManager): Boolean {
+        if (clipCopiedAt == 0L) return true
+        return try {
+            val description = clipboard.primaryClipDescription
+            when {
+                description == null && !clipboard.hasPrimaryClip() && hasWindowFocusSafe() -> {
+                    clipCopiedAt = 0L
+                    true
+                }
+                description == null -> false // unreadable from the background; retry on resume
+                description.label == CLIP_LABEL -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         clipboard.clearPrimaryClip()
                     } else {
                         clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
                     }
+                    clipCopiedAt = 0L
+                    true
                 }
-            } catch (_: Exception) {
-                // Reading the clipboard can be refused once we are in the background.
+                else -> {
+                    clipCopiedAt = 0L
+                    true
+                }
             }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun hasWindowFocusSafe(): Boolean = runCatching { hasWindowFocus() }.getOrDefault(false)
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // The clipboard only becomes readable once we hold window focus, so the
+        // deferred clear runs here rather than in onResume.
+        if (hasFocus && clipCopiedAt != 0L &&
+            SystemClock.elapsedRealtime() - clipCopiedAt >= CLIPBOARD_CLEAR_MS
+        ) {
+            val clipboard = applicationContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            if (clipboard != null) clearOwnClip(clipboard)
         }
     }
 
@@ -768,6 +896,11 @@ class MainActivity : ComponentActivity() {
         const val SHARE_DIR = "reports"
         const val CLIP_LABEL = "Phone diagnostic report"
         const val CLIPBOARD_CLEAR_MS = 60_000L
+        val clipboardHandler = Handler(Looper.getMainLooper())
+
+        /** elapsedRealtime of the last report copy still awaiting its clear; 0 when none. */
+        @Volatile
+        var clipCopiedAt = 0L
     }
 }
 

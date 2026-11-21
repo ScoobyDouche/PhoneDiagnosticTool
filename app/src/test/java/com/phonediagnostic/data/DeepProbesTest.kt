@@ -1,6 +1,7 @@
 package com.phonediagnostic.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -176,5 +177,55 @@ class DeepProbesTest {
         assertEquals(27, DeepProbes.patchAgeDays("2026-10-01", now))
         assertNull(DeepProbes.patchAgeDays("unknown", now))
         assertNull(DeepProbes.patchAgeDays("2027-01-01", now))
+    }
+
+    @Test
+    fun `core names are grouped per cluster from the cpu id registers`() {
+        fun core(part: String) = "processor\t: 0\nCPU implementer\t: 0x41\nCPU part\t: $part\n\n"
+        val cpuinfo = core("0xd46").repeat(4) + core("0xd47").repeat(3) + core("0xd48") +
+            "Hardware\t: Qualcomm Technologies, Inc SM8450\n"
+        assertEquals(
+            listOf("4× Cortex-A510", "3× Cortex-A710", "1× Cortex-X2"),
+            DeepProbes.cpuCoreNames(cpuinfo)
+        )
+    }
+
+    @Test
+    fun `unknown cpu parts keep their id and x86 yields nothing`() {
+        assertEquals(
+            listOf("1× Part 0xfff"),
+            DeepProbes.cpuCoreNames("CPU implementer\t: 0x41\nCPU part\t: 0xfff\n")
+        )
+        assertTrue(DeepProbes.cpuCoreNames("model name\t: Intel(R) Core(TM)\nflags\t: fpu sse\n").isEmpty())
+    }
+
+    @Test
+    fun `cpu features come from the first features or flags line`() {
+        assertEquals(
+            listOf("fp", "asimd", "aes", "sha2"),
+            DeepProbes.cpuFeatures("processor\t: 0\nFeatures\t: fp asimd aes sha2\n\nFeatures\t: fp\n")
+        )
+        assertEquals(listOf("fpu", "sse"), DeepProbes.cpuFeatures("flags\t\t: fpu sse\n"))
+        assertTrue(DeepProbes.cpuFeatures("").isEmpty())
+    }
+
+    @Test
+    fun `each core is measured against its own cluster peak`() {
+        val clusters = listOf(
+            DeepProbes.CpuCluster(listOf(0, 1, 2, 3), 2000, "schedutil", emptyList()),
+            DeepProbes.CpuCluster(listOf(4, 5, 6), 2800, "schedutil", emptyList()),
+            DeepProbes.CpuCluster(listOf(7), null, null, emptyList())
+        )
+        val max = DeepProbes.coreMaxMhz(clusters)
+        assertEquals(2000, max[0])
+        assertEquals(2800, max[6])
+        assertEquals(null, max[7])
+    }
+
+    @Test
+    fun `vulkan version is unpacked from the feature version`() {
+        assertEquals("1.3", HardwareProbe.decodeVulkanVersion((1 shl 22) or (3 shl 12)))
+        assertEquals("1.1", HardwareProbe.decodeVulkanVersion((1 shl 22) or (1 shl 12) or 5))
+        assertEquals("", HardwareProbe.decodeVulkanVersion(0))
     }
 }

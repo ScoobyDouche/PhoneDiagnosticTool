@@ -127,6 +127,23 @@ fun BatteryScreen(
                                 )
                             }
                         }
+                        battery.chargeTimeRemainingMs?.let { ms ->
+                            val minutes = (ms / 60_000L).toInt()
+                            InfoRow(
+                                stringResource(R.string.label_time_to_full),
+                                stringResource(R.string.battery_time_left_value, minutes / 60, minutes % 60)
+                            )
+                        }
+                        battery.energyMwh?.let {
+                            InfoRow(
+                                stringResource(R.string.label_energy_left),
+                                String.format(Locale.US, "%.1f Wh", it / 1000f)
+                            )
+                        }
+                        InfoRow(
+                            stringResource(R.string.label_battery_saver),
+                            stringResource(if (battery.powerSaveMode) R.string.radio_on else R.string.radio_off)
+                        )
                         InfoRow(stringResource(R.string.label_health), battery.health)
                         InfoRow(stringResource(R.string.label_technology), battery.technology)
                     }
@@ -215,6 +232,32 @@ fun BatteryScreen(
                                     stringResource(R.string.battery_health_of, full, design)
                                 )
                             }
+                        }
+                        // Measured over a real charge: works on phones whose gauge
+                        // nodes are locked, so it often fills the gap above.
+                        val measured = battery.measuredCapacity
+                        val designRef = design ?: battery.capacityMah
+                        if (measured != null) {
+                            InfoRow(
+                                stringResource(R.string.label_measured_capacity),
+                                if (designRef != null && designRef > 0) stringResource(
+                                    R.string.battery_measured_of_design,
+                                    measured.fullMah,
+                                    (measured.fullMah * 100 / designRef).coerceAtMost(100),
+                                    designRef
+                                ) else stringResource(R.string.battery_mah, measured.fullMah)
+                            )
+                            Text(
+                                text = stringResource(R.string.battery_measured_note, measured.spanPercent),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else if (battery.chargeCounterUah != null) {
+                            Text(
+                                text = stringResource(R.string.battery_measured_pending),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                         // Cycles come from a different source than the wear
                         // percentage, so either can be present without the other.

@@ -1,6 +1,7 @@
 package com.phonediagnostic.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -60,7 +61,8 @@ fun DashboardScreen(
     onOpenRamDetail: () -> Unit,
     onOpenStorageDetail: () -> Unit,
     onOpenNetwork: () -> Unit,
-    onOpenHistory: () -> Unit
+    onOpenHistory: () -> Unit,
+    healthSlot: @Composable () -> Unit = {}
 ) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -137,7 +139,8 @@ fun DashboardScreen(
                         onOpenRamDetail = onOpenRamDetail,
                         onOpenStorageDetail = onOpenStorageDetail,
                         onOpenNetwork = onOpenNetwork,
-                        onOpenHistory = onOpenHistory
+                        onOpenHistory = onOpenHistory,
+                        healthSlot = healthSlot
                     )
                 }
             }
@@ -153,7 +156,8 @@ private fun ReportList(
     onOpenRamDetail: () -> Unit,
     onOpenStorageDetail: () -> Unit,
     onOpenNetwork: () -> Unit,
-    onOpenHistory: () -> Unit
+    onOpenHistory: () -> Unit,
+    healthSlot: @Composable () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -161,6 +165,10 @@ private fun ReportList(
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         item(key = "live_badge") { LiveBadge(isLive = isLive) }
+
+        item(key = "health") {
+            Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { healthSlot() }
+        }
 
         item(key = "device") {
             InfoCard(title = stringResource(R.string.section_device)) {

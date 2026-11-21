@@ -14,7 +14,9 @@ import kotlin.system.measureNanoTime
 data class StorageSpeedResult(
     val writeMbPerSec: Double,
     val readMbPerSec: Double,
-    val sampleMb: Int
+    val sampleMb: Int,
+    /** Synced 4 KB writes per second at random offsets — what app databases do. */
+    val randomWriteIops: Double? = null
 )
 
 /**
@@ -33,6 +35,35 @@ object StorageSpeedTester {
 
     /** Refuse to run if this little would be left afterwards. */
     private const val FREE_SPACE_HEADROOM_MB = 256
+
+    private const val RANDOM_BLOCK = 4096
+    private const val RANDOM_MAX_OPS = 4000
+    private const val RANDOM_MAX_NS = 3_000_000_000L
+
+    /**
+     * Random 4 KB writes into the sample file, each one synced ("rwd") so it
+     * reaches flash rather than the page cache. Time-boxed to 3 s and at most
+     * 16 MB written, to stay gentle on flash endurance. Random *reads* are not
+     * measured: an unprivileged app cannot evict the just-written file from the
+     * page cache, so they would only measure RAM.
+     */
+    private suspend fun randomWriteIops(file: File): Double? {
+        val blocks = (SAMPLE_MB.toLong() * (1 shl 20)) / RANDOM_BLOCK
+        val buf = ByteArray(RANDOM_BLOCK) { (it * 13 + 5).toByte() }
+        val rnd = java.util.Random(42)
+        var ops = 0
+        val start = System.nanoTime()
+        RandomAccessFile(file, "rwd").use { raf ->
+            while (ops < RANDOM_MAX_OPS && System.nanoTime() - start < RANDOM_MAX_NS) {
+                raf.seek((rnd.nextLong() and Long.MAX_VALUE) % blocks * RANDOM_BLOCK)
+                raf.write(buf)
+                ops++
+                if (ops % 256 == 0) coroutineContext.ensureActive()
+            }
+        }
+        val secs = (System.nanoTime() - start) / 1_000_000_000.0
+        return if (ops > 0 && secs > 0) ops / secs else null
+    }
 
     class InsufficientSpace(val freeMb: Long) : Exception("Only $freeMb MB free")
 
@@ -75,11 +106,15 @@ object StorageSpeedTester {
                 }
             }
 
+            coroutineContext.ensureActive()
+            val iops = randomWriteIops(file)
+
             val mb = SAMPLE_MB.toDouble()
             StorageSpeedResult(
                 writeMbPerSec = mb / (writeNs / 1_000_000_000.0),
                 readMbPerSec = mb / (readNs / 1_000_000_000.0),
-                sampleMb = SAMPLE_MB
+                sampleMb = SAMPLE_MB,
+                randomWriteIops = iops
             )
         } finally {
             // Never leave 64 MB of scratch behind, on any exit path.
