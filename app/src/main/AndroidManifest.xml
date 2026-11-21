@@ -74,6 +74,18 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".service.StatusWidget"
+            android:exported="false"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_status_info" />
+        </receiver>
+
         <!--
           Quick Settings tile. exported=true and the BIND permission are both
           required for the system to bind it; the permission is what stops

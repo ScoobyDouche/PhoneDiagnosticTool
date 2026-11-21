@@ -121,6 +121,7 @@ class MonitorService : Service() {
                         charging = b.isCharging
                     )
                 )
+                runCatching { StatusWidget.refreshAll(applicationContext) }
             } catch (e: Exception) {
                 log.append("Sample error: ${e.message ?: e.javaClass.simpleName}")
             }

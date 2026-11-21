@@ -51,6 +51,7 @@ Captured on a Galaxy Z Flip4 running Android 16.
 - **Phone checkup** — guided hardware tests for buying or selling a used phone: touch grid, multi-touch, display colours / dead pixels, loudspeaker, earpiece, vibration, flashlight, volume buttons, proximity, light and motion sensors, charging port, headphones; results go into reports
 - **Crashes and restarts** (Shizuku / root) — app crashes, ANRs, system restarts and kernel entries from the last 7 days
 - **Health score** — 0–100 with every deduction listed (battery wear, storage, flash wear, heat, patch age, checkup failures), plus a saved baseline to compare against later
+- **Home-screen widget** — battery level and temperature, charging state and RAM in use
 - **History** — battery, temperature and RAM trends from up to 24 h of on-device samples
 - **Load test** — 1 / 5 / 10 min CPU load with k-ops/s score and throttling detection (sustained % of peak)
 - Vibration check, storage speed test, background monitor with a rotating log (5000 lines)
