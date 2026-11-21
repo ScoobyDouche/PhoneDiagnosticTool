@@ -73,7 +73,7 @@ class MonitorService : Service() {
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.monitor_notification_title))
             .setContentText(getString(R.string.monitor_notification_text))
-            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setSmallIcon(R.drawable.ic_qs_diagnostic)
             .setContentIntent(open)
             .addAction(0, getString(R.string.monitor_action_stop), stop)
             .setOngoing(true)

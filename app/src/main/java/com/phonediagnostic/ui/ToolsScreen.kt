@@ -83,7 +83,8 @@ fun ToolsScreen(
     onRefreshLog: () -> Unit,
     onClearLog: () -> Unit,
     onShareLog: () -> Unit,
-    onRunLoadTest: (durationSec: Int, thermal: Boolean) -> Unit
+    onRunLoadTest: (durationSec: Int, thermal: Boolean) -> Unit,
+    onCancelLoadTest: () -> Unit = {}
 ) {
     val listState = rememberLazyListState()
     val context = LocalContext.current
@@ -205,6 +206,11 @@ fun ToolsScreen(
 
                         if (loadTesting && loadProgress != null) {
                             LiveLoadPanel(progress = loadProgress)
+                            Box(modifier = Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = onCancelLoadTest,
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(stringResource(R.string.tools_load_test_cancel)) }
                         } else {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),

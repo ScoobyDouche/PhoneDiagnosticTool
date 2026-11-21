@@ -744,4 +744,7 @@
     <string name="posture_sensor_toggles">Camera and mic switches</string>
     <string name="posture_available">Available</string>
     <string name="posture_not_available">Not available</string>
+    <!-- 1.5 additions -->
+    <string name="tools_load_test_cancel">Cancel load test</string>
+    <string name="purpose_boot">Restarts the background monitor after a reboot, only if you left it on.</string>
 </resources>

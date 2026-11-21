@@ -118,7 +118,11 @@ the list of installed apps or the results of the Privacy audit.
 
 A copied report is marked sensitive, so Android 13+ hides it from the copy
 preview and keyboard suggestions, and the app clears it from the clipboard
-after a minute if it is still there, even if you have left the app.
+after a minute if it is still there. Android 10 and newer stop apps that are
+in the background from reading the clipboard, so if you have left the app by
+then it cannot tell whether the report is still there; rather than risk wiping
+something you copied since, it clears the report the next time you return to
+the app.
 
 An optional **Block screenshots** setting stops screenshots and screen
 recording of the app and hides its preview in Recents.

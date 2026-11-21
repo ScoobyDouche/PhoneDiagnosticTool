@@ -16,6 +16,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.PersistableBundle
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.WindowManager
 import android.widget.Toast
@@ -398,7 +399,8 @@ class MainActivity : ComponentActivity() {
                                             onShareLog = { shareLog() },
                                             onRunLoadTest = { durationSec, thermal ->
                                                 viewModel.runLoadTest(durationSec, thermal)
-                                            }
+                                            },
+                                            onCancelLoadTest = { viewModel.cancelLoadTest() }
                                         )
                                     }
                                     AppScreen.THERMALS -> {
@@ -771,24 +773,61 @@ class MainActivity : ComponentActivity() {
     /**
      * Clears the copied report after [CLIPBOARD_CLEAR_MS] if it is still on the
      * clipboard. Only our own clip is touched; anything copied since is left alone.
+     *
+     * Android 10+ hides the clipboard from apps that are not in front, so once
+     * the user has switched away the label check reads null and we cannot tell
+     * whether our report is still there. Clearing blind could wipe something
+     * copied since, so in that case the clear is deferred to [onResume], where
+     * the clipboard is readable again.
      */
     private fun scheduleClipboardClear(clipboard: ClipboardManager) {
-        // On the main looper rather than the activity's scope: the clip must
-        // still be cleared if the user leaves and the activity is destroyed.
+        clipCopiedAt = SystemClock.elapsedRealtime()
         clipboardHandler.removeCallbacksAndMessages(null)
-        clipboardHandler.postDelayed({
-            try {
-                if (clipboard.primaryClipDescription?.label == CLIP_LABEL) {
+        clipboardHandler.postDelayed({ clearOwnClip(clipboard) }, CLIPBOARD_CLEAR_MS)
+    }
+
+    /** Returns true once the pending clear is settled (cleared, or our clip is gone). */
+    private fun clearOwnClip(clipboard: ClipboardManager): Boolean {
+        if (clipCopiedAt == 0L) return true
+        return try {
+            val description = clipboard.primaryClipDescription
+            when {
+                description == null && !clipboard.hasPrimaryClip() && hasWindowFocusSafe() -> {
+                    clipCopiedAt = 0L
+                    true
+                }
+                description == null -> false // unreadable from the background; retry on resume
+                description.label == CLIP_LABEL -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         clipboard.clearPrimaryClip()
                     } else {
                         clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
                     }
+                    clipCopiedAt = 0L
+                    true
                 }
-            } catch (_: Exception) {
-                // Reading the clipboard can be refused once we are in the background.
+                else -> {
+                    clipCopiedAt = 0L
+                    true
+                }
             }
-        }, CLIPBOARD_CLEAR_MS)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun hasWindowFocusSafe(): Boolean = runCatching { hasWindowFocus() }.getOrDefault(false)
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // The clipboard only becomes readable once we hold window focus, so the
+        // deferred clear runs here rather than in onResume.
+        if (hasFocus && clipCopiedAt != 0L &&
+            SystemClock.elapsedRealtime() - clipCopiedAt >= CLIPBOARD_CLEAR_MS
+        ) {
+            val clipboard = applicationContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            if (clipboard != null) clearOwnClip(clipboard)
+        }
     }
 
     private companion object {
@@ -798,6 +837,10 @@ class MainActivity : ComponentActivity() {
         const val CLIP_LABEL = "Phone diagnostic report"
         const val CLIPBOARD_CLEAR_MS = 60_000L
         val clipboardHandler = Handler(Looper.getMainLooper())
+
+        /** elapsedRealtime of the last report copy still awaiting its clear; 0 when none. */
+        @Volatile
+        var clipCopiedAt = 0L
     }
 }
 

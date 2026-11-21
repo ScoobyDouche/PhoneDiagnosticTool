@@ -42,7 +42,7 @@ Captured on a Galaxy Z Flip4 running Android 16.
 - **Hide network addresses** (optional) — IPs, DNS servers, Wi-Fi name and carrier stay masked on screen until tapped
 - **Keep history** (on by default) — switch off to store no trend samples at all
 - **Latency target of your choice** — Cloudflare, Quad9, Google, or your router only
-- **Sensitive clipboard** — copied reports are hidden from the copy preview and cleared after a minute
+- **Sensitive clipboard** — copied reports are hidden from the copy preview and cleared after a minute (or when you next return to the app)
 - **Block screenshots** (optional) — no screenshots, screen recording or Recents preview
 
 **Tools**
@@ -126,6 +126,7 @@ CI runs tests, lint and the debug/release APK + AAB builds on every push and pul
 | `REQUEST_DELETE_PACKAGES` | Uninstall from storage detail |
 | `FOREGROUND_SERVICE` / `SPECIAL_USE` | Optional background monitor |
 | `POST_NOTIFICATIONS` | Background monitor notification (Android 13+) |
+| `RECEIVE_BOOT_COMPLETED` | Resume the background monitor after a reboot, only if it was on |
 | `moe.shizuku.manager.permission.API_V23` | Optional elevated access via Shizuku (off by default) |
 
 Camera and sensors use system APIs without requesting the CAMERA permission (characteristics only; no capture).

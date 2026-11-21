@@ -1,7 +1,6 @@
 package com.phonediagnostic.data.elevated
 
 import java.io.File
-import java.util.concurrent.TimeUnit
 
 /**
  * Runs commands through `su`. This reaches nodes that even the shell user
@@ -16,24 +15,8 @@ class RootShell : ElevatedShell {
 
     override val tier: AccessTier = AccessTier.ROOT
 
-    override fun exec(command: String): String? {
-        var process: Process? = null
-        return try {
-            process = ProcessBuilder("su", "-c", command)
-                .redirectErrorStream(false)
-                .start()
-            // sysfs reads are tiny, so reading fully before waiting cannot
-            // deadlock on a full pipe buffer.
-            val out = process.inputStream.bufferedReader().use { it.readText() }
-            val finished = process.waitFor(EXEC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-            if (!finished) return null
-            out.trim().ifBlank { null }
-        } catch (_: Exception) {
-            null
-        } finally {
-            process?.let { runCatching { it.destroy() } }
-        }
-    }
+    override fun exec(command: String): String? =
+        ProcessRunner.run(listOf("su", "-c", command), EXEC_TIMEOUT_MS)?.trim()?.ifBlank { null }
 
     companion object {
         private const val EXEC_TIMEOUT_MS = 4_000L

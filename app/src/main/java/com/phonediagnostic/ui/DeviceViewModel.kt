@@ -33,6 +33,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -525,9 +527,16 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
 
     // ----------------------------------------------------------------- load test
 
+    private var loadJob: Job? = null
+
+    /** Stops a running load test; the workers are torn down by LoadTester's finally. */
+    fun cancelLoadTest() {
+        loadJob?.cancel()
+    }
+
     fun runLoadTest(durationSec: Int, thermal: Boolean = false) {
         if (_loadTesting.value) return
-        viewModelScope.launch(Dispatchers.Default) {
+        loadJob = viewModelScope.launch(Dispatchers.Default) {
             _loadTesting.value = true
             _loadProgress.value = null
             try {
@@ -546,6 +555,10 @@ class DeviceViewModel(application: Application) : AndroidViewModel(application) 
                 _lastLoadResult.value = result
                 refreshLog()
                 runCollection(full = true)
+            } catch (e: CancellationException) {
+                log.append("Load test cancelled")
+                refreshLog()
+                throw e
             } catch (e: Exception) {
                 log.append("Load test failed: ${e.message ?: e.javaClass.simpleName}")
                 refreshLog()

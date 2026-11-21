@@ -403,6 +403,7 @@ private fun ownPermissionPurpose(name: String): Int = when (name.substringAfterL
     "REQUEST_DELETE_PACKAGES" -> R.string.purpose_delete_packages
     "FOREGROUND_SERVICE", "FOREGROUND_SERVICE_SPECIAL_USE" -> R.string.purpose_foreground_service
     "POST_NOTIFICATIONS" -> R.string.purpose_notifications
+    "RECEIVE_BOOT_COMPLETED" -> R.string.purpose_boot
     "API_V23" -> R.string.purpose_shizuku
     else -> R.string.purpose_other
 }
